@@ -11,6 +11,7 @@ export interface GoldenDatasetItem {
   hit_rank: number | null
   evaluated_at: string | null
   created_at: string
+  metadata: Record<string, any>
 }
 
 export interface CreateGoldenDatasetParams {
@@ -41,4 +42,15 @@ export interface EvaluateResult {
   latency_total_ms: number
   latency_avg_ms: number
   failure: string[]
+}
+
+export interface SkippedRecord {
+  row: number
+  reason: string
+}
+
+export interface ImportResult {
+  success_count: number
+  skipped_count: number
+  skipped: SkippedRecord[]
 }

@@ -6,10 +6,21 @@ export interface EmbedModelItem {
   dimension: number
   description: string
   status: string  // online / offline
+  metadata: Record<string, any>
   created_at: string
   updated_at: string
 }
 
 export interface EmbedModelListResult {
   models: EmbedModelItem[]
+}
+
+export interface CreateEmbedModelParams {
+  name: string
+  description?: string
+}
+
+export interface UpdateEmbedModelParams {
+  name: string
+  description?: string
 }

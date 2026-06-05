@@ -5,18 +5,22 @@
         <h2 class="page-title">嵌入模型配置</h2>
       </div>
       <div class="toolbar-right">
-        <a-button type="primary" :loading="checkingStatus" @click="handleCheckStatus">
+        <a-button :loading="store.loading" @click="store.refreshStatus()" style="margin-right: 8px">
           <template #icon><reload-outlined /></template>
           刷新状态
+        </a-button>
+        <a-button type="primary" @click="handleCreate">
+          <template #icon><plus-outlined /></template>
+          新增模型
         </a-button>
       </div>
     </div>
 
     <a-card :bordered="false" class="table-card">
-      <a-spin :spinning="loading">
+      <a-spin :spinning="store.loading">
         <a-table
           :columns="columns"
-          :data-source="models"
+          :data-source="store.models"
           row-key="id"
           :pagination="false"
           size="middle"
@@ -33,60 +37,215 @@
                 {{ record.status === 'online' ? '在线' : '离线' }}
               </a-tag>
             </template>
+            <template v-if="column.key === 'action'">
+              <a-button type="link" size="small" @click="handleDetail(record)">详情</a-button>
+              <a-button type="link" size="small" @click="handleEdit(record)">编辑</a-button>
+              <a-popconfirm
+                title="确定删除该模型？"
+                ok-text="确定"
+                cancel-text="取消"
+                @confirm="handleDelete(record)"
+              >
+                <a-button type="link" size="small" danger>删除</a-button>
+              </a-popconfirm>
+            </template>
           </template>
         </a-table>
       </a-spin>
     </a-card>
 
-    <a-empty v-if="!loading && models.length === 0" description="暂无模型，请将模型文件放入 models/ 目录后刷新状态" />
+    <a-empty v-if="!store.loading && store.models.length === 0" description="暂无模型，请新增或刷新状态" />
+
+    <!-- 新增/编辑弹窗 -->
+    <a-modal
+      v-model:open="modalVisible"
+      :title="isEdit ? '编辑模型' : '新增模型'"
+      :confirm-loading="submitLoading"
+      @ok="handleSubmit"
+      @cancel="modalVisible = false"
+    >
+      <a-form :model="formState" :label-col="{ span: 5 }" :wrapper-col="{ span: 18 }" style="padding-top: 16px">
+        <a-form-item label="模型名称" required>
+          <a-input
+            v-model:value="formState.name"
+            placeholder="如 BAAI/bge-small-zh-v1.5"
+            :maxlength="255"
+            show-count
+            :disabled="isEdit"
+          />
+          <span v-if="isEdit" class="form-hint">创建后不可修改</span>
+        </a-form-item>
+        <a-form-item label="备注">
+          <a-textarea v-model:value="formState.description" placeholder="模型备注（选填）" :rows="3" :maxlength="500" show-count />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <!-- 详情 Drawer -->
+    <a-drawer
+      v-model:open="detailVisible"
+      :title="detailModel?.name"
+      width="560"
+    >
+      <template v-if="detailModel">
+        <a-descriptions :column="1" bordered size="small" style="margin-bottom: 24px">
+          <a-descriptions-item label="模型名称">
+            <span class="model-name">{{ detailModel.name }}</span>
+          </a-descriptions-item>
+          <a-descriptions-item label="向量维度">
+            <a-tag color="blue">{{ detailModel.dimension }}</a-tag>
+          </a-descriptions-item>
+          <a-descriptions-item label="状态">
+            <a-tag :color="detailModel.status === 'online' ? 'success' : 'default'">
+              {{ detailModel.status === 'online' ? '在线' : '离线' }}
+            </a-tag>
+          </a-descriptions-item>
+          <a-descriptions-item label="备注">{{ detailModel.description || '--' }}</a-descriptions-item>
+          <a-descriptions-item label="创建时间">{{ detailModel.created_at || '--' }}</a-descriptions-item>
+          <a-descriptions-item label="更新时间">{{ detailModel.updated_at || '--' }}</a-descriptions-item>
+        </a-descriptions>
+
+        <h4 style="margin-bottom: 12px">模型配置 (config.json)</h4>
+        <a-table
+          v-if="metadataEntries.length > 0"
+          :columns="metaColumns"
+          :data-source="metadataEntries"
+          :pagination="false"
+          size="small"
+          bordered
+        />
+        <a-empty v-else description="暂无配置信息，请刷新状态" />
+      </template>
+    </a-drawer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
-import { ReloadOutlined } from '@ant-design/icons-vue'
-import { getEmbedModelList, refreshEmbedModelStatus } from '@/api/embedModel'
+import { ReloadOutlined, PlusOutlined } from '@ant-design/icons-vue'
+import { createEmbedModel, updateEmbedModel, deleteEmbedModel } from '@/api/embedModel'
+import { useEmbedModelStore } from '@/store/embedModel'
 import type { EmbedModelItem } from '@/api/model/embedModelModel'
 
-const loading = ref(false)
-const checkingStatus = ref(false)
-const models = ref<EmbedModelItem[]>([])
+const store = useEmbedModelStore()
+
+const submitLoading = ref(false)
+
+const modalVisible = ref(false)
+const isEdit = ref(false)
+const editingId = ref('')
+const formState = ref({ name: '', description: '' })
+
+const detailVisible = ref(false)
+const detailModel = ref<EmbedModelItem | null>(null)
+
+// config.json 字段中文解释
+const META_LABELS: Record<string, string> = {
+  '_name_or_path': '模型加载路径',
+  'architectures': '模型架构',
+  'model_type': '模型类型',
+  'hidden_size': '隐藏层维度（即向量维度）',
+  'num_hidden_layers': 'Transformer 层数',
+  'num_attention_heads': '注意力头数',
+  'intermediate_size': '前馈网络中间层维度',
+  'hidden_act': '隐藏层激活函数',
+  'hidden_dropout_prob': '隐藏层 Dropout 概率',
+  'attention_probs_dropout_prob': '注意力 Dropout 概率',
+  'max_position_embeddings': '最大序列长度',
+  'initializer_range': '参数初始化范围',
+  'layer_norm_eps': 'LayerNorm epsilon',
+  'vocab_size': '词表大小',
+  'type_vocab_size': 'Token 类型数',
+  'pad_token_id': 'Padding Token ID',
+  'position_embedding_type': '位置编码类型',
+  'use_cache': '是否启用 KV Cache',
+  'torch_dtype': '权重数据类型',
+  'transformers_version': 'Transformers 版本',
+  'classifier_dropout': '分类器 Dropout',
+  'id2label': 'ID 到标签映射',
+  'label2id': '标签到 ID 映射',
+}
 
 const columns = [
   { title: '模型名称', dataIndex: 'name', key: 'name', ellipsis: true },
-  { title: '维度', dataIndex: 'dimension', key: 'dimension', width: 100 },
-  { title: '状态', dataIndex: 'status', key: 'status', width: 100 },
-  { title: '描述', dataIndex: 'description', key: 'description', ellipsis: true },
-  { title: '更新时间', dataIndex: 'updated_at', key: 'updated_at', width: 180 },
+  { title: '维度', dataIndex: 'dimension', key: 'dimension', width: 80 },
+  { title: '状态', dataIndex: 'status', key: 'status', width: 80 },
+  { title: '备注', dataIndex: 'description', key: 'description', ellipsis: true },
+  { title: '操作', key: 'action', width: 180 },
 ]
 
-async function fetchModels() {
-  loading.value = true
+const metaColumns = [
+  { title: '字段', dataIndex: 'key', key: 'key', width: 200 },
+  { title: '说明', dataIndex: 'label', key: 'label', width: 180 },
+  { title: '值', dataIndex: 'value', key: 'value', ellipsis: true },
+]
+
+const metadataEntries = computed(() => {
+  if (!detailModel.value?.metadata) return []
+  return Object.entries(detailModel.value.metadata).map(([key, value]) => ({
+    key,
+    label: META_LABELS[key] || '--',
+    value: typeof value === 'object' ? JSON.stringify(value) : String(value),
+  }))
+})
+
+function handleCreate() {
+  isEdit.value = false
+  editingId.value = ''
+  formState.value = { name: '', description: '' }
+  modalVisible.value = true
+}
+
+function handleEdit(record: EmbedModelItem) {
+  isEdit.value = true
+  editingId.value = record.id
+  formState.value = { name: record.name, description: record.description }
+  modalVisible.value = true
+}
+
+function handleDetail(record: EmbedModelItem) {
+  detailModel.value = record
+  detailVisible.value = true
+}
+
+async function handleSubmit() {
+  if (!formState.value.name.trim()) {
+    message.warning('请输入模型名称')
+    return
+  }
+
+  submitLoading.value = true
   try {
-    const res = await getEmbedModelList()
-    models.value = res.models || []
+    if (isEdit.value) {
+      await updateEmbedModel(editingId.value, formState.value)
+      message.success('更新成功')
+    } else {
+      await createEmbedModel(formState.value)
+      message.success('新增成功')
+    }
+    modalVisible.value = false
+    store.invalidateCache()
+    await store.fetchModels(true)
   } catch {
-    message.error('获取模型列表失败')
+    message.error(isEdit.value ? '更新失败' : '新增失败')
   } finally {
-    loading.value = false
+    submitLoading.value = false
   }
 }
 
-async function handleCheckStatus() {
-  checkingStatus.value = true
+async function handleDelete(record: EmbedModelItem) {
   try {
-    const res = await refreshEmbedModelStatus()
-    models.value = res.models || []
-    message.success('状态已刷新')
+    await deleteEmbedModel(record.id)
+    message.success('删除成功')
+    store.invalidateCache()
+    await store.fetchModels(true)
   } catch {
-    message.error('刷新状态失败')
-  } finally {
-    checkingStatus.value = false
+    message.error('删除失败')
   }
 }
 
-onMounted(fetchModels)
+onMounted(() => store.fetchModels())
 </script>
 
 <style scoped>
@@ -107,5 +266,10 @@ onMounted(fetchModels)
 .model-name {
   font-family: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
   font-size: 13px;
+}
+.form-hint {
+  margin-left: 8px;
+  font-size: 12px;
+  color: #999;
 }
 </style>

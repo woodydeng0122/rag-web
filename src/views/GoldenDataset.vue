@@ -38,6 +38,10 @@
             <template #icon><delete-outlined /></template>
             批量删除 ({{ selectedRowKeys.length }})
           </a-button>
+          <a-button @click="importModalVisible = true">
+            <template #icon><upload-outlined /></template>
+            上传
+          </a-button>
           <a-button type="primary" @click="handleCreate">
             <template #icon><plus-outlined /></template>
             新增
@@ -106,7 +110,7 @@
         </a-spin>
       </a-card>
 
-      <a-empty v-if="!loading && filteredList.length === 0" description="暂无黄金记录，点击右上角新增" />
+      <a-empty v-if="!loading && filteredList.length === 0" description="暂无黄金记录，点击右上角新增或上传" />
     </template>
 
     <!-- 新增/编辑弹窗 -->
@@ -156,6 +160,61 @@
         </a-form-item>
       </a-form>
     </a-modal>
+
+    <!-- 上传弹窗 -->
+    <a-modal
+      v-model:open="importModalVisible"
+      title="导入黄金数据集"
+      :footer="null"
+      :width="520"
+      @cancel="importModalVisible = false"
+    >
+      <div class="import-modal-content">
+        <a-upload-dragger
+          :before-upload="beforeUpload"
+          :show-upload-list="false"
+          accept=".jsonl,.csv"
+          :disabled="importing"
+        >
+          <p class="ant-upload-drag-icon"><upload-outlined style="font-size: 36px; color: #1677ff" /></p>
+          <p class="ant-upload-text">拖拽或点击上传文件</p>
+          <p class="ant-upload-hint">支持 .jsonl / .csv 格式，单次最多 1000 条</p>
+        </a-upload-dragger>
+
+        <div v-if="importFile" class="import-file-info">
+          <a-tag color="blue">{{ importFile.name }}</a-tag>
+          <a-button type="link" size="small" @click="importFile = null">移除</a-button>
+        </div>
+
+        <div class="import-templates">
+          <span class="template-label">下载模板：</span>
+          <a @click="downloadTemplate('jsonl')">JSONL 模板</a>
+          <a-divider type="vertical" />
+          <a @click="downloadTemplate('csv')">CSV 模板</a>
+        </div>
+
+        <div class="import-actions">
+          <a-button :disabled="!importFile" :loading="importing" type="primary" @click="handleImport">
+            确认导入
+          </a-button>
+        </div>
+
+        <!-- 导入结果 -->
+        <div v-if="importResult" class="import-result">
+          <a-alert
+            :type="importResult.skipped_count > 0 ? 'warning' : 'success'"
+            show-icon
+            :message="`成功导入 ${importResult.success_count} 条${importResult.skipped_count > 0 ? '，跳过 ' + importResult.skipped_count + ' 条' : ''}`"
+          />
+          <div v-if="importResult.skipped.length > 0" class="skipped-list">
+            <div class="skipped-title">跳过原因：</div>
+            <div v-for="s in importResult.skipped" :key="s.row" class="skipped-item">
+              第 {{ s.row }} 行：{{ s.reason }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </a-modal>
   </div>
 </template>
 
@@ -173,6 +232,7 @@ import {
   ThunderboltOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
+  UploadOutlined,
 } from '@ant-design/icons-vue'
 import {
   getGoldenDatasetList,
@@ -180,9 +240,10 @@ import {
   updateGoldenDataset,
   deleteGoldenDataset,
   evaluateByProject,
+  importGoldenDataset,
 } from '@/api/goldenDataset'
 import { searchProjectChunks } from '@/api/chunk'
-import type { GoldenDatasetItem, CreateGoldenDatasetParams } from '@/api/model/goldenDatasetModel'
+import type { GoldenDatasetItem, CreateGoldenDatasetParams, ImportResult } from '@/api/model/goldenDatasetModel'
 import type { ChunkItem } from '@/api/model/documentModel'
 
 dayjs.locale('zh-cn')
@@ -238,6 +299,12 @@ const chunkOptions = ref<ChunkItem[]>([])
 const chunksLoading = ref(false)
 const chunkOffset = ref(0)
 const hasMoreChunks = ref(false)
+
+// 上传相关
+const importModalVisible = ref(false)
+const importFile = ref<File | null>(null)
+const importing = ref(false)
+const importResult = ref<ImportResult | null>(null)
 
 function formatTime(dateStr: string) {
   if (!dateStr) return '--'
@@ -438,11 +505,82 @@ function loadMoreChunks() {
   fetchChunks(false)
 }
 
+// 上传相关
+function beforeUpload(file: File) {
+  importFile.value = file
+  importResult.value = null
+  return false // 阻止自动上传
+}
+
+async function handleImport() {
+  if (!importFile.value || !activeProjectStore.activeProjectId) return
+  importing.value = true
+  importResult.value = null
+  try {
+    const result = await importGoldenDataset(activeProjectStore.activeProjectId, importFile.value)
+    importResult.value = result
+    if (result.success_count > 0) {
+      await fetchList()
+    }
+  } catch {
+    message.error('导入失败')
+  } finally {
+    importing.value = false
+  }
+}
+
+// 模板下载
+function downloadTemplate(format: 'jsonl' | 'csv') {
+  let content: string
+  let filename: string
+  let mimeType: string
+
+  if (format === 'jsonl') {
+    const example1 = {
+      query: '什么是 RAG？',
+      ground_truth_chunks: ['chunk_id_1', 'chunk_id_2'],
+      reference_answer: 'RAG 是检索增强生成技术，结合了信息检索和文本生成。',
+      metadata: { type: 'factual', difficulty: 'easy' },
+    }
+    const example2 = {
+      query: '如何评估检索系统的质量？',
+      ground_truth_chunks: ['chunk_id_3'],
+      reference_answer: '可以使用 Recall@K、MRR 等指标评估检索质量。',
+      metadata: { type: 'procedural', difficulty: 'medium' },
+    }
+    content = [example1, example2].map(r => JSON.stringify(r)).join('\n')
+    filename = 'golden_dataset_template.jsonl'
+    mimeType = 'application/jsonl'
+  } else {
+    content = 'query,ground_truth_chunks,reference_answer,metadata\n'
+    content += '什么是 RAG？,chunk_id_1;chunk_id_2,RAG 是检索增强生成技术。,"{""type"":""factual"",""difficulty"":""easy""}"\n'
+    content += '如何评估检索系统的质量？,chunk_id_3,可以使用 Recall@K、MRR 等指标评估检索质量。,"{""type"":""procedural"",""difficulty"":""medium""}"\n'
+    filename = 'golden_dataset_template.csv'
+    mimeType = 'text/csv'
+  }
+
+  const blob = new Blob([content], { type: mimeType })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 watch(() => activeProjectStore.activeProjectId, () => {
   fetchList()
 }, { immediate: true })
 
 watch(() => pageStore.refreshTrigger, fetchList)
+
+// 打开上传弹窗时重置状态
+watch(importModalVisible, (val) => {
+  if (val) {
+    importFile.value = null
+    importResult.value = null
+  }
+})
 </script>
 
 <style scoped>
@@ -560,5 +698,49 @@ watch(() => pageStore.refreshTrigger, fetchList)
   margin-top: 4px;
   font-size: 12px;
   color: #1677ff;
+}
+
+/* 上传弹窗 */
+.import-modal-content {
+  padding: 8px 0;
+}
+.import-file-info {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.import-templates {
+  margin-top: 16px;
+  padding: 12px;
+  background: #fafafa;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.template-label {
+  color: #888;
+  margin-right: 4px;
+}
+.import-actions {
+  margin-top: 16px;
+  text-align: right;
+}
+.import-result {
+  margin-top: 16px;
+}
+.skipped-list {
+  margin-top: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.skipped-title {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+.skipped-item {
+  font-size: 12px;
+  color: #666;
+  padding: 2px 0;
 }
 </style>

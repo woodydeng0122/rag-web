@@ -55,10 +55,10 @@
           <a-select
             v-model:value="formState.embed_model_id"
             placeholder="请选择嵌入模型"
-            :loading="modelsLoading"
+            :loading="embedModelStore.loading"
             :disabled="isEdit"
           >
-            <a-select-option v-for="m in onlineModels" :key="m.id" :value="m.id">
+            <a-select-option v-for="m in embedModelStore.onlineModels" :key="m.id" :value="m.id">
               {{ m.name }} ({{ m.dimension }}维)
             </a-select-option>
           </a-select>
@@ -86,17 +86,17 @@ import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
 import { usePageStore } from '@/store/page'
 import { useActiveProjectStore } from '@/store/activeProject'
+import { useEmbedModelStore } from '@/store/embedModel'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ThunderboltOutlined } from '@ant-design/icons-vue'
 import { getProjectList, createProject, updateProject, deleteProject } from '@/api/project'
-import { getEmbedModelList } from '@/api/embedModel'
 import type { ProjectItem } from '@/api/model/projectModel'
-import type { EmbedModelItem } from '@/api/model/embedModelModel'
 
 dayjs.locale('zh-cn')
 
 const router = useRouter()
 const pageStore = usePageStore()
 const activeProjectStore = useActiveProjectStore()
+const embedModelStore = useEmbedModelStore()
 
 const loading = ref(false)
 const projectList = ref<ProjectItem[]>([])
@@ -106,10 +106,6 @@ const submitLoading = ref(false)
 const isEdit = ref(false)
 const editingId = ref('')
 const formState = ref({ name: '', description: '', embed_model_id: '' })
-
-const modelsLoading = ref(false)
-const embedModels = ref<EmbedModelItem[]>([])
-const onlineModels = computed(() => embedModels.value.filter(m => m.status === 'online'))
 
 function isActive(projectId: string) {
   return activeProjectStore.activeProjectId === projectId
@@ -146,7 +142,7 @@ function handleCreate() {
   editingId.value = ''
   formState.value = { name: '', description: '', embed_model_id: '' }
   modalVisible.value = true
-  fetchEmbedModels()
+  embedModelStore.fetchModels()
 }
 
 function handleEdit(project: ProjectItem) {
@@ -212,18 +208,6 @@ async function handleSubmit() {
     message.error(isEdit.value ? '编辑失败' : '创建失败')
   } finally {
     submitLoading.value = false
-  }
-}
-
-async function fetchEmbedModels() {
-  modelsLoading.value = true
-  try {
-    const res = await getEmbedModelList()
-    embedModels.value = res.models || []
-  } catch {
-    // 静默处理
-  } finally {
-    modelsLoading.value = false
   }
 }
 
