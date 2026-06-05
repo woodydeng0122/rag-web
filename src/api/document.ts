@@ -5,6 +5,8 @@ import type {
   UploadDocumentParams,
   BatchProcessResult,
   ChunkListResult,
+  SourceContentResult,
+  EmbeddingResult,
 } from './model/documentModel'
 
 enum Api {
@@ -13,6 +15,8 @@ enum Api {
   Process = '/documents',
   Delete = '/documents',
   Chunks = '/documents',
+  Source = '/documents',
+  Embedding = '/chunks',
   BatchProcess = '/documents/batch-process',
 }
 
@@ -48,3 +52,11 @@ export const deleteDocument = (documentId: string) =>
 /** 获取文档分块列表 */
 export const getChunkList = (documentId: string) =>
   get<ChunkListResult>({ url: `${Api.Chunks}/${documentId}/chunks` })
+
+/** 获取文档源文件内容 */
+export const getSourceContent = (documentId: string) =>
+  get<SourceContentResult>({ url: `${Api.Source}/${documentId}/source` })
+
+/** 获取分块的 embedding 向量 */
+export const getChunkEmbedding = (chunkId: string) =>
+  get<EmbeddingResult>({ url: `${Api.Embedding}/${chunkId}/embedding` })

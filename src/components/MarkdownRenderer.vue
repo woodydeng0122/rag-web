@@ -1,6 +1,6 @@
 <template>
-  <div v-if="isMarkdown" class="markdown-body" v-html="renderedHtml" />
-  <pre v-else class="plain-content">{{ content }}</pre>
+  <div v-if="isMarkdown" class="markdown-body" :class="{ 'markdown-body--full': fullHeight }" v-html="renderedHtml" />
+  <pre v-else class="plain-content" :class="{ 'plain-content--full': fullHeight }">{{ content }}</pre>
 </template>
 
 <script setup lang="ts">
@@ -8,10 +8,13 @@ import { computed } from 'vue'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   content: string
   fileType: string
-}>()
+  fullHeight?: boolean
+}>(), {
+  fullHeight: false,
+})
 
 const md = new MarkdownIt({
   html: false,
@@ -45,9 +48,10 @@ const renderedHtml = computed(() => {
   font-size: 14px;
   line-height: 1.7;
   color: #333;
-  max-height: 300px;
-  overflow-y: auto;
   word-break: break-word;
+}
+.markdown-body--full {
+  /* 源文档场景无需额外处理 */
 }
 
 .markdown-body :deep(h1),
@@ -144,9 +148,10 @@ const renderedHtml = computed(() => {
   font-size: 13px;
   line-height: 1.6;
   color: #333;
-  max-height: 300px;
-  overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-word;
+}
+.plain-content--full {
+  /* 源文档场景无需额外处理 */
 }
 </style>

@@ -78,3 +78,15 @@ export enum DocumentStatus {
   READY = 'ready',
   ERROR = 'error',
 }
+
+export interface SourceContentResult {
+  document_id: string
+  file_type: string
+  content: string
+}
+
+export interface EmbeddingResult {
+  chunk_id: string
+  vector: number[]
+  dimension: number
+}

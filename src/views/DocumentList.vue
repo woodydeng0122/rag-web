@@ -51,6 +51,14 @@
               <span class="type-cell">{{ record.file_type?.toUpperCase() }}</span>
             </template>
 
+            <!-- 分块数 -->
+            <template v-if="column.key === 'chunk_count'">
+              <a-button v-if="record.chunk_count > 0" type="link" size="small" @click="handleViewChunks(record)">
+                {{ record.chunk_count }}
+              </a-button>
+              <span v-else class="chunk-count-zero">0</span>
+            </template>
+
             <!-- 状态 -->
             <template v-if="column.key === 'status'">
               <a-tag :color="statusColor(record.status)" class="status-tag">
@@ -68,14 +76,14 @@
             <!-- 操作 -->
             <template v-if="column.key === 'action'">
               <div class="action-cell">
-                <a-button type="link" size="small" @click="handleViewDetail(record)">
-                  详情
-                </a-button>
-                <a-button type="link" size="small" @click="handleProcess(record)" :loading="processingIds.includes(record.id)" :disabled="!canProcess(record.status)">
+                <a-button size="small" type="primary" @click="handleProcess(record)" :loading="processingIds.includes(record.id)" :disabled="!canProcess(record.status)">
                   处理
                 </a-button>
+                <a-button size="small" @click="handleViewDetail(record)">
+                  详情
+                </a-button>
                 <a-popconfirm title="确定删除此文档？此操作不可恢复" @confirm="handleDelete(record.id)">
-                  <a-button type="link" size="small" danger>删除</a-button>
+                  <a-button size="small" danger>删除</a-button>
                 </a-popconfirm>
               </div>
             </template>
@@ -151,32 +159,49 @@
       </template>
     </a-drawer>
 
-    <!-- 分块列表 Drawer -->
+    <!-- 分块详情 Drawer -->
     <a-drawer
       v-model:open="chunksVisible"
-      :title="`分块列表 - ${chunkDocName}`"
-      width="720"
+      :title="`分块详情 - ${chunkDocName}`"
+      width="80%"
       placement="right"
     >
-      <a-spin :spinning="chunksLoading">
-        <div class="chunk-list">
-          <div v-for="chunk in chunks" :key="chunk.index" class="chunk-item">
-            <div class="chunk-header">
-              <span class="chunk-index">Chunk #{{ chunk.index }}</span>
+      <div class="chunk-detail-layout">
+        <!-- 左侧：源文档 -->
+        <div class="chunk-detail-left">
+          <div class="panel-title">源文档</div>
+          <a-spin :spinning="sourceLoading">
+            <div v-if="sourceContent" class="source-content" ref="sourceRef" @scroll="onSourceScroll">
+              <MarkdownRenderer :content="sourceContent" :file-type="chunkDocFileType" full-height />
             </div>
-            <MarkdownRenderer :content="chunk.content" :file-type="chunk.file_type" />
-          </div>
+            <a-empty v-else-if="!sourceLoading" description="PDF 文件不支持源文件预览" />
+          </a-spin>
         </div>
-        <a-empty v-if="!chunksLoading && chunks.length === 0" description="暂无分块" />
-      </a-spin>
+
+        <!-- 右侧：分块列表 -->
+        <div class="chunk-detail-right">
+          <div class="panel-title">分块列表 ({{ chunks.length }})</div>
+          <a-spin :spinning="chunksLoading">
+            <div class="chunk-list" ref="chunkListRef" @scroll="onChunkListScroll">
+              <div v-for="chunk in chunks" :key="chunk.index" class="chunk-item" :class="chunk.index % 2 === 0 ? 'chunk-item--even' : 'chunk-item--odd'" @click="handleChunkClick(chunk)">
+                <MarkdownRenderer :content="chunk.content" :file-type="chunk.file_type" />
+              </div>
+            </div>
+            <a-empty v-if="!chunksLoading && chunks.length === 0" description="暂无分块" />
+          </a-spin>
+        </div>
+      </div>
     </a-drawer>
+    <!-- Embedding 弹窗 -->
+    <EmbeddingViewer :chunk-id="activeChunkId" v-model:visible="embeddingVisible" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message, Modal as AModal } from 'ant-design-vue'
+import { usePageStore } from '@/store/page'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import 'dayjs/locale/zh-cn'
@@ -190,16 +215,18 @@ import {
   FileExcelOutlined,
   FileOutlined,
 } from '@ant-design/icons-vue'
-import { getDocumentList, uploadDocument, processDocument, deleteDocument, getChunkList } from '@/api/document'
+import { getDocumentList, uploadDocument, processDocument, deleteDocument, getChunkList, getSourceContent } from '@/api/document'
 import { getProject } from '@/api/project'
 import type { DocumentItem, ChunkItem, UploadDocumentParams } from '@/api/model/documentModel'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
+import EmbeddingViewer from '@/components/EmbeddingViewer.vue'
 
 dayjs.locale('zh-cn')
 dayjs.extend(relativeTime)
 
 const route = useRoute()
 const router = useRouter()
+const pageStore = usePageStore()
 const projectId = computed(() => (route.params as any).id as string)
 
 const loading = ref(false)
@@ -224,12 +251,20 @@ const filteredDocuments = computed(() => {
   return documents.value.filter(d => d.status === filterStatus.value)
 })
 
-const paginationConfig = {
+const paginationConfig = reactive({
+  current: 1,
   pageSize: 10,
   showSizeChanger: true,
   showTotal: (total: number) => `共 ${total} 条`,
   pageSizeOptions: ['10', '20', '50'],
-}
+  onChange: (page: number) => {
+    paginationConfig.current = page
+  },
+  onShowSizeChange: (_current: number, size: number) => {
+    paginationConfig.pageSize = size
+    paginationConfig.current = 1
+  },
+})
 
 // Drawer
 const drawerVisible = ref(false)
@@ -240,6 +275,57 @@ const chunksVisible = ref(false)
 const chunksLoading = ref(false)
 const chunks = ref<ChunkItem[]>([])
 const chunkDocName = ref('')
+const chunkDocFileType = ref('')
+
+// Source
+const sourceLoading = ref(false)
+const sourceContent = ref('')
+
+// Embedding 弹窗
+const embeddingVisible = ref(false)
+const activeChunkId = ref('')
+
+function handleChunkClick(chunk: ChunkItem) {
+  activeChunkId.value = chunk.id
+  embeddingVisible.value = true
+}
+
+// 联动滚动
+const sourceRef = ref<HTMLElement | null>(null)
+const chunkListRef = ref<HTMLElement | null>(null)
+let isSyncingScroll = false
+
+function onSourceScroll() {
+  if (isSyncingScroll) return
+  const source = sourceRef.value
+  const target = chunkListRef.value
+  if (!source || !target) return
+
+  const sourceMax = source.scrollHeight - source.clientHeight
+  if (sourceMax <= 0) return
+
+  isSyncingScroll = true
+  const percent = source.scrollTop / sourceMax
+  const targetMax = target.scrollHeight - target.clientHeight
+  target.scrollTop = percent * targetMax
+  requestAnimationFrame(() => { isSyncingScroll = false })
+}
+
+function onChunkListScroll() {
+  if (isSyncingScroll) return
+  const source = sourceRef.value
+  const target = chunkListRef.value
+  if (!source || !target) return
+
+  const targetMax = target.scrollHeight - target.clientHeight
+  if (targetMax <= 0) return
+
+  isSyncingScroll = true
+  const percent = target.scrollTop / targetMax
+  const sourceMax = source.scrollHeight - source.clientHeight
+  source.scrollTop = percent * sourceMax
+  requestAnimationFrame(() => { isSyncingScroll = false })
+}
 
 // Upload
 const uploadVisible = ref(false)
@@ -329,8 +415,10 @@ function onFilter() {}
 
 function handleViewChunks(record: DocumentItem) {
   chunkDocName.value = record.filename
+  chunkDocFileType.value = record.file_type
   chunksVisible.value = true
   fetchChunks(record.id)
+  fetchSource(record.id)
 }
 
 function handleViewDetail(record: DocumentItem) {
@@ -434,9 +522,24 @@ async function fetchChunks(documentId: string) {
   }
 }
 
+async function fetchSource(documentId: string) {
+  sourceLoading.value = true
+  sourceContent.value = ''
+  try {
+    const res = await getSourceContent(documentId)
+    sourceContent.value = res.content || ''
+  } catch {
+    // PDF 等不支持预览的文件类型，静默处理
+  } finally {
+    sourceLoading.value = false
+  }
+}
+
 watch(() => projectId.value, () => {
   fetchList()
 }, { immediate: true })
+
+watch(() => pageStore.refreshTrigger, fetchList)
 </script>
 
 <style scoped>
@@ -477,6 +580,9 @@ watch(() => projectId.value, () => {
 }
 .table-card :deep(.ant-table-tbody > tr:hover > td) {
   background: #f5f7fa;
+}
+.table-card :deep(.ant-pagination) {
+  margin-right: 16px;
 }
 
 /* 文件单元格 */
@@ -522,10 +628,7 @@ watch(() => projectId.value, () => {
 .action-cell {
   display: flex;
   align-items: center;
-  gap: 0;
-}
-.action-cell .ant-btn {
-  padding: 0 4px;
+  gap: 6px;
 }
 
 /* 上传弹窗 */
@@ -562,6 +665,88 @@ watch(() => projectId.value, () => {
   font-size: 12px;
 }
 
+/* 分块数 */
+.chunk-count-zero {
+  color: #bbb;
+  font-size: 13px;
+}
+
+/* 分块详情布局 */
+.chunk-detail-layout {
+  display: flex;
+  gap: 16px;
+  height: calc(100vh - 120px);
+}
+.chunk-detail-left {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.chunk-detail-right {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.panel-title {
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: #1677ff;
+  flex-shrink: 0;
+}
+.chunk-detail-left .panel-title {
+  background: #1677ff;
+}
+.chunk-detail-right .panel-title {
+  background: #52c41a;
+}
+.source-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+.chunk-detail-left :deep(.ant-spin-nested-loading) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.chunk-detail-left :deep(.ant-spin-container) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.chunk-detail-right :deep(.ant-spin-nested-loading) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.chunk-detail-right :deep(.ant-spin-container) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.chunk-detail-right .chunk-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 /* 分块列表 */
 .chunk-list {
   display: flex;
@@ -569,19 +754,20 @@ watch(() => projectId.value, () => {
   gap: 12px;
 }
 .chunk-item {
-  border: 1px solid #f0f0f0;
-  border-radius: 8px;
-  overflow: hidden;
+  border-radius: 6px;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: box-shadow 0.2s, transform 0.15s;
+  padding: 12px;
 }
-.chunk-header {
-  padding: 8px 12px;
-  background: #fafafa;
-  border-bottom: 1px solid #f0f0f0;
+.chunk-item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
 }
-.chunk-index {
-  font-size: 12px;
-  font-weight: 500;
-  color: #666;
-  font-family: ui-monospace, 'SF Mono', monospace;
+.chunk-item--even {
+  background: #fff1f0;
+}
+.chunk-item--odd {
+  background: #f6ffed;
 }
 </style>

@@ -2,8 +2,8 @@
   <div class="dashboard">
     <a-row :gutter="[20, 20]">
       <a-col :span="8">
-        <a-card class="stat-card" :bordered="false">
-          <a-statistic title="项目总数" :value="12" suffix="个">
+        <a-card class="stat-card" :bordered="false" loading>
+          <a-statistic title="项目总数" :value="projectCount" suffix="个">
             <template #prefix>
               <project-outlined />
             </template>
@@ -11,8 +11,8 @@
         </a-card>
       </a-col>
       <a-col :span="8">
-        <a-card class="stat-card" :bordered="false">
-          <a-statistic title="文档总数" :value="156" suffix="篇">
+        <a-card class="stat-card" :bordered="false" loading>
+          <a-statistic title="文档总数" :value="docCount" suffix="篇">
             <template #prefix>
               <file-outlined />
             </template>
@@ -21,7 +21,7 @@
       </a-col>
       <a-col :span="8">
         <a-card class="stat-card" :bordered="false">
-          <a-statistic title="今日查询" :value="1024" suffix="次">
+          <a-statistic title="今日查询" value="--" suffix="次">
             <template #prefix>
               <search-outlined />
             </template>
@@ -33,10 +33,10 @@
     <a-row :gutter="20" style="margin-top: 20px">
       <a-col :span="14">
         <a-card title="最近项目" :bordered="false">
-          <a-table :columns="columns" :data-source="recentProjects" :pagination="false" size="middle">
+          <a-table :columns="columns" :data-source="recentProjects" :pagination="false" size="middle" :loading="loading">
             <template #bodyCell="{ column, record }">
-              <template v-if="column.key === 'updatedAt'">
-                {{ formatTime(record.updatedAt) }}
+              <template v-if="column.key === 'updated_at'">
+                {{ formatTime(record.updated_at) }}
               </template>
             </template>
           </a-table>
@@ -45,12 +45,12 @@
       <a-col :span="10">
         <a-card title="文档处理状态" :bordered="false">
           <div class="progress-wrap">
-            <a-progress type="circle" :percent="85" :stroke-width="10" />
-            <p class="progress-label">已处理</p>
+            <a-progress type="circle" :percent="readyPercent" :stroke-width="10" />
+            <p class="progress-label">已处理 ({{ readyCount }}/{{ docCount }})</p>
           </div>
           <div class="progress-wrap">
-            <a-progress type="circle" :percent="15" status="exception" :stroke-width="10" />
-            <p class="progress-label">处理中</p>
+            <a-progress type="circle" :percent="processingPercent" status="active" :stroke-width="10" />
+            <p class="progress-label">处理中 ({{ processingCount }})</p>
           </div>
         </a-card>
       </a-col>
@@ -59,11 +59,48 @@
 </template>
 
 <script setup lang="ts">
+import { ref, computed, onMounted, watch } from 'vue'
 import { ProjectOutlined, FileOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
+import { usePageStore } from '@/store/page'
+import { getProjectList } from '@/api/project'
+import { getDocumentList } from '@/api/document'
+import type { ProjectItem } from '@/api/model/projectModel'
+import type { DocumentItem } from '@/api/model/documentModel'
 
 dayjs.locale('zh-cn')
+
+const pageStore = usePageStore()
+const loading = ref(false)
+const projects = ref<ProjectItem[]>([])
+const allDocs = ref<DocumentItem[]>([])
+
+const projectCount = computed(() => projects.value.length)
+const docCount = computed(() => allDocs.value.length)
+
+const readyCount = computed(() => allDocs.value.filter(d => d.status === 'ready').length)
+const processingCount = computed(() => allDocs.value.filter(d => ['chunking', 'embedding', 'processing'].includes(d.status)).length)
+const readyPercent = computed(() => {
+  if (docCount.value === 0) return 0
+  return Math.round((readyCount.value / docCount.value) * 100)
+})
+const processingPercent = computed(() => {
+  if (docCount.value === 0) return 0
+  return Math.round((processingCount.value / docCount.value) * 100)
+})
+
+const recentProjects = computed(() =>
+  [...projects.value]
+    .sort((a, b) => dayjs(b.updated_at).valueOf() - dayjs(a.updated_at).valueOf())
+    .slice(0, 5)
+)
+
+const columns = [
+  { title: '项目名称', dataIndex: 'name', key: 'name' },
+  { title: '描述', dataIndex: 'description', key: 'description', ellipsis: true },
+  { title: '更新时间', dataIndex: 'updated_at', key: 'updated_at' },
+]
 
 function formatTime(dateStr: string) {
   if (!dateStr) return '--'
@@ -77,18 +114,27 @@ function formatTime(dateStr: string) {
   return d.format('YYYY-MM-DD HH:mm')
 }
 
-const columns = [
-  { title: '项目名称', dataIndex: 'name', key: 'name' },
-  { title: '状态', dataIndex: 'status', key: 'status' },
-  { title: '更新时间', dataIndex: 'updatedAt', key: 'updatedAt' },
-]
+async function fetchDashboardData() {
+  loading.value = true
+  try {
+    const projectList = await getProjectList()
+    projects.value = projectList || []
 
-const recentProjects = [
-  { name: '产品知识库', status: '运行中', updatedAt: '2026-06-05' },
-  { name: '技术文档库', status: '运行中', updatedAt: '2026-06-04' },
-  { name: '用户手册', status: '处理中', updatedAt: '2026-06-03' },
-  { name: 'FAQ 集合', status: '运行中', updatedAt: '2026-06-02' },
-]
+    const docPromises = projects.value.map(p => getDocumentList(p.id))
+    const docResults = await Promise.all(docPromises)
+    allDocs.value = docResults.flat()
+  } catch {
+    // 静默处理，仪表盘数据加载失败不阻断
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchDashboardData()
+})
+
+watch(() => pageStore.refreshTrigger, fetchDashboardData)
 </script>
 
 <style scoped>
