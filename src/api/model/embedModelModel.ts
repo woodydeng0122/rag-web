@@ -18,6 +18,7 @@ export interface EmbedModelListResult {
 export interface CreateEmbedModelParams {
   name: string
   description?: string
+  dimension?: number  // 本地无 config.json 时由用户指定
 }
 
 export interface UpdateEmbedModelParams {

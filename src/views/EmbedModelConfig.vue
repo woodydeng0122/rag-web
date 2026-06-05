@@ -75,6 +75,15 @@
           />
           <span v-if="isEdit" class="form-hint">创建后不可修改</span>
         </a-form-item>
+        <a-form-item v-if="!isEdit" label="向量维度">
+          <a-input-number
+            v-model:value="formState.dimension"
+            :min="0"
+            placeholder="本地无模型时需手动指定"
+            style="width: 100%"
+          />
+          <span class="form-hint">本地有模型文件时自动读取，无需填写</span>
+        </a-form-item>
         <a-form-item label="备注">
           <a-textarea v-model:value="formState.description" placeholder="模型备注（选填）" :rows="3" :maxlength="500" show-count />
         </a-form-item>
@@ -135,7 +144,7 @@ const submitLoading = ref(false)
 const modalVisible = ref(false)
 const isEdit = ref(false)
 const editingId = ref('')
-const formState = ref({ name: '', description: '' })
+const formState = ref({ name: '', description: '', dimension: undefined as number | undefined })
 
 const detailVisible = ref(false)
 const detailModel = ref<EmbedModelItem | null>(null)
@@ -193,14 +202,15 @@ const metadataEntries = computed(() => {
 function handleCreate() {
   isEdit.value = false
   editingId.value = ''
-  formState.value = { name: '', description: '' }
+  formState.value = { name: '', description: '', dimension: undefined }
   modalVisible.value = true
+  embedModelStore.fetchModels()
 }
 
 function handleEdit(record: EmbedModelItem) {
   isEdit.value = true
   editingId.value = record.id
-  formState.value = { name: record.name, description: record.description }
+  formState.value = { name: record.name, description: record.description, dimension: undefined }
   modalVisible.value = true
 }
 
