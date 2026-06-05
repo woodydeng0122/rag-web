@@ -228,10 +228,12 @@ async function handleSubmit() {
   submitLoading.value = true
   try {
     if (isEdit.value) {
-      await updateEmbedModel(editingId.value, formState.value)
+      await updateEmbedModel(editingId.value, { name: formState.value.name, description: formState.value.description })
       message.success('更新成功')
     } else {
-      await createEmbedModel(formState.value)
+      const params: any = { name: formState.value.name, description: formState.value.description }
+      if (formState.value.dimension) params.dimension = formState.value.dimension
+      await createEmbedModel(params)
       message.success('新增成功')
     }
     modalVisible.value = false
