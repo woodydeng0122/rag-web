@@ -317,7 +317,7 @@ async function handleSubmit() {
       reference_answer: formState.value.reference_answer,
     }
     if (isEdit.value) {
-      await updateGoldenDataset(editingId.value, params)
+      await updateGoldenDataset(activeProjectStore.activeProjectId!, editingId.value, params)
       message.success('更新成功')
     } else {
       await createGoldenDataset(activeProjectStore.activeProjectId!, params)
@@ -335,7 +335,7 @@ async function handleSubmit() {
 // 删除
 async function handleDelete(id: string) {
   try {
-    await deleteGoldenDataset(id)
+    await deleteGoldenDataset(activeProjectStore.activeProjectId!, id)
     message.success('删除成功')
     await fetchList()
   } catch {
@@ -351,7 +351,7 @@ function handleBatchDelete() {
     okType: 'danger',
     async onOk() {
       try {
-        const promises = selectedRowKeys.value.map(id => deleteGoldenDataset(id))
+        const promises = selectedRowKeys.value.map(id => deleteGoldenDataset(activeProjectStore.activeProjectId!, id))
         await Promise.all(promises)
         message.success('批量删除完成')
         selectedRowKeys.value = []

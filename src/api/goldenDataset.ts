@@ -3,20 +3,20 @@ import type { GoldenDatasetItem, CreateGoldenDatasetParams, UpdateGoldenDatasetP
 
 /** 获取项目下的黄金数据集列表 */
 export const getGoldenDatasetList = (projectId: string) =>
-  get<GoldenDatasetItem[]>({ url: `/projects/${projectId}/golden-dataset` })
+  get<GoldenDatasetItem[]>({ url: `/projects/${projectId}/golden-datasets` })
 
 /** 新增黄金记录 */
 export const createGoldenDataset = (projectId: string, params: CreateGoldenDatasetParams) =>
-  post<GoldenDatasetItem>({ url: `/projects/${projectId}/golden-dataset`, data: params })
+  post<GoldenDatasetItem>({ url: `/projects/${projectId}/golden-datasets`, data: params })
 
 /** 更新黄金记录 */
-export const updateGoldenDataset = (id: string, params: UpdateGoldenDatasetParams) =>
-  put<GoldenDatasetItem>({ url: `/golden-dataset/${id}`, data: params })
+export const updateGoldenDataset = (projectId: string, id: string, params: UpdateGoldenDatasetParams) =>
+  put<GoldenDatasetItem>({ url: `/projects/${projectId}/golden-datasets/${id}`, data: params })
 
 /** 删除黄金记录 */
-export const deleteGoldenDataset = (id: string) =>
-  del({ url: `/golden-dataset/${id}` })
+export const deleteGoldenDataset = (projectId: string, id: string) =>
+  del({ url: `/projects/${projectId}/golden-datasets/${id}` })
 
 /** 按项目评测 */
 export const evaluateByProject = (projectId: string, params: EvaluateByProjectParams) =>
-  post<EvaluateResult>({ url: `/evaluate/projects/${projectId}`, data: params })
+  post<EvaluateResult>({ url: `/projects/${projectId}/evaluations`, data: params })

@@ -199,7 +199,7 @@
       </div>
     </a-drawer>
     <!-- Embedding 弹窗 -->
-    <EmbeddingViewer :chunk-id="activeChunkId" v-model:visible="embeddingVisible" />
+    <EmbeddingViewer :project-id="projectId" :chunk-id="activeChunkId" v-model:visible="embeddingVisible" />
     </template>
   </div>
 </template>
@@ -446,7 +446,7 @@ function handleViewDetail(record: DocumentItem) {
 async function handleProcess(record: DocumentItem) {
   processingIds.value.push(record.id)
   try {
-    await processDocument(record.id)
+    await processDocument(projectId.value, record.id)
     message.success('处理成功')
     await fetchList()
   } catch {
@@ -457,7 +457,7 @@ async function handleProcess(record: DocumentItem) {
 }
 
 function handleDelete(id: string) {
-  deleteDocument(id)
+  deleteDocument(projectId.value, id)
     .then(() => {
       message.success('删除成功')
       fetchList()
@@ -472,7 +472,7 @@ function handleBatchProcess() {
     title: '批量处理',
     content: `确定要处理选中的 ${selectedRowKeys.value.length} 个文档吗？`,
     async onOk() {
-      const promises = selectedRowKeys.value.map(id => processDocument(id))
+      const promises = selectedRowKeys.value.map(id => processDocument(projectId.value, id))
       await Promise.all(promises)
       message.success('批量处理完成')
       selectedRowKeys.value = []
@@ -530,7 +530,7 @@ async function handleUploadSubmit() {
 async function fetchChunks(documentId: string) {
   chunksLoading.value = true
   try {
-    const res = await getChunkList(documentId)
+    const res = await getChunkList(projectId.value, documentId)
     chunks.value = res.chunks || []
   } catch {
     message.error('获取分块列表失败')
@@ -543,7 +543,7 @@ async function fetchSource(documentId: string) {
   sourceLoading.value = true
   sourceContent.value = ''
   try {
-    const res = await getSourceContent(documentId)
+    const res = await getSourceContent(projectId.value, documentId)
     sourceContent.value = res.content || ''
   } catch {
     // PDF 等不支持预览的文件类型，静默处理

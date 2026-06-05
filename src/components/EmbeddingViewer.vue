@@ -50,6 +50,7 @@ import { ref, computed, watch, nextTick } from 'vue'
 import { getChunkEmbedding } from '@/api/document'
 
 const props = defineProps<{
+  projectId: string
   chunkId: string
   visible: boolean
 }>()
@@ -97,7 +98,7 @@ function handleClose() {
 async function fetchEmbedding() {
   loading.value = true
   try {
-    const res = await getChunkEmbedding(props.chunkId)
+    const res = await getChunkEmbedding(props.projectId, props.chunkId)
     vector.value = res.vector || []
     dimension.value = res.dimension || 0
     if (viewMode.value === 'heatmap') {

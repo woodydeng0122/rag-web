@@ -46,7 +46,7 @@
 import { ref, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
 import { ReloadOutlined } from '@ant-design/icons-vue'
-import { getEmbedModelList, checkEmbedModelStatus } from '@/api/embedModel'
+import { getEmbedModelList, refreshEmbedModelStatus } from '@/api/embedModel'
 import type { EmbedModelItem } from '@/api/model/embedModelModel'
 
 const loading = ref(false)
@@ -76,7 +76,7 @@ async function fetchModels() {
 async function handleCheckStatus() {
   checkingStatus.value = true
   try {
-    const res = await checkEmbedModelStatus()
+    const res = await refreshEmbedModelStatus()
     models.value = res.models || []
     message.success('状态已刷新')
   } catch {
