@@ -1,0 +1,79 @@
+/** 文档相关接口类型定义 */
+
+export interface DocumentItem {
+  id: string
+  project_id: string
+  filename: string
+  file_path: string
+  file_size: number
+  file_type: string
+  checksum: string
+  status: string
+  embedder_model: string
+  splitter_strategy: string
+  chunk_size: number
+  chunk_overlap: number
+  splitter_min_chars: number
+  splitter_max_chars: number
+  chunk_count: number
+  error_message: string
+  created_at: string
+  updated_at: string
+}
+
+export interface DocumentListResult {
+  documents: DocumentItem[]
+}
+
+export interface ProcessDocumentResult {
+  id: string
+  status: string
+  chunk_count: number
+  error_message: string
+}
+
+export interface UploadDocumentParams {
+  project_id: string
+  file: File
+  embedder_model?: string
+  splitter_strategy?: string
+  chunk_size?: number
+  chunk_overlap?: number
+  splitter_min_chars?: number
+  splitter_max_chars?: number
+}
+
+export interface UploadDocumentResult {
+  documents: Record<string, string | number>[]
+  count: number
+}
+
+export interface BatchProcessResult {
+  total: number
+  success: number
+  failed: number
+  results: { id: string; status: string; chunk_count: number; error_message: string }[]
+}
+
+export interface ChunkItem {
+  id: string
+  index: number
+  heading: string
+  content: string
+  source_file: string
+}
+
+export interface ChunkListResult {
+  document_id: string
+  total: number
+  chunks: ChunkItem[]
+}
+
+export enum DocumentStatus {
+  UPLOADED = 'uploaded',
+  PROCESSING = 'processing',
+  CHUNKING = 'chunking',
+  EMBEDDING = 'embedding',
+  READY = 'ready',
+  ERROR = 'error',
+}
