@@ -28,7 +28,6 @@ export const getDocumentList = (projectId: string) =>
 export const uploadDocument = (params: UploadDocumentParams) => {
   const formData = new FormData()
   formData.append('file', params.file)
-  if (params.embedder_model) formData.append('embedder_model', params.embedder_model)
   if (params.splitter_strategy) formData.append('splitter_strategy', params.splitter_strategy)
   if (params.chunk_size) formData.append('chunk_size', String(params.chunk_size))
   if (params.chunk_overlap) formData.append('chunk_overlap', String(params.chunk_overlap))

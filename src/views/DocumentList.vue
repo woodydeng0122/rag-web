@@ -155,7 +155,7 @@
           </a-descriptions-item>
           <a-descriptions-item label="分块数量">{{ currentDoc.chunk_count || 0 }}</a-descriptions-item>
           <a-descriptions-item label="分块策略">{{ currentDoc.splitter_strategy || '--' }}</a-descriptions-item>
-          <a-descriptions-item label="嵌入模型">{{ currentDoc.embedder_model || '--' }}</a-descriptions-item>
+          <a-descriptions-item label="嵌入模型">{{ activeProjectStore.activeProject?.embed_model_name || '--' }}</a-descriptions-item>
           <a-descriptions-item label="上传时间">{{ formatFullTime(currentDoc.created_at) }}</a-descriptions-item>
           <a-descriptions-item label="更新时间">{{ formatFullTime(currentDoc.updated_at) }}</a-descriptions-item>
           <a-descriptions-item label="错误信息" v-if="currentDoc.error_message">

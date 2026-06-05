@@ -138,6 +138,7 @@ import {
   FileTextOutlined,
   TrophyOutlined,
   ReloadOutlined,
+  RobotOutlined,
 } from '@ant-design/icons-vue'
 import type { MenuProps } from 'ant-design-vue'
 
@@ -183,6 +184,11 @@ const menuItems = computed<MenuProps['items']>(() => [
     icon: () => h(TrophyOutlined),
     label: '黄金数据集',
   },
+  {
+    key: '/embed-models',
+    icon: () => h(RobotOutlined),
+    label: '模型配置',
+  },
 ])
 
 interface BreadcrumbItem {
@@ -197,6 +203,8 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => {
 
   if (path.startsWith('/golden-dataset')) {
     crumbs.push({ key: 'golden-dataset', title: '黄金数据集' })
+  } else if (path.startsWith('/embed-models')) {
+    crumbs.push({ key: 'embed-models', title: '模型配置' })
   } else if (path.startsWith('/documents')) {
     crumbs.push({ key: 'documents', title: '文档管理' })
   } else if (path.startsWith('/projects')) {

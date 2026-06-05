@@ -38,6 +38,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/GoldenDataset.vue'),
         meta: { title: '黄金数据集' },
       },
+      {
+        path: 'embed-models',
+        name: 'EmbedModels',
+        component: () => import('@/views/EmbedModelConfig.vue'),
+        meta: { title: '模型配置' },
+      },
     ],
   },
 ]

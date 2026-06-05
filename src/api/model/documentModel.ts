@@ -9,7 +9,6 @@ export interface DocumentItem {
   file_type: string
   checksum: string
   status: string
-  embedder_model: string
   splitter_strategy: string
   chunk_size: number
   chunk_overlap: number
@@ -35,7 +34,6 @@ export interface ProcessDocumentResult {
 export interface UploadDocumentParams {
   project_id: string
   file: File
-  embedder_model?: string
   splitter_strategy?: string
   chunk_size?: number
   chunk_overlap?: number

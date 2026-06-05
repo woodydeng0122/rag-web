@@ -51,6 +51,19 @@
         <a-form-item label="项目名称" required>
           <a-input v-model:value="formState.name" placeholder="请输入项目名称" :maxlength="255" show-count />
         </a-form-item>
+        <a-form-item label="嵌入模型" required>
+          <a-select
+            v-model:value="formState.embed_model_id"
+            placeholder="请选择嵌入模型"
+            :loading="modelsLoading"
+            :disabled="isEdit"
+          >
+            <a-select-option v-for="m in onlineModels" :key="m.id" :value="m.id">
+              {{ m.name }} ({{ m.dimension }}维)
+            </a-select-option>
+          </a-select>
+          <span v-if="isEdit" class="form-hint">创建后不可修改</span>
+        </a-form-item>
         <a-form-item label="项目描述">
           <a-textarea
             v-model:value="formState.description"
@@ -66,7 +79,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal as AModal } from 'ant-design-vue'
 import dayjs from 'dayjs'
@@ -75,7 +88,9 @@ import { usePageStore } from '@/store/page'
 import { useActiveProjectStore } from '@/store/activeProject'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ThunderboltOutlined } from '@ant-design/icons-vue'
 import { getProjectList, createProject, updateProject, deleteProject } from '@/api/project'
+import { getEmbedModelList } from '@/api/embedModel'
 import type { ProjectItem } from '@/api/model/projectModel'
+import type { EmbedModelItem } from '@/api/model/embedModelModel'
 
 dayjs.locale('zh-cn')
 
@@ -90,7 +105,11 @@ const modalVisible = ref(false)
 const submitLoading = ref(false)
 const isEdit = ref(false)
 const editingId = ref('')
-const formState = ref({ name: '', description: '' })
+const formState = ref({ name: '', description: '', embed_model_id: '' })
+
+const modelsLoading = ref(false)
+const embedModels = ref<EmbedModelItem[]>([])
+const onlineModels = computed(() => embedModels.value.filter(m => m.status === 'online'))
 
 function isActive(projectId: string) {
   return activeProjectStore.activeProjectId === projectId
@@ -125,14 +144,15 @@ async function fetchList() {
 function handleCreate() {
   isEdit.value = false
   editingId.value = ''
-  formState.value = { name: '', description: '' }
+  formState.value = { name: '', description: '', embed_model_id: '' }
   modalVisible.value = true
+  fetchEmbedModels()
 }
 
 function handleEdit(project: ProjectItem) {
   isEdit.value = true
   editingId.value = project.id
-  formState.value = { name: project.name, description: project.description }
+  formState.value = { name: project.name, description: project.description, embed_model_id: project.embed_model_id }
   modalVisible.value = true
 }
 
@@ -172,11 +192,15 @@ async function handleSubmit() {
     message.warning('请输入项目名称')
     return
   }
+  if (!isEdit.value && !formState.value.embed_model_id) {
+    message.warning('请选择嵌入模型')
+    return
+  }
 
   submitLoading.value = true
   try {
     if (isEdit.value) {
-      await updateProject(editingId.value, formState.value)
+      await updateProject(editingId.value, { name: formState.value.name, description: formState.value.description })
       message.success('更新成功')
     } else {
       await createProject(formState.value)
@@ -188,6 +212,18 @@ async function handleSubmit() {
     message.error(isEdit.value ? '编辑失败' : '创建失败')
   } finally {
     submitLoading.value = false
+  }
+}
+
+async function fetchEmbedModels() {
+  modelsLoading.value = true
+  try {
+    const res = await getEmbedModelList()
+    embedModels.value = res.models || []
+  } catch {
+    // 静默处理
+  } finally {
+    modelsLoading.value = false
   }
 }
 
@@ -227,5 +263,10 @@ onMounted(fetchList)
 .active-tag {
   margin: 0;
   cursor: default;
+}
+.form-hint {
+  margin-left: 8px;
+  font-size: 12px;
+  color: #999;
 }
 </style>
