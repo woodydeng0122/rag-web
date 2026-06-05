@@ -13,12 +13,15 @@
         <a-col v-for="project in projectList" :key="project.id" :xs="24" :sm="12" :md="8" :lg="6">
           <a-card
             hoverable
-            style="cursor: pointer"
+            class="project-card"
+            :class="{ 'project-card--active': isActive(project.id) }"
             @click="handleView(project)"
           >
             <template #actions>
               <edit-outlined @click.stop="handleEdit(project)" />
               <delete-outlined @click.stop="handleDelete(project)" />
+              <a-tag v-if="isActive(project.id)" color="blue" class="active-tag">当前项目</a-tag>
+              <thunderbolt-outlined v-else @click.stop="handleActivate(project)" title="激活项目" />
             </template>
             <a-card-meta :title="project.name" :description="project.description || '暂无描述'" />
             <div style="margin-top: 12px; font-size: 12px; color: #999">
@@ -69,7 +72,8 @@ import { message, Modal as AModal } from 'ant-design-vue'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
 import { usePageStore } from '@/store/page'
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons-vue'
+import { useActiveProjectStore } from '@/store/activeProject'
+import { PlusOutlined, EditOutlined, DeleteOutlined, ThunderboltOutlined } from '@ant-design/icons-vue'
 import { getProjectList, createProject, updateProject, deleteProject } from '@/api/project'
 import type { ProjectItem } from '@/api/model/projectModel'
 
@@ -77,6 +81,7 @@ dayjs.locale('zh-cn')
 
 const router = useRouter()
 const pageStore = usePageStore()
+const activeProjectStore = useActiveProjectStore()
 
 const loading = ref(false)
 const projectList = ref<ProjectItem[]>([])
@@ -86,6 +91,10 @@ const submitLoading = ref(false)
 const isEdit = ref(false)
 const editingId = ref('')
 const formState = ref({ name: '', description: '' })
+
+function isActive(projectId: string) {
+  return activeProjectStore.activeProjectId === projectId
+}
 
 function formatTime(dateStr: string) {
   if (!dateStr) return '--'
@@ -128,8 +137,13 @@ function handleEdit(project: ProjectItem) {
 }
 
 function handleView(project: ProjectItem) {
-  // 点击卡片直接进入文档管理
+  // 点击卡片进入文档管理
   goToDocuments(project)
+}
+
+async function handleActivate(project: ProjectItem) {
+  await activeProjectStore.setActiveProject(project.id)
+  message.success(`已激活项目「${project.name}」`)
 }
 
 function handleDelete(project: ProjectItem) {
@@ -140,6 +154,10 @@ function handleDelete(project: ProjectItem) {
     async onOk() {
       try {
         await deleteProject(project.id)
+        // 若删除的是激活项目，清空 Store
+        if (isActive(project.id)) {
+          activeProjectStore.clearActiveProject()
+        }
         message.success('删除成功')
         await fetchList()
       } catch {
@@ -174,7 +192,7 @@ async function handleSubmit() {
 }
 
 function goToDocuments(project: ProjectItem) {
-  router.push({ path: `/projects/${project.id}/documents`, query: { name: project.name } })
+  router.push({ path: `/documents` })
 }
 
 onMounted(fetchList)
@@ -191,5 +209,23 @@ onMounted(fetchList)
   font-size: 18px;
   font-weight: 600;
   color: #111;
+}
+
+/* 激活项目卡片样式 */
+.project-card {
+  position: relative;
+  overflow: hidden;
+  transition: background 0.2s;
+}
+.project-card--active {
+  background: #f0f7ff;
+  border-left: 3px solid #1677ff;
+}
+.project-card--active :deep(.ant-card-body) {
+  padding-left: 13px;
+}
+.active-tag {
+  margin: 0;
+  cursor: default;
 }
 </style>

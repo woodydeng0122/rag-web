@@ -1,5 +1,11 @@
 <template>
   <div class="document-list">
+    <!-- 无激活项目引导 -->
+    <a-empty v-if="!activeProjectStore.hasActiveProject" description="请先在项目页激活一个项目">
+      <a-button type="primary" @click="router.push('/projects')">前往项目页</a-button>
+    </a-empty>
+
+    <template v-else>
     <!-- 工具栏 -->
     <div class="toolbar">
       <div class="toolbar-left">
@@ -48,7 +54,7 @@
 
             <!-- 类型 -->
             <template v-if="column.key === 'file_type'">
-              <span class="type-cell">{{ record.file_type?.toUpperCase() }}</span>
+              <a-tag :color="fileTypeColor(record.file_type)">{{ record.file_type?.toUpperCase() }}</a-tag>
             </template>
 
             <!-- 分块数 -->
@@ -194,14 +200,16 @@
     </a-drawer>
     <!-- Embedding 弹窗 -->
     <EmbeddingViewer :chunk-id="activeChunkId" v-model:visible="embeddingVisible" />
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, reactive } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { message, Modal as AModal } from 'ant-design-vue'
 import { usePageStore } from '@/store/page'
+import { useActiveProjectStore } from '@/store/activeProject'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import 'dayjs/locale/zh-cn'
@@ -216,7 +224,6 @@ import {
   FileOutlined,
 } from '@ant-design/icons-vue'
 import { getDocumentList, uploadDocument, processDocument, deleteDocument, getChunkList, getSourceContent } from '@/api/document'
-import { getProject } from '@/api/project'
 import type { DocumentItem, ChunkItem, UploadDocumentParams } from '@/api/model/documentModel'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import EmbeddingViewer from '@/components/EmbeddingViewer.vue'
@@ -224,10 +231,10 @@ import EmbeddingViewer from '@/components/EmbeddingViewer.vue'
 dayjs.locale('zh-cn')
 dayjs.extend(relativeTime)
 
-const route = useRoute()
 const router = useRouter()
 const pageStore = usePageStore()
-const projectId = computed(() => (route.params as any).id as string)
+const activeProjectStore = useActiveProjectStore()
+const projectId = computed(() => activeProjectStore.activeProjectId)
 
 const loading = ref(false)
 const documents = ref<DocumentItem[]>([])
@@ -343,11 +350,21 @@ function fileIcon(fileType?: string) {
   return FileOutlined
 }
 
+function fileTypeColor(fileType?: string) {
+  const t = (fileType || '').toLowerCase()
+  if (t === 'pdf') return 'red'
+  if (['txt', 'md'].includes(t)) return 'blue'
+  if (['doc', 'docx'].includes(t)) return 'cyan'
+  if (['csv', 'xls', 'xlsx'].includes(t)) return 'green'
+  return 'default'
+}
+
 function canProcess(status: string) {
   return !['ready', 'embedding', 'chunking'].includes(status)
 }
 
 async function fetchList() {
+  if (!projectId.value) return
   loading.value = true
   try {
     const res = await getDocumentList(projectId.value)
@@ -536,7 +553,7 @@ async function fetchSource(documentId: string) {
 }
 
 watch(() => projectId.value, () => {
-  fetchList()
+  if (projectId.value) fetchList()
 }, { immediate: true })
 
 watch(() => pageStore.refreshTrigger, fetchList)
