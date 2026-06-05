@@ -61,6 +61,7 @@ export interface ChunkItem {
   heading: string
   content: string
   source_file: string
+  file_type: string
 }
 
 export interface ChunkListResult {

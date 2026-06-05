@@ -164,7 +164,7 @@
             <div class="chunk-header">
               <span class="chunk-index">Chunk #{{ chunk.index }}</span>
             </div>
-            <pre class="chunk-content">{{ chunk.content }}</pre>
+            <MarkdownRenderer :content="chunk.content" :file-type="chunk.file_type" />
           </div>
         </div>
         <a-empty v-if="!chunksLoading && chunks.length === 0" description="暂无分块" />
@@ -193,6 +193,7 @@ import {
 import { getDocumentList, uploadDocument, processDocument, deleteDocument, getChunkList } from '@/api/document'
 import { getProject } from '@/api/project'
 import type { DocumentItem, ChunkItem, UploadDocumentParams } from '@/api/model/documentModel'
+import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 
 dayjs.locale('zh-cn')
 dayjs.extend(relativeTime)
@@ -582,16 +583,5 @@ watch(() => projectId.value, () => {
   font-weight: 500;
   color: #666;
   font-family: ui-monospace, 'SF Mono', monospace;
-}
-.chunk-content {
-  padding: 12px;
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.6;
-  color: #333;
-  max-height: 300px;
-  overflow-y: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
 }
 </style>
