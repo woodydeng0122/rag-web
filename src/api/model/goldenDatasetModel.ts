@@ -1,5 +1,12 @@
 /** 黄金数据集相关接口类型定义 */
 
+export interface EvaluationMetrics {
+  retrieved_chunk_ids: string[]
+  is_hit: boolean | null
+  hit_rank: number | null
+  evaluated_at: string | null
+}
+
 export interface GoldenDatasetItem {
   id: string
   project_id: string
@@ -7,10 +14,7 @@ export interface GoldenDatasetItem {
   ground_truth_chunks: string[]
   reference_answer: string
   status: string
-  retrieved_chunk_ids: string[]
-  is_hit: boolean | null
-  hit_rank: number | null
-  evaluated_at: string | null
+  evaluation: EvaluationMetrics | null
   created_at: string
   metadata: Record<string, any>
 }

@@ -121,10 +121,10 @@
 
               <!-- 评测状态 -->
               <template v-if="column.key === 'eval_status'">
-                <span v-if="record.is_hit === true" class="eval-hit">
-                  <check-circle-outlined /> 命中 <span v-if="record.hit_rank" class="eval-rank">(rank={{ record.hit_rank }})</span>
+                <span v-if="record.evaluation?.is_hit === true" class="eval-hit">
+                  <check-circle-outlined /> 命中 <span v-if="record.evaluation.hit_rank" class="eval-rank">(rank={{ record.evaluation.hit_rank }})</span>
                 </span>
-                <span v-else-if="record.is_hit === false" class="eval-miss">
+                <span v-else-if="record.evaluation?.is_hit === false" class="eval-miss">
                   <close-circle-outlined /> 未命中
                 </span>
                 <span v-else class="eval-none">-- 未评测</span>
