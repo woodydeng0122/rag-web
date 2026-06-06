@@ -1,10 +1,10 @@
-import { get, post, put, del } from './request'
+import { get, post, patch, del } from './request'
 import instance from './request'
-import type { GoldenDatasetItem, CreateGoldenDatasetParams, UpdateGoldenDatasetParams, EvaluateByProjectParams, EvaluateResult, ImportResult } from './model/goldenDatasetModel'
+import type { GoldenDatasetItem, CreateGoldenDatasetParams, UpdateGoldenDatasetParams, EvaluateByProjectParams, EvaluateResult, ImportResult, BatchStatusUpdateParams, BatchStatusUpdateResult } from './model/goldenDatasetModel'
 
 /** 获取项目下的黄金数据集列表 */
-export const getGoldenDatasetList = (projectId: string) =>
-  get<GoldenDatasetItem[]>({ url: `/projects/${projectId}/golden-datasets` })
+export const getGoldenDatasetList = (projectId: string, status?: string) =>
+  get<GoldenDatasetItem[]>({ url: `/projects/${projectId}/golden-datasets`, params: status ? { status } : undefined })
 
 /** 新增黄金记录 */
 export const createGoldenDataset = (projectId: string, params: CreateGoldenDatasetParams) =>
@@ -12,7 +12,7 @@ export const createGoldenDataset = (projectId: string, params: CreateGoldenDatas
 
 /** 更新黄金记录 */
 export const updateGoldenDataset = (projectId: string, id: string, params: UpdateGoldenDatasetParams) =>
-  put<GoldenDatasetItem>({ url: `/projects/${projectId}/golden-datasets/${id}`, data: params })
+  patch<GoldenDatasetItem>({ url: `/projects/${projectId}/golden-datasets/${id}`, data: params })
 
 /** 删除黄金记录 */
 export const deleteGoldenDataset = (projectId: string, id: string) =>
@@ -30,3 +30,11 @@ export const importGoldenDataset = (projectId: string, file: File): Promise<Impo
     headers: { 'Content-Type': 'multipart/form-data' },
   })
 }
+
+/** 批量审批通过 */
+export const batchApprove = (projectId: string, params: BatchStatusUpdateParams) =>
+  post<BatchStatusUpdateResult>({ url: `/projects/${projectId}/golden-datasets/batch-approve`, data: params })
+
+/** 批量拒绝 */
+export const batchReject = (projectId: string, params: BatchStatusUpdateParams) =>
+  post<BatchStatusUpdateResult>({ url: `/projects/${projectId}/golden-datasets/batch-reject`, data: params })

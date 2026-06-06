@@ -213,8 +213,40 @@
         </div>
       </div>
     </a-drawer>
-    <!-- Embedding 弹窗 -->
-    <EmbeddingViewer :project-id="projectId" :chunk-id="activeChunkId" v-model:visible="embeddingVisible" />
+    <!-- 分块详情弹窗 -->
+    <a-modal
+      :open="embeddingVisible"
+      title="分块详情"
+      :footer="null"
+      width="780px"
+      @cancel="embeddingVisible = false"
+    >
+      <a-tabs v-model:activeKey="chunkDetailTab">
+        <a-tab-pane key="embedding" tab="向量信息">
+          <EmbeddingViewer :project-id="projectId" :chunk-id="activeChunkId" :visible="embeddingVisible && chunkDetailTab === 'embedding'" @update:visible="val => { if (!val) embeddingVisible = false }" />
+        </a-tab-pane>
+        <a-tab-pane key="golden" tab="关联黄金记录">
+          <a-spin :spinning="goldenRecordsLoading">
+            <div v-if="chunkGoldenRecords.length" class="golden-records-list">
+              <div v-for="record in chunkGoldenRecords" :key="record.id" class="golden-record-item">
+                <div class="golden-record-header">
+                  <span class="golden-record-query">{{ record.query }}</span>
+                  <a-tag :color="record.status === 'approved' ? 'green' : record.status === 'pending_review' ? 'orange' : 'red'" size="small">
+                    {{ record.status === 'approved' ? '已通过' : record.status === 'pending_review' ? '待审核' : '已拒绝' }}
+                  </a-tag>
+                </div>
+                <div class="golden-record-meta">
+                  <a-tag v-if="record.metadata?.type" size="small">{{ record.metadata.type }}</a-tag>
+                  <span v-if="record.metadata?.quality_score" class="golden-record-score">质量: {{ record.metadata.quality_score }}</span>
+                </div>
+                <div v-if="record.reference_answer" class="golden-record-answer">{{ record.reference_answer }}</div>
+              </div>
+            </div>
+            <a-empty v-else-if="!goldenRecordsLoading" description="该分块暂无关联的黄金记录" />
+          </a-spin>
+        </a-tab-pane>
+      </a-tabs>
+    </a-modal>
     </template>
   </div>
 </template>
@@ -240,7 +272,9 @@ import {
   FileZipOutlined,
 } from '@ant-design/icons-vue'
 import { getDocumentList, uploadDocument, processDocument, deleteDocument, getChunkList, getSourceContent } from '@/api/document'
+import { getChunkGoldenRecords } from '@/api/chunk'
 import type { DocumentItem, ChunkItem, UploadDocumentParams } from '@/api/model/documentModel'
+import type { GoldenDatasetItem } from '@/api/model/goldenDatasetModel'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import EmbeddingViewer from '@/components/EmbeddingViewer.vue'
 
@@ -309,10 +343,24 @@ const sourceContent = ref('')
 // Embedding 弹窗
 const embeddingVisible = ref(false)
 const activeChunkId = ref('')
+const chunkDetailTab = ref('embedding')
+const chunkGoldenRecords = ref<GoldenDatasetItem[]>([])
+const goldenRecordsLoading = ref(false)
 
-function handleChunkClick(chunk: ChunkItem) {
+async function handleChunkClick(chunk: ChunkItem) {
   activeChunkId.value = chunk.id
+  chunkDetailTab.value = 'embedding'
   embeddingVisible.value = true
+  // 加载关联黄金记录
+  goldenRecordsLoading.value = true
+  try {
+    const records = await getChunkGoldenRecords(projectId.value, chunk.id)
+    chunkGoldenRecords.value = records || []
+  } catch {
+    chunkGoldenRecords.value = []
+  } finally {
+    goldenRecordsLoading.value = false
+  }
 }
 
 // 联动滚动
@@ -861,5 +909,46 @@ watch(() => pageStore.refreshTrigger, fetchList)
 }
 .chunk-item--odd {
   background: #f6ffed;
+}
+
+/* 黄金记录列表 */
+.golden-records-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+.golden-record-item {
+  padding: 10px 12px;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+.golden-record-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.golden-record-query {
+  font-weight: 500;
+  font-size: 13px;
+  color: #333;
+}
+.golden-record-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.golden-record-score {
+  font-size: 11px;
+  color: #8c8c8c;
+}
+.golden-record-answer {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.5;
+  max-height: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

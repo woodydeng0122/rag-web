@@ -6,7 +6,7 @@ export interface EmbedModelItem {
   dimension: number
   description: string
   status: string  // online / offline
-  metadata: Record<string, any>
+  config: Record<string, any>
   created_at: string
   updated_at: string
 }

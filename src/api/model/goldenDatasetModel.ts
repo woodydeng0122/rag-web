@@ -6,6 +6,7 @@ export interface GoldenDatasetItem {
   query: string
   ground_truth_chunks: string[]
   reference_answer: string
+  status: string
   retrieved_chunk_ids: string[]
   is_hit: boolean | null
   hit_rank: number | null
@@ -21,9 +22,10 @@ export interface CreateGoldenDatasetParams {
 }
 
 export interface UpdateGoldenDatasetParams {
-  query: string
-  ground_truth_chunks: string[]
+  query?: string
+  ground_truth_chunks?: string[]
   reference_answer?: string
+  status?: string
 }
 
 export interface EvaluateByProjectParams {
@@ -53,4 +55,12 @@ export interface ImportResult {
   success_count: number
   skipped_count: number
   skipped: SkippedRecord[]
+}
+
+export interface BatchStatusUpdateParams {
+  record_ids: string[]
+}
+
+export interface BatchStatusUpdateResult {
+  updated_count: number
 }

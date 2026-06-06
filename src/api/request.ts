@@ -50,6 +50,10 @@ export function put<T = any>(config: AxiosRequestConfig): Promise<T> {
   return instance.put<T>(config.url!, config.data, config)
 }
 
+export function patch<T = any>(config: AxiosRequestConfig): Promise<T> {
+  return instance.patch<T>(config.url!, config.data, config)
+}
+
 export function del<T = any>(config: AxiosRequestConfig): Promise<T> {
   return instance.delete<T>(config.url!, config)
 }

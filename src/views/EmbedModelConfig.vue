@@ -192,8 +192,8 @@ const metaColumns = [
 ]
 
 const metadataEntries = computed(() => {
-  if (!detailModel.value?.metadata) return []
-  return Object.entries(detailModel.value.metadata).map(([key, value]) => ({
+  if (!detailModel.value?.config) return []
+  return Object.entries(detailModel.value.config).map(([key, value]) => ({
     key,
     label: META_LABELS[key] || '--',
     value: typeof value === 'object' ? JSON.stringify(value) : String(value),

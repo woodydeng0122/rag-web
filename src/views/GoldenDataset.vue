@@ -12,6 +12,18 @@
       <!-- 工具栏 -->
       <div class="toolbar">
         <div class="toolbar-left">
+          <a-select
+            v-model:value="statusFilter"
+            placeholder="状态筛选"
+            class="status-filter"
+            allow-clear
+            @change="fetchList()"
+          >
+            <a-select-option value="">全部</a-select-option>
+            <a-select-option value="pending_review">待审核</a-select-option>
+            <a-select-option value="approved">已审批</a-select-option>
+            <a-select-option value="rejected">已拒绝</a-select-option>
+          </a-select>
           <a-input-search
             v-model:value="searchQuery"
             placeholder="搜索查询文本..."
@@ -21,6 +33,10 @@
           />
         </div>
         <div class="toolbar-right">
+          <a-button @click="openGenerateModal">
+            <template #icon><thunderbolt-outlined /></template>
+            LLM 生成
+          </a-button>
           <a-button
             type="primary"
             :disabled="selectedRowKeys.length === 0"
@@ -29,6 +45,21 @@
           >
             <template #icon><thunderbolt-outlined /></template>
             批量评测 ({{ selectedRowKeys.length }})
+          </a-button>
+          <a-button
+            :disabled="selectedRowKeys.length === 0"
+            @click="handleBatchApprove"
+          >
+            <template #icon><check-circle-outlined /></template>
+            批量审批 ({{ selectedRowKeys.length }})
+          </a-button>
+          <a-button
+            danger
+            :disabled="selectedRowKeys.length === 0"
+            @click="handleBatchReject"
+          >
+            <template #icon><close-circle-outlined /></template>
+            批量拒绝 ({{ selectedRowKeys.length }})
           </a-button>
           <a-button
             danger
@@ -60,8 +91,17 @@
             :pagination="paginationConfig"
             size="middle"
             :scroll="{ x: 900 }"
+            :row-class-name="(record: GoldenDatasetItem) => record.status === 'rejected' ? 'row-rejected' : ''"
           >
             <template #bodyCell="{ column, record }">
+              <!-- 状态 -->
+              <template v-if="column.key === 'status'">
+                <a-tag v-if="record.status === 'pending_review'" color="warning">待审核</a-tag>
+                <a-tag v-else-if="record.status === 'approved'" color="success">已通过</a-tag>
+                <a-tag v-else-if="record.status === 'rejected'" color="error">已拒绝</a-tag>
+                <a-tag v-else>{{ record.status }}</a-tag>
+              </template>
+
               <!-- 查询文本 -->
               <template v-if="column.key === 'query'">
                 <span class="query-cell" :title="record.query">{{ record.query }}</span>
@@ -98,6 +138,22 @@
               <!-- 操作 -->
               <template v-if="column.key === 'action'">
                 <div class="action-cell">
+                  <a-button
+                    v-if="record.status === 'pending_review'"
+                    size="small"
+                    type="primary"
+                    @click="handleApprove(record)"
+                  >
+                    <template #icon><check-circle-outlined /></template>
+                  </a-button>
+                  <a-button
+                    v-if="record.status === 'pending_review'"
+                    size="small"
+                    danger
+                    @click="handleReject(record)"
+                  >
+                    <template #icon><close-circle-outlined /></template>
+                  </a-button>
                   <a-button size="small" @click="handleEdit(record)">编辑</a-button>
                   <a-button size="small" type="primary" :loading="evaluatingIds.includes(record.id)" @click="handleEvaluate(record)">评测</a-button>
                   <a-popconfirm title="确定删除此记录？" @confirm="handleDelete(record.id)">
@@ -155,6 +211,37 @@
         </a-form-item>
         <a-form-item label="参考答案">
           <a-textarea v-model:value="formState.reference_answer" placeholder="请输入参考答案（选填）" :rows="3" :maxlength="2000" show-count />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <!-- LLM 生成弹窗 -->
+    <a-modal
+      v-model:open="generateModalVisible"
+      title="LLM 生成黄金数据集"
+      :confirm-loading="generateSubmitting"
+      :width="520"
+      ok-text="开始生成"
+      cancel-text="取消"
+      @ok="handleGenerate"
+      @cancel="generateModalVisible = false"
+    >
+      <a-form :label-col="{ span: 5 }" :wrapper-col="{ span: 18 }" style="padding-top: 16px">
+        <a-form-item label="选择文档" required>
+          <a-select
+            v-model:value="generateDocumentIds"
+            mode="multiple"
+            placeholder="请选择文档"
+            :loading="documentsLoading"
+            :options="documentOptions.map(d => ({ value: d.id, label: d.filename }))"
+            allow-clear
+          />
+        </a-form-item>
+        <a-form-item label="每分块生成数">
+          <a-input-number v-model:value="generatePerChunk" :min="1" :max="10" style="width: 100%" />
+        </a-form-item>
+        <a-form-item label="用户画像">
+          <a-input v-model:value="generatePersona" placeholder="请输入用户画像" />
         </a-form-item>
       </a-form>
     </a-modal>
@@ -230,6 +317,7 @@ import {
   ThunderboltOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
+  StopOutlined,
   UploadOutlined,
 } from '@ant-design/icons-vue'
 import {
@@ -239,7 +327,11 @@ import {
   deleteGoldenDataset,
   evaluateByProject,
   importGoldenDataset,
+  batchApprove,
+  batchReject,
 } from '@/api/goldenDataset'
+import { generateGolden } from '@/api/generationTask'
+import { getDocumentList } from '@/api/document'
 import { searchProjectChunks } from '@/api/chunk'
 import type { GoldenDatasetItem, CreateGoldenDatasetParams, ImportResult } from '@/api/model/goldenDatasetModel'
 import type { ChunkItem } from '@/api/model/documentModel'
@@ -253,12 +345,23 @@ const activeProjectStore = useActiveProjectStore()
 const loading = ref(false)
 const dataList = ref<GoldenDatasetItem[]>([])
 const searchQuery = ref('')
+const statusFilter = ref('')
 const evaluating = ref(false)
 const evaluatingIds = ref<string[]>([])
 
 const selectedRowKeys = ref<string[]>([])
 
+// 生成弹窗
+const generateModalVisible = ref(false)
+const generateSubmitting = ref(false)
+const generateDocumentIds = ref<string[]>([])
+const generatePerChunk = ref(2)
+const generatePersona = ref('开发者')
+const documentOptions = ref<{ id: string; filename: string }[]>([])
+const documentsLoading = ref(false)
+
 const columns = [
+  { title: '状态', dataIndex: 'status', key: 'status', width: 90 },
   { title: '查询文本', dataIndex: 'query', key: 'query', ellipsis: true, width: 220 },
   { title: '关联分块', dataIndex: 'chunk_count', key: 'chunk_count', width: 100 },
   { title: '参考答案', dataIndex: 'reference_answer', key: 'reference_answer', ellipsis: true, width: 180 },
@@ -322,7 +425,7 @@ async function fetchList() {
   if (!activeProjectStore.activeProjectId) return
   loading.value = true
   try {
-    const res = await getGoldenDatasetList(activeProjectStore.activeProjectId)
+    const res = await getGoldenDatasetList(activeProjectStore.activeProjectId, statusFilter.value || undefined)
     dataList.value = res || []
   } catch {
     message.error('获取黄金数据集失败')
@@ -443,6 +546,100 @@ function handleBatchDelete() {
       await fetchList()
     },
   })
+}
+
+// 单条审批
+async function handleApprove(record: GoldenDatasetItem) {
+  try {
+    await updateGoldenDataset(activeProjectStore.activeProjectId!, record.id, { status: 'approved' })
+    message.success('审批通过')
+    await fetchList()
+  } catch {
+    message.error('审批失败')
+  }
+}
+
+// 单条拒绝
+async function handleReject(record: GoldenDatasetItem) {
+  try {
+    await updateGoldenDataset(activeProjectStore.activeProjectId!, record.id, { status: 'rejected' })
+    message.success('已拒绝')
+    await fetchList()
+  } catch {
+    message.error('操作失败')
+  }
+}
+
+// 批量审批
+async function handleBatchApprove() {
+  const ids = [...selectedRowKeys.value]
+  if (ids.length === 0) return
+  try {
+    const res = await batchApprove(activeProjectStore.activeProjectId!, { record_ids: ids })
+    message.success(`批量审批完成：${res.updated_count} 条已通过`)
+    selectedRowKeys.value = []
+    await fetchList()
+  } catch {
+    message.error('批量审批失败')
+  }
+}
+
+// 批量拒绝
+async function handleBatchReject() {
+  const ids = [...selectedRowKeys.value]
+  if (ids.length === 0) return
+  try {
+    const res = await batchReject(activeProjectStore.activeProjectId!, { record_ids: ids })
+    message.success(`批量拒绝完成：${res.updated_count} 条已拒绝`)
+    selectedRowKeys.value = []
+    await fetchList()
+  } catch {
+    message.error('批量拒绝失败')
+  }
+}
+
+// LLM 生成弹窗
+async function openGenerateModal() {
+  generateModalVisible.value = true
+  generateDocumentIds.value = []
+  generatePerChunk.value = 2
+  generatePersona.value = '开发者'
+  if (documentOptions.value.length === 0) {
+    documentsLoading.value = true
+    try {
+      const res = await getDocumentList(activeProjectStore.activeProjectId!)
+      documentOptions.value = (res.documents || []).map(d => ({ id: d.id, filename: d.filename }))
+    } catch {
+      message.error('获取文档列表失败')
+    } finally {
+      documentsLoading.value = false
+    }
+  }
+}
+
+// LLM 生成提交
+async function handleGenerate() {
+  if (generateDocumentIds.value.length === 0) {
+    message.warning('请选择至少一个文档')
+    return
+  }
+  generateSubmitting.value = true
+  try {
+    const res = await generateGolden(activeProjectStore.activeProjectId!, {
+      document_ids: generateDocumentIds.value,
+      config: {
+        per_chunk: generatePerChunk.value,
+        user_persona: generatePersona.value,
+      },
+    })
+    message.success(`生成任务已提交，任务 ID: ${res.task_id}`)
+    generateModalVisible.value = false
+    await fetchList()
+  } catch {
+    message.error('生成任务提交失败')
+  } finally {
+    generateSubmitting.value = false
+  }
 }
 
 // 单条评测
@@ -621,6 +818,10 @@ watch(importModalVisible, (val) => {
 .toolbar-left {
   display: flex;
   align-items: center;
+  gap: 8px;
+}
+.status-filter {
+  width: 120px;
 }
 .toolbar-right {
   display: flex;
@@ -647,6 +848,9 @@ watch(importModalVisible, (val) => {
 }
 .table-card :deep(.ant-table-tbody > tr:hover > td) {
   background: #f5f7fa;
+}
+.table-card :deep(.ant-table-tbody > tr.row-rejected > td) {
+  opacity: 0.6;
 }
 
 .query-cell {
