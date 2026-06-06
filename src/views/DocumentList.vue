@@ -169,7 +169,7 @@
             <a-tag :color="statusColor(currentDoc.status)">{{ statusText(currentDoc.status) }}</a-tag>
           </a-descriptions-item>
           <a-descriptions-item label="分块数量">{{ currentDoc.chunk_count || 0 }}</a-descriptions-item>
-          <a-descriptions-item label="分块策略">{{ currentDoc.splitter_strategy || '--' }}</a-descriptions-item>
+          <a-descriptions-item label="分块策略">{{ currentDoc.splitter_config?.strategy || '--' }}</a-descriptions-item>
           <a-descriptions-item label="嵌入模型">{{ activeProjectStore.activeProject?.embed_model_name || '--' }}</a-descriptions-item>
           <a-descriptions-item label="上传时间">{{ formatFullTime(currentDoc.created_at) }}</a-descriptions-item>
           <a-descriptions-item label="更新时间">{{ formatFullTime(currentDoc.updated_at) }}</a-descriptions-item>

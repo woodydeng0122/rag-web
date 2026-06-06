@@ -1,19 +1,23 @@
 /** 文档相关接口类型定义 */
 
+export interface SplitterConfig {
+  strategy: string
+  chunk_size: number
+  chunk_overlap: number
+  min_chars: number
+  max_chars: number
+}
+
 export interface DocumentItem {
   id: string
   project_id: string
   filename: string
-  file_path: string
+  storage_key: string
   file_size: number
   file_type: string
   checksum: string
   status: string
-  splitter_strategy: string
-  chunk_size: number
-  chunk_overlap: number
-  splitter_min_chars: number
-  splitter_max_chars: number
+  splitter_config: SplitterConfig
   chunk_count: number
   error_message: string
   created_at: string
