@@ -20,7 +20,7 @@
         </a-select>
       </div>
       <div class="toolbar-right">
-        <a-button @click="handleBatchProcess" :disabled="selectedRowKeys.length === 0">
+        <a-button @click="handleBatchProcess" :disabled="selectedRowKeys.length === 0 || batchProcessing" :loading="batchProcessing">
           <template #icon><play-circle-outlined /></template>
           批量处理 ({{ selectedRowKeys.length }})
         </a-button>
@@ -98,9 +98,6 @@
       </a-spin>
     </a-card>
 
-    <!-- 空状态 -->
-    <a-empty v-if="!loading && filteredDocuments.length === 0" description="暂无文档，点击右上角上传添加" />
-
     <!-- 上传弹窗 -->
     <a-modal
       v-model:open="uploadVisible"
@@ -117,13 +114,13 @@
             :before-upload="beforeUpload"
             :max-count="1"
             :show-upload-list="false"
-            accept=".pdf,.txt,.md,.doc,.docx,.csv,.json,.html"
+            accept=".pdf,.txt,.md,.zip"
           >
             <p class="upload-icon">
               <inbox-outlined />
             </p>
             <p class="upload-text">点击或拖拽文件到此区域</p>
-            <p class="upload-hint">支持 PDF、TXT、MD、DOC、CSV 等格式</p>
+            <p class="upload-hint">支持 PDF、TXT、MD、ZIP 格式</p>
           </a-upload-dragger>
           <p v-if="uploadFileName" class="selected-file">已选择: {{ uploadFileName }}</p>
         </a-form-item>
@@ -240,6 +237,7 @@ import {
   FileMarkdownOutlined,
   FileExcelOutlined,
   FileOutlined,
+  FileZipOutlined,
 } from '@ant-design/icons-vue'
 import { getDocumentList, uploadDocument, processDocument, deleteDocument, getChunkList, getSourceContent } from '@/api/document'
 import type { DocumentItem, ChunkItem, UploadDocumentParams } from '@/api/model/documentModel'
@@ -270,6 +268,7 @@ const columns = [
 
 const selectedRowKeys = ref<string[]>([])
 const processingIds = ref<string[]>([])
+const batchProcessing = ref(false)
 
 const filteredDocuments = computed(() => {
   if (!filterStatus.value) return documents.value
@@ -364,8 +363,7 @@ function fileIcon(fileType?: string) {
   const t = (fileType || '').toLowerCase()
   if (t === 'pdf') return FilePdfOutlined
   if (['txt', 'md'].includes(t)) return FileTextOutlined
-  if (['doc', 'docx'].includes(t)) return FileMarkdownOutlined
-  if (['csv', 'xls', 'xlsx'].includes(t)) return FileExcelOutlined
+  if (t === 'zip') return FileZipOutlined
   return FileOutlined
 }
 
@@ -373,8 +371,7 @@ function fileTypeColor(fileType?: string) {
   const t = (fileType || '').toLowerCase()
   if (t === 'pdf') return 'red'
   if (['txt', 'md'].includes(t)) return 'blue'
-  if (['doc', 'docx'].includes(t)) return 'cyan'
-  if (['csv', 'xls', 'xlsx'].includes(t)) return 'green'
+  if (t === 'zip') return 'orange'
   return 'default'
 }
 
@@ -463,6 +460,10 @@ function handleViewDetail(record: DocumentItem) {
 }
 
 async function handleProcess(record: DocumentItem) {
+  if (record.status === 'ready') {
+    message.info('文档已处理，无需重复操作')
+    return
+  }
   processingIds.value.push(record.id)
   try {
     await processDocument(projectId.value, record.id)
@@ -487,15 +488,52 @@ function handleDelete(id: string) {
 }
 
 function handleBatchProcess() {
+  const readyIds = selectedRowKeys.value.filter(id => {
+    const doc = documents.value.find(d => d.id === id)
+    return doc?.status === 'ready'
+  })
+  const processableIds = selectedRowKeys.value.filter(id => !readyIds.includes(id))
+
+  if (processableIds.length === 0) {
+    message.info('选中的文档均已处理')
+    return
+  }
+
+  const skipHint = readyIds.length > 0 ? `（跳过 ${readyIds.length} 个已处理文档）` : ''
   AModal.confirm({
     title: '批量处理',
-    content: `确定要处理选中的 ${selectedRowKeys.value.length} 个文档吗？`,
+    content: `确定要处理选中的 ${processableIds.length} 个文档吗？${skipHint}`,
     async onOk() {
-      const promises = selectedRowKeys.value.map(id => processDocument(projectId.value, id))
-      await Promise.all(promises)
-      message.success('批量处理完成')
-      selectedRowKeys.value = []
+      batchProcessing.value = true
+      let successCount = 0
+      let failCount = 0
+      const remaining = [...processableIds]
+
+      while (remaining.length > 0) {
+        const batch = remaining.splice(0, 2)
+        const results = await Promise.allSettled(
+          batch.map(id => processDocument(projectId.value, id))
+        )
+        for (let i = 0; i < results.length; i++) {
+          if (results[i].status === 'fulfilled') {
+            successCount++
+            selectedRowKeys.value = selectedRowKeys.value.filter(k => k !== batch[i])
+          } else {
+            failCount++
+          }
+        }
+      }
+
+      if (failCount > 0) {
+        message.warning(`批量处理完成：${successCount} 个成功，${failCount} 个失败`)
+      } else {
+        message.success(`批量处理完成：${successCount} 个成功`)
+      }
+      batchProcessing.value = false
       await fetchList()
+    },
+    onCancel() {
+      // 用户取消，不做任何操作
     },
   })
 }
@@ -508,7 +546,14 @@ function handleUploadClick() {
   uploadVisible.value = true
 }
 
+const ALLOWED_EXTENSIONS = ['.pdf', '.txt', '.md', '.zip']
+
 function beforeUpload(file: File) {
+  const ext = '.' + file.name.split('.').pop()?.toLowerCase() || ''
+  if (!ALLOWED_EXTENSIONS.includes(ext)) {
+    message.error(`不支持的文件类型: ${ext}，仅支持 ${ALLOWED_EXTENSIONS.join(', ')}`)
+    return false
+  }
   uploadFile.value = file
   uploadFileName.value = file.name
   return false

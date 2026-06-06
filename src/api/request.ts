@@ -3,7 +3,7 @@ import type { AxiosRequestConfig, AxiosResponse } from 'axios'
 import { message } from 'ant-design-vue'
 
 const instance = axios.create({
-  baseURL: '/api',
+  baseURL: 'http://localhost:8000/api',
   timeout: 15000,
 })
 

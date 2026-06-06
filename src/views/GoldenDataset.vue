@@ -109,8 +109,6 @@
           </a-table>
         </a-spin>
       </a-card>
-
-      <a-empty v-if="!loading && filteredList.length === 0" description="暂无黄金记录，点击右上角新增或上传" />
     </template>
 
     <!-- 新增/编辑弹窗 -->
@@ -412,20 +410,37 @@ async function handleDelete(id: string) {
 
 // 批量删除
 function handleBatchDelete() {
+  const ids = [...selectedRowKeys.value]
   AModal.confirm({
     title: '批量删除',
-    content: `确定要删除选中的 ${selectedRowKeys.value.length} 条记录吗？此操作不可恢复。`,
+    content: `确定要删除选中的 ${ids.length} 条记录吗？此操作不可恢复。`,
     okType: 'danger',
     async onOk() {
-      try {
-        const promises = selectedRowKeys.value.map(id => deleteGoldenDataset(activeProjectStore.activeProjectId!, id))
-        await Promise.all(promises)
-        message.success('批量删除完成')
-        selectedRowKeys.value = []
-        await fetchList()
-      } catch {
-        message.error('批量删除部分失败')
+      let successCount = 0
+      let failCount = 0
+      const remaining = [...ids]
+
+      while (remaining.length > 0) {
+        const batch = remaining.splice(0, 2)
+        const results = await Promise.allSettled(
+          batch.map(id => deleteGoldenDataset(activeProjectStore.activeProjectId!, id))
+        )
+        for (let i = 0; i < results.length; i++) {
+          if (results[i].status === 'fulfilled') {
+            successCount++
+            selectedRowKeys.value = selectedRowKeys.value.filter(k => k !== batch[i])
+          } else {
+            failCount++
+          }
+        }
       }
+
+      if (failCount > 0) {
+        message.warning(`批量删除完成：${successCount} 条成功，${failCount} 条失败`)
+      } else {
+        message.success(`批量删除完成：${successCount} 条成功`)
+      }
+      await fetchList()
     },
   })
 }
@@ -446,23 +461,36 @@ async function handleEvaluate(record: GoldenDatasetItem) {
 
 // 批量评测
 function handleBatchEvaluate() {
+  const ids = [...selectedRowKeys.value]
   AModal.confirm({
     title: '批量评测',
-    content: `确定要对选中的 ${selectedRowKeys.value.length} 条记录进行评测吗？`,
+    content: `确定要对选中的 ${ids.length} 条记录进行评测吗？`,
     async onOk() {
       evaluating.value = true
-      try {
-        await evaluateByProject(activeProjectStore.activeProjectId!, {
-          golden_ids: selectedRowKeys.value,
-        })
-        message.success('评测完成，项目评测数据已更新')
-        selectedRowKeys.value = []
-        await fetchList()
-      } catch {
-        message.error('批量评测失败')
-      } finally {
-        evaluating.value = false
+      let successCount = 0
+      let failCount = 0
+      const remaining = [...ids]
+
+      while (remaining.length > 0) {
+        const batch = remaining.splice(0, 2)
+        try {
+          await evaluateByProject(activeProjectStore.activeProjectId!, {
+            golden_ids: batch,
+          })
+          successCount += batch.length
+          selectedRowKeys.value = selectedRowKeys.value.filter(k => !batch.includes(k))
+        } catch {
+          failCount += batch.length
+        }
       }
+
+      if (failCount > 0) {
+        message.warning(`批量评测完成：${successCount} 条成功，${failCount} 条失败`)
+      } else {
+        message.success(`批量评测完成：${successCount} 条成功`)
+      }
+      evaluating.value = false
+      await fetchList()
     },
   })
 }

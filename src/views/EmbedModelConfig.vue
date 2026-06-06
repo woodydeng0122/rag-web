@@ -123,7 +123,6 @@
           size="small"
           bordered
         />
-        <a-empty v-else description="暂无配置信息，请刷新状态" />
       </template>
     </a-drawer>
   </div>
