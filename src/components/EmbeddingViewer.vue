@@ -1,48 +1,40 @@
 <template>
-  <a-modal
-    :open="visible"
-    title="Embedding 向量详情"
-    :footer="null"
-    width="720px"
-    @cancel="handleClose"
-  >
-    <a-spin :spinning="loading">
-      <div v-if="vector.length" class="embedding-content">
-        <div class="embedding-toolbar">
-          <span class="embedding-label">Embedding</span>
-          <span class="embedding-dim">{{ dimension }}d</span>
-          <a-segmented v-model:value="viewMode" :options="viewOptions" size="small" />
-        </div>
+  <a-spin :spinning="loading">
+    <div v-if="vector.length" class="embedding-content">
+      <div class="embedding-toolbar">
+        <span class="embedding-label">Embedding</span>
+        <span class="embedding-dim">{{ dimension }}d</span>
+        <a-segmented v-model:value="viewMode" :options="viewOptions" size="small" />
+      </div>
 
-        <!-- 热力图 -->
-        <div v-if="viewMode === 'heatmap'" class="heatmap-wrap">
-          <canvas ref="canvasRef" class="heatmap-canvas" />
-          <div class="heatmap-legend">
-            <span class="legend-min">{{ stats.min.toFixed(2) }}</span>
-            <div class="legend-bar" />
-            <span class="legend-max">{{ stats.max.toFixed(2) }}</span>
-          </div>
-        </div>
-
-        <!-- 原始数据 -->
-        <div v-else class="raw-data">
-          <div class="raw-stats">
-            <span>min: <b>{{ stats.min.toFixed(4) }}</b></span>
-            <span>max: <b>{{ stats.max.toFixed(4) }}</b></span>
-            <span>mean: <b>{{ stats.mean.toFixed(4) }}</b></span>
-            <span>std: <b>{{ stats.std.toFixed(4) }}</b></span>
-          </div>
-          <div class="raw-grid">
-            <span v-for="(v, i) in vector" :key="i" class="raw-cell" :style="cellStyle(v)">
-              {{ v.toFixed(3) }}
-            </span>
-          </div>
+      <!-- 热力图 -->
+      <div v-if="viewMode === 'heatmap'" class="heatmap-wrap">
+        <canvas ref="canvasRef" class="heatmap-canvas" />
+        <div class="heatmap-legend">
+          <span class="legend-min">{{ stats.min.toFixed(2) }}</span>
+          <div class="legend-bar" />
+          <span class="legend-max">{{ stats.max.toFixed(2) }}</span>
         </div>
       </div>
 
-      <a-empty v-else-if="!loading" description="暂无向量数据" />
-    </a-spin>
-  </a-modal>
+      <!-- 原始数据 -->
+      <div v-else class="raw-data">
+        <div class="raw-stats">
+          <span>min: <b>{{ stats.min.toFixed(4) }}</b></span>
+          <span>max: <b>{{ stats.max.toFixed(4) }}</b></span>
+          <span>mean: <b>{{ stats.mean.toFixed(4) }}</b></span>
+          <span>std: <b>{{ stats.std.toFixed(4) }}</b></span>
+        </div>
+        <div class="raw-grid">
+          <span v-for="(v, i) in vector" :key="i" class="raw-cell" :style="cellStyle(v)">
+            {{ v.toFixed(3) }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <a-empty v-else-if="!loading" description="暂无向量数据" />
+  </a-spin>
 </template>
 
 <script setup lang="ts">
@@ -53,10 +45,6 @@ const props = defineProps<{
   projectId: string
   chunkId: string
   visible: boolean
-}>()
-
-const emit = defineEmits<{
-  (e: 'update:visible', val: boolean): void
 }>()
 
 const loading = ref(false)
@@ -89,10 +77,6 @@ function cellStyle(v: number) {
   return {
     backgroundColor: `rgb(${r}, 240, ${b})`,
   }
-}
-
-function handleClose() {
-  emit('update:visible', false)
 }
 
 async function fetchEmbedding() {
@@ -139,14 +123,12 @@ function drawHeatmap() {
   }
 }
 
-// 弹窗打开时才加载数据
 watch(() => props.visible, async (val) => {
   if (val && props.chunkId) {
     await fetchEmbedding()
   }
 })
 
-// 切换到热力图时重绘
 watch(viewMode, async (mode) => {
   if (mode === 'heatmap' && vector.value.length) {
     await nextTick()
@@ -182,7 +164,6 @@ watch(viewMode, async (mode) => {
   border-radius: 3px;
 }
 
-/* 热力图 */
 .heatmap-wrap {
   position: relative;
 }
@@ -217,7 +198,6 @@ watch(viewMode, async (mode) => {
   flex-shrink: 0;
 }
 
-/* 原始数据 */
 .raw-data {
   max-height: 400px;
   overflow-y: auto;

@@ -170,6 +170,11 @@ const menuItems = computed<MenuProps['items']>(() => [
     label: '仪表盘',
   },
   {
+    key: '/embed-models',
+    icon: () => h(RobotOutlined),
+    label: '模型配置',
+  },
+  {
     key: '/projects',
     icon: () => h(ProjectOutlined),
     label: '项目管理',
@@ -183,11 +188,6 @@ const menuItems = computed<MenuProps['items']>(() => [
     key: '/golden-dataset',
     icon: () => h(TrophyOutlined),
     label: '黄金数据集',
-  },
-  {
-    key: '/embed-models',
-    icon: () => h(RobotOutlined),
-    label: '模型配置',
   },
 ])
 
