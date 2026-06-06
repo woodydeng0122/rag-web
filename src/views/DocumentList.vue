@@ -127,14 +127,32 @@
           </a-upload-dragger>
           <p v-if="uploadFileName" class="selected-file">已选择: {{ uploadFileName }}</p>
         </a-form-item>
-        <a-form-item label="分块大小">
-          <a-input-number v-model:value="uploadForm.chunk_size" :min="100" :max="8000" :step="100" />
-          <span class="form-hint">单个分块最大字符数</span>
+        <a-form-item label="分块策略">
+          <a-select v-model:value="uploadForm.splitter_strategy">
+            <a-select-option value="section_heading">按章节标题</a-select-option>
+            <a-select-option value="fixed">固定大小</a-select-option>
+          </a-select>
         </a-form-item>
-        <a-form-item label="重叠大小">
-          <a-input-number v-model:value="uploadForm.chunk_overlap" :min="0" :max="500" :step="10" />
-          <span class="form-hint">相邻分块重叠字符数</span>
-        </a-form-item>
+        <template v-if="uploadForm.splitter_strategy === 'fixed'">
+          <a-form-item label="分块大小">
+            <a-input-number v-model:value="uploadForm.chunk_size" :min="100" :max="8000" :step="100" />
+            <span class="form-hint">单个分块最大字符数</span>
+          </a-form-item>
+          <a-form-item label="重叠大小">
+            <a-input-number v-model:value="uploadForm.chunk_overlap" :min="0" :max="500" :step="10" />
+            <span class="form-hint">相邻分块重叠字符数</span>
+          </a-form-item>
+        </template>
+        <template v-else>
+          <a-form-item label="最小字符数">
+            <a-input-number v-model:value="uploadForm.splitter_min_chars" :min="50" :max="4000" :step="50" />
+            <span class="form-hint">分块最小字符数</span>
+          </a-form-item>
+          <a-form-item label="最大字符数">
+            <a-input-number v-model:value="uploadForm.splitter_max_chars" :min="200" :max="8000" :step="100" />
+            <span class="form-hint">分块最大字符数</span>
+          </a-form-item>
+        </template>
       </a-form>
     </a-modal>
 
@@ -340,7 +358,7 @@ const uploadVisible = ref(false)
 const uploadLoading = ref(false)
 const uploadFile = ref<File | null>(null)
 const uploadFileName = ref('')
-const uploadForm = ref({ chunk_size: 500, chunk_overlap: 50 })
+const uploadForm = ref({ splitter_strategy: 'section_heading', chunk_size: 500, chunk_overlap: 50, splitter_min_chars: 200, splitter_max_chars: 2000 })
 
 function fileIcon(fileType?: string) {
   const t = (fileType || '').toLowerCase()
@@ -486,7 +504,7 @@ function handleBatchProcess() {
 function handleUploadClick() {
   uploadFile.value = null
   uploadFileName.value = ''
-  uploadForm.value = { chunk_size: 500, chunk_overlap: 50 }
+  uploadForm.value = { splitter_strategy: 'section_heading', chunk_size: 500, chunk_overlap: 50, splitter_min_chars: 200, splitter_max_chars: 2000 }
   uploadVisible.value = true
 }
 
@@ -512,8 +530,11 @@ async function handleUploadSubmit() {
     const params: UploadDocumentParams = {
       project_id: projectId.value,
       file: uploadFile.value,
+      splitter_strategy: uploadForm.value.splitter_strategy,
       chunk_size: uploadForm.value.chunk_size,
       chunk_overlap: uploadForm.value.chunk_overlap,
+      splitter_min_chars: uploadForm.value.splitter_min_chars,
+      splitter_max_chars: uploadForm.value.splitter_max_chars,
     }
     await uploadDocument(params)
     message.success('上传成功')
