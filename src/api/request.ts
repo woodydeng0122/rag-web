@@ -7,6 +7,8 @@ const instance = axios.create({
   timeout: 15000,
 })
 
+export default instance
+
 // 请求拦截
 instance.interceptors.request.use((config) => {
   return config
@@ -29,7 +31,8 @@ instance.interceptors.response.use(
     return result
   },
   (error) => {
-    const msg = error.response?.data?.detail || error.message || '请求失败'
+    const data = error.response?.data
+    const msg = data?.message || data?.detail || error.message || '请求失败'
     message.error(msg)
     return Promise.reject(error)
   },

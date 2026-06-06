@@ -180,7 +180,7 @@
             <div v-if="sourceContent" class="source-content" ref="sourceRef" @scroll="onSourceScroll">
               <MarkdownRenderer :content="sourceContent" :file-type="chunkDocFileType" full-height />
             </div>
-            <a-empty v-else-if="!sourceLoading" description="PDF 文件不支持源文件预览" />
+            <a-empty v-else-if="!sourceLoading" :description="sourceError || '加载源文件失败'" />
           </a-spin>
         </div>
 
@@ -285,6 +285,7 @@ const chunkDocName = ref('')
 const chunkDocFileType = ref('')
 
 // Source
+const sourceError = ref('')
 const sourceLoading = ref(false)
 const sourceContent = ref('')
 
@@ -542,11 +543,19 @@ async function fetchChunks(documentId: string) {
 async function fetchSource(documentId: string) {
   sourceLoading.value = true
   sourceContent.value = ''
+  sourceError.value = ''
   try {
     const res = await getSourceContent(projectId.value, documentId)
     sourceContent.value = res.content || ''
-  } catch {
-    // PDF 等不支持预览的文件类型，静默处理
+  } catch (err: any) {
+    const detail = err?.response?.data?.message || err?.response?.data?.detail || err?.message || ''
+    if (detail.includes('PDF')) {
+      sourceError.value = 'PDF 文件不支持源文件预览'
+    } else if (detail.includes('源文件不存在')) {
+      sourceError.value = '源文件不存在，可能已被清理'
+    } else {
+      sourceError.value = detail || '加载源文件失败'
+    }
   } finally {
     sourceLoading.value = false
   }

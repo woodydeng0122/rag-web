@@ -94,7 +94,7 @@
     <a-drawer
       v-model:open="detailVisible"
       :title="detailModel?.name"
-      width="560"
+      width="50%"
     >
       <template v-if="detailModel">
         <a-descriptions :column="1" bordered size="small" style="margin-bottom: 24px">
@@ -130,14 +130,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import { ReloadOutlined, PlusOutlined } from '@ant-design/icons-vue'
 import { createEmbedModel, updateEmbedModel, deleteEmbedModel } from '@/api/embedModel'
 import { useEmbedModelStore } from '@/store/embedModel'
+import { usePageStore } from '@/store/page'
 import type { EmbedModelItem } from '@/api/model/embedModelModel'
 
 const store = useEmbedModelStore()
+const pageStore = usePageStore()
 
 const submitLoading = ref(false)
 
@@ -204,7 +206,7 @@ function handleCreate() {
   editingId.value = ''
   formState.value = { name: '', description: '', dimension: undefined }
   modalVisible.value = true
-  embedModelStore.fetchModels()
+  store.fetchModels(true)
 }
 
 function handleEdit(record: EmbedModelItem) {
@@ -258,6 +260,8 @@ async function handleDelete(record: EmbedModelItem) {
 }
 
 onMounted(() => store.fetchModels())
+
+watch(() => pageStore.refreshTrigger, () => store.fetchModels(true))
 </script>
 
 <style scoped>
