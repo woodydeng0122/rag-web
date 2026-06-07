@@ -8,298 +8,353 @@
     </a-result>
 
     <!-- 已选择项目 -->
-    <template v-else>
-      <!-- 工具栏 -->
-      <div class="toolbar">
-        <div class="toolbar-left">
-          <a-select
-            v-model:value="statusFilter"
-            placeholder="状态筛选"
-            class="status-filter"
-            allow-clear
-            @change="fetchList()"
-          >
-            <a-select-option value="">全部</a-select-option>
-            <a-select-option value="pending_review">待审核</a-select-option>
-            <a-select-option value="approved">已审批</a-select-option>
-            <a-select-option value="rejected">已拒绝</a-select-option>
-          </a-select>
-          <a-input-search
-            v-model:value="searchQuery"
-            placeholder="搜索查询文本..."
-            class="search-input"
-            allow-clear
-            @search="onSearch"
-          />
-        </div>
-        <div class="toolbar-right">
-          <a-button @click="openGenerateModal">
-            <template #icon><thunderbolt-outlined /></template>
-            LLM 生成
-          </a-button>
-          <a-button
-            type="primary"
-            :disabled="selectedRowKeys.length === 0"
-            :loading="evaluating"
-            @click="handleBatchEvaluate"
-          >
-            <template #icon><thunderbolt-outlined /></template>
-            批量评测 ({{ selectedRowKeys.length }})
-          </a-button>
-          <a-button
-            :disabled="selectedRowKeys.length === 0"
-            @click="handleBatchApprove"
-          >
-            <template #icon><check-circle-outlined /></template>
-            批量审批 ({{ selectedRowKeys.length }})
-          </a-button>
-          <a-button
-            danger
-            :disabled="selectedRowKeys.length === 0"
-            @click="handleBatchReject"
-          >
-            <template #icon><close-circle-outlined /></template>
-            批量拒绝 ({{ selectedRowKeys.length }})
-          </a-button>
-          <a-button
-            danger
-            :disabled="selectedRowKeys.length === 0"
-            @click="handleBatchDelete"
-          >
-            <template #icon><delete-outlined /></template>
-            批量删除 ({{ selectedRowKeys.length }})
-          </a-button>
-          <a-button @click="importModalVisible = true">
-            <template #icon><upload-outlined /></template>
-            上传
-          </a-button>
-          <a-button type="primary" @click="handleCreate">
-            <template #icon><plus-outlined /></template>
-            新增
-          </a-button>
-        </div>
-      </div>
+<template v-else>
+  <!-- 工具栏 -->
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <a-select
+        v-model:value="statusFilter"
+        placeholder="状态筛选"
+        class="status-filter"
+        allow-clear
+        @change="fetchList()"
+      >
+        <a-select-option value="">全部</a-select-option>
+        <a-select-option value="pending_review">待审核</a-select-option>
+        <a-select-option value="approved">已审批</a-select-option>
+        <a-select-option value="rejected">已拒绝</a-select-option>
+      </a-select>
+      <a-input-search
+        v-model:value="searchQuery"
+        placeholder="搜索查询文本..."
+        class="search-input"
+        allow-clear
+        @search="onSearch"
+      />
+    </div>
+    <div class="toolbar-right">
+      <a-button @click="openGenerateModal">
+        <template #icon><thunderbolt-outlined /></template>
+        LLM 生成
+      </a-button>
+      <a-button
+        type="primary"
+        :disabled="selectedRowKeys.length === 0"
+        :loading="evaluating"
+        @click="handleBatchEvaluate"
+      >
+        <template #icon><thunderbolt-outlined /></template>
+        批量评测 ({{ selectedRowKeys.length }})
+      </a-button>
+      <a-button
+        :disabled="selectedRowKeys.length === 0"
+        @click="handleBatchApprove"
+      >
+        <template #icon><check-circle-outlined /></template>
+        批量审批 ({{ selectedRowKeys.length }})
+      </a-button>
+      <a-button
+        danger
+        :disabled="selectedRowKeys.length === 0"
+        @click="handleBatchReject"
+      >
+        <template #icon><close-circle-outlined /></template>
+        批量拒绝 ({{ selectedRowKeys.length }})
+      </a-button>
+      <a-button
+        danger
+        :disabled="selectedRowKeys.length === 0"
+        @click="handleBatchDelete"
+      >
+        <template #icon><delete-outlined /></template>
+        批量删除 ({{ selectedRowKeys.length }})
+      </a-button>
+      <a-button @click="importModalVisible = true">
+        <template #icon><upload-outlined /></template>
+        上传
+      </a-button>
+      <a-button type="primary" @click="handleCreate">
+        <template #icon><plus-outlined /></template>
+        新增
+      </a-button>
+    </div>
+  </div>
 
-      <!-- 数据表格 -->
-      <a-card :bordered="false" class="table-card">
-        <a-spin :spinning="loading">
-          <a-table
-            :columns="columns"
-            :data-source="filteredList"
-            row-key="id"
-            :row-selection="{ selectedRowKeys, onChange: onSelectChange }"
-            :pagination="paginationConfig"
-            size="middle"
-            :scroll="{ x: 900 }"
-            :row-class-name="(record: GoldenDatasetItem) => record.status === 'rejected' ? 'row-rejected' : ''"
-          >
-            <template #bodyCell="{ column, record }">
-              <!-- 状态 -->
-              <template v-if="column.key === 'status'">
-                <a-tag v-if="record.status === 'pending_review'" color="warning">待审核</a-tag>
-                <a-tag v-else-if="record.status === 'approved'" color="success">已通过</a-tag>
-                <a-tag v-else-if="record.status === 'rejected'" color="error">已拒绝</a-tag>
-                <a-tag v-else>{{ record.status }}</a-tag>
-              </template>
+  <!-- 数据表格 -->
+  <a-card :bordered="false" class="table-card">
+    <a-spin :spinning="loading">
+      <a-table
+        :columns="columns"
+        :data-source="filteredList"
+        row-key="id"
+        :row-selection="{ selectedRowKeys, onChange: onSelectChange }"
+        :pagination="paginationConfig"
+        size="middle"
+        :scroll="{ x: 900 }"
+        :row-class-name="(record: GoldenDatasetItem) => record.status === 'rejected' ? 'row-rejected' : ''"
+      >
+        <template #bodyCell="{ column, record }">
+          <!-- 状态 -->
+          <template v-if="column.key === 'status'">
+            <a-tag v-if="record.status === 'pending_review'" color="warning">待审核</a-tag>
+            <a-tag v-else-if="record.status === 'approved'" color="success">已通过</a-tag>
+            <a-tag v-else-if="record.status === 'rejected'" color="error">已拒绝</a-tag>
+            <a-tag v-else>{{ record.status }}</a-tag>
+          </template>
 
-              <!-- 查询文本 -->
-              <template v-if="column.key === 'query'">
-                <span class="query-cell" :title="record.query">{{ record.query }}</span>
-              </template>
+          <!-- 查询文本 -->
+          <template v-if="column.key === 'query'">
+            <span class="query-cell" :title="record.query">{{ record.query }}</span>
+          </template>
 
-              <!-- 关联分块 -->
-              <template v-if="column.key === 'chunk_count'">
-                <a-tag color="blue">{{ record.ground_truth_chunks?.length || 0 }} 个分块</a-tag>
-              </template>
+          <!-- 关联分块 -->
+          <template v-if="column.key === 'chunk_count'">
+            <a-tag color="blue">{{ record.ground_truth_chunks?.length || 0 }} 个分块</a-tag>
+          </template>
 
-              <!-- 参考答案 -->
-              <template v-if="column.key === 'reference_answer'">
-                <span class="answer-cell" :title="record.reference_answer">
-                  {{ record.reference_answer ? (record.reference_answer.length > 40 ? record.reference_answer.slice(0, 40) + '...' : record.reference_answer) : '--' }}
-                </span>
-              </template>
+          <!-- 参考答案 -->
+          <template v-if="column.key === 'reference_answer'">
+            <span class="answer-cell" :title="record.reference_answer">
+              {{ record.reference_answer ? (record.reference_answer.length > 40 ? record.reference_answer.slice(0, 40) + '...' : record.reference_answer) : '--' }}
+            </span>
+          </template>
 
-              <!-- 评测状态 -->
-              <template v-if="column.key === 'eval_status'">
-                <span v-if="record.evaluation?.is_hit === true" class="eval-hit">
-                  <check-circle-outlined /> 命中 <span v-if="record.evaluation.hit_rank" class="eval-rank">(rank={{ record.evaluation.hit_rank }})</span>
-                </span>
-                <span v-else-if="record.evaluation?.is_hit === false" class="eval-miss">
-                  <close-circle-outlined /> 未命中
-                </span>
-                <span v-else class="eval-none">-- 未评测</span>
-              </template>
+          <!-- 评测状态 -->
+          <template v-if="column.key === 'eval_status'">
+            <span v-if="record.evaluation?.is_hit === true" class="eval-hit">
+              <check-circle-outlined /> 命中 <span v-if="record.evaluation.hit_rank" class="eval-rank">(rank={{ record.evaluation.hit_rank }})</span>
+            </span>
+            <span v-else-if="record.evaluation?.is_hit === false" class="eval-miss">
+              <close-circle-outlined /> 未命中
+            </span>
+            <span v-else class="eval-none">-- 未评测</span>
+          </template>
 
-              <!-- 创建时间 -->
-              <template v-if="column.key === 'created_at'">
-                <span class="time-cell">{{ formatTime(record.created_at) }}</span>
-              </template>
+          <!-- 创建时间 -->
+          <template v-if="column.key === 'created_at'">
+            <span class="time-cell">{{ formatTime(record.created_at) }}</span>
+          </template>
 
-              <!-- 操作 -->
-              <template v-if="column.key === 'action'">
-                <div class="action-cell">
-                  <a-button
-                    v-if="record.status === 'pending_review'"
-                    size="small"
-                    type="primary"
-                    @click="handleApprove(record)"
-                  >
-                    <template #icon><check-circle-outlined /></template>
-                  </a-button>
-                  <a-button
-                    v-if="record.status === 'pending_review'"
-                    size="small"
-                    danger
-                    @click="handleReject(record)"
-                  >
-                    <template #icon><close-circle-outlined /></template>
-                  </a-button>
-                  <a-button size="small" @click="handleEdit(record)">编辑</a-button>
-                  <a-button size="small" type="primary" :loading="evaluatingIds.includes(record.id)" @click="handleEvaluate(record)">评测</a-button>
-                  <a-popconfirm title="确定删除此记录？" @confirm="handleDelete(record.id)">
-                    <a-button size="small" danger>删除</a-button>
-                  </a-popconfirm>
-                </div>
-              </template>
-            </template>
-          </a-table>
-        </a-spin>
-      </a-card>
-    </template>
-
-    <!-- 新增/编辑弹窗 -->
-    <a-modal
-      v-model:open="modalVisible"
-      :title="isEdit ? '编辑黄金记录' : '新增黄金记录'"
-      :confirm-loading="submitLoading"
-      :width="640"
-      ok-text="确认"
-      cancel-text="取消"
-      @ok="handleSubmit"
-      @cancel="modalVisible = false"
-    >
-      <a-form :model="formState" :label-col="{ span: 5 }" :wrapper-col="{ span: 18 }" style="padding-top: 16px">
-        <a-form-item label="查询文本" required>
-          <a-textarea v-model:value="formState.query" placeholder="请输入查询文本" :rows="2" :maxlength="1000" show-count />
-        </a-form-item>
-        <a-form-item label="关联分块" required>
-          <div class="chunk-selector">
-            <a-input-search
-              v-model:value="chunkSearchQuery"
-              placeholder="搜索分块内容..."
-              size="small"
-              allow-clear
-              @search="onChunkSearch"
-              style="margin-bottom: 8px"
-            />
-            <a-spin :spinning="chunksLoading">
-              <div class="chunk-list">
-                <a-checkbox-group v-model:value="formState.ground_truth_chunks" style="width: 100%">
-                  <div v-for="chunk in chunkOptions" :key="chunk.id" class="chunk-option">
-                    <a-checkbox :value="chunk.id">
-                      <span class="chunk-heading" v-if="chunk.heading">{{ chunk.heading }} — </span>
-                      <span class="chunk-content">{{ chunk.content }}</span>
-                    </a-checkbox>
-                  </div>
-                </a-checkbox-group>
-                <div v-if="hasMoreChunks" class="load-more" @click="loadMoreChunks">加载更多...</div>
-                <a-empty v-if="!chunksLoading && chunkOptions.length === 0" description="暂无分块" :image="null" />
-              </div>
-            </a-spin>
-          </div>
-          <div v-if="formState.ground_truth_chunks.length > 0" class="selected-info">已选 {{ formState.ground_truth_chunks.length }} 个分块</div>
-        </a-form-item>
-        <a-form-item label="参考答案">
-          <a-textarea v-model:value="formState.reference_answer" placeholder="请输入参考答案（选填）" :rows="3" :maxlength="2000" show-count />
-        </a-form-item>
-      </a-form>
-    </a-modal>
-
-    <!-- LLM 生成弹窗 -->
-    <a-modal
-      v-model:open="generateModalVisible"
-      title="LLM 生成黄金数据集"
-      :confirm-loading="generateSubmitting"
-      :width="520"
-      ok-text="开始生成"
-      cancel-text="取消"
-      @ok="handleGenerate"
-      @cancel="generateModalVisible = false"
-    >
-      <a-form :label-col="{ span: 5 }" :wrapper-col="{ span: 18 }" style="padding-top: 16px">
-        <a-form-item label="选择文档" required>
-          <a-select
-            v-model:value="generateDocumentIds"
-            mode="multiple"
-            placeholder="请选择文档"
-            :loading="documentsLoading"
-            :options="documentOptions.map(d => ({ value: d.id, label: d.filename }))"
-            allow-clear
-          />
-        </a-form-item>
-        <a-form-item label="每分块生成数">
-          <a-input-number v-model:value="generatePerChunk" :min="1" :max="10" style="width: 100%" />
-        </a-form-item>
-        <a-form-item label="用户画像">
-          <a-input v-model:value="generatePersona" placeholder="请输入用户画像" />
-        </a-form-item>
-      </a-form>
-    </a-modal>
-
-    <!-- 上传弹窗 -->
-    <a-modal
-      v-model:open="importModalVisible"
-      title="导入黄金数据集"
-      :footer="null"
-      :width="520"
-      @cancel="importModalVisible = false"
-    >
-      <div class="import-modal-content">
-        <a-upload-dragger
-          :before-upload="beforeUpload"
-          :show-upload-list="false"
-          accept=".jsonl,.csv"
-          :disabled="importing"
-        >
-          <p class="ant-upload-drag-icon"><upload-outlined style="font-size: 36px; color: #1677ff" /></p>
-          <p class="ant-upload-text">拖拽或点击上传文件</p>
-          <p class="ant-upload-hint">支持 .jsonl / .csv 格式，单次最多 1000 条</p>
-        </a-upload-dragger>
-
-        <div v-if="importFile" class="import-file-info">
-          <a-tag color="blue">{{ importFile.name }}</a-tag>
-          <a-button type="link" size="small" @click="importFile = null">移除</a-button>
-        </div>
-
-        <div class="import-templates">
-          <span class="template-label">下载模板：</span>
-          <a @click="downloadTemplate('jsonl')">JSONL 模板</a>
-          <a-divider type="vertical" />
-          <a @click="downloadTemplate('csv')">CSV 模板</a>
-        </div>
-
-        <div class="import-actions">
-          <a-button :disabled="!importFile" :loading="importing" type="primary" @click="handleImport">
-            确认导入
-          </a-button>
-        </div>
-
-        <!-- 导入结果 -->
-        <div v-if="importResult" class="import-result">
-          <a-alert
-            :type="importResult.skipped_count > 0 ? 'warning' : 'success'"
-            show-icon
-            :message="`成功导入 ${importResult.success_count} 条${importResult.skipped_count > 0 ? '，跳过 ' + importResult.skipped_count + ' 条' : ''}`"
-          />
-          <div v-if="importResult.skipped.length > 0" class="skipped-list">
-            <div class="skipped-title">跳过原因：</div>
-            <div v-for="s in importResult.skipped" :key="s.row" class="skipped-item">
-              第 {{ s.row }} 行：{{ s.reason }}
+          <!-- 操作 -->
+          <template v-if="column.key === 'action'">
+            <div class="action-cell">
+              <a-button size="small" @click="openDetailDrawer(record)">详情</a-button>
+              <a-button
+                v-if="record.status === 'pending_review'"
+                size="small"
+                type="primary"
+                @click="handleApprove(record)"
+              >
+                <template #icon><check-circle-outlined /></template>
+              </a-button>
+              <a-button
+                v-if="record.status === 'pending_review'"
+                size="small"
+                danger
+                @click="handleReject(record)"
+              >
+                <template #icon><close-circle-outlined /></template>
+              </a-button>
+              <a-button size="small" @click="handleEdit(record)">编辑</a-button>
+              <a-button size="small" type="primary" :loading="evaluatingIds.includes(record.id)" @click="handleEvaluate(record)">评测</a-button>
+              <a-popconfirm title="确定删除此记录？" @confirm="handleDelete(record.id)">
+                <a-button size="small" danger>删除</a-button>
+              </a-popconfirm>
             </div>
+          </template>
+        </template>
+      </a-table>
+    </a-spin>
+  </a-card>
+</template>
+
+<!-- 新增/编辑弹窗 -->
+<a-modal
+  v-model:open="modalVisible"
+  :title="isEdit ? '编辑黄金记录' : '新增黄金记录'"
+  :confirm-loading="submitLoading"
+  width="50%"
+  ok-text="确认"
+  cancel-text="取消"
+  @ok="handleSubmit"
+  @cancel="modalVisible = false"
+>
+  <a-form :model="formState" :label-col="{ span: 5 }" :wrapper-col="{ span: 18 }" style="padding-top: 16px">
+    <a-form-item label="查询文本" required>
+      <a-textarea v-model:value="formState.query" placeholder="请输入查询文本" :rows="2" :maxlength="1000" show-count />
+    </a-form-item>
+    <a-form-item label="关联分块" required>
+      <div class="chunk-selector">
+        <a-input-search
+          v-model:value="chunkSearchQuery"
+          placeholder="搜索分块内容..."
+          size="small"
+          allow-clear
+          @search="onChunkSearch"
+          style="margin-bottom: 8px"
+        />
+        <a-spin :spinning="chunksLoading">
+          <div class="chunk-list">
+            <a-checkbox-group v-model:value="formState.ground_truth_chunks" style="width: 100%">
+              <div v-for="chunk in chunkOptions" :key="chunk.id" class="chunk-option">
+                <a-checkbox :value="chunk.id">
+                  <span class="chunk-heading" v-if="chunk.heading">{{ chunk.heading }} — </span>
+                  <span class="chunk-content">{{ chunk.content }}</span>
+                </a-checkbox>
+              </div>
+            </a-checkbox-group>
+            <div v-if="hasMoreChunks" class="load-more" @click="loadMoreChunks">加载更多...</div>
+            <a-empty v-if="!chunksLoading && chunkOptions.length === 0" description="暂无分块" :image="null" />
           </div>
+        </a-spin>
+      </div>
+      <div v-if="formState.ground_truth_chunks.length > 0" class="selected-info">已选 {{ formState.ground_truth_chunks.length }} 个分块</div>
+    </a-form-item>
+    <a-form-item label="参考答案">
+      <a-textarea v-model:value="formState.reference_answer" placeholder="请输入参考答案（选填）" :rows="3" :maxlength="2000" show-count />
+    </a-form-item>
+  </a-form>
+</a-modal>
+
+<!-- LLM 生成弹窗 -->
+<a-modal
+  v-model:open="generateModalVisible"
+  title="LLM 生成黄金数据集"
+  :confirm-loading="generateSubmitting"
+  width="50%"
+  ok-text="开始生成"
+  cancel-text="取消"
+  @ok="handleGenerate"
+  @cancel="generateModalVisible = false"
+>
+  <a-form :label-col="{ span: 5 }" :wrapper-col="{ span: 18 }" style="padding-top: 16px">
+    <a-form-item label="选择文档" required>
+      <a-select
+        v-model:value="generateDocumentIds"
+        mode="multiple"
+        placeholder="请选择文档"
+        :loading="documentsLoading"
+        :options="documentOptions.map(d => ({ value: d.id, label: d.filename }))"
+        allow-clear
+      />
+    </a-form-item>
+    <a-form-item label="每分块生成数">
+      <a-input-number v-model:value="generatePerChunk" :min="1" :max="10" style="width: 100%" />
+    </a-form-item>
+    <a-form-item label="用户画像">
+      <a-input v-model:value="generatePersona" placeholder="请输入用户画像" />
+    </a-form-item>
+  </a-form>
+</a-modal>
+
+<!-- 上传弹窗 -->
+<a-modal
+  v-model:open="importModalVisible"
+  title="导入黄金数据集"
+  :footer="null"
+  :width="520"
+  @cancel="importModalVisible = false"
+>
+  <div class="import-modal-content">
+    <a-upload-dragger
+      :before-upload="beforeUpload"
+      :show-upload-list="false"
+      accept=".jsonl,.csv"
+      :disabled="importing"
+    >
+      <p class="ant-upload-drag-icon"><upload-outlined style="font-size: 36px; color: #1677ff" /></p>
+      <p class="ant-upload-text">拖拽或点击上传文件</p>
+      <p class="ant-upload-hint">支持 .jsonl / .csv 格式，单次最多 1000 条</p>
+    </a-upload-dragger>
+
+    <div v-if="importFile" class="import-file-info">
+      <a-tag color="blue">{{ importFile.name }}</a-tag>
+      <a-button type="link" size="small" @click="importFile = null">移除</a-button>
+    </div>
+
+    <div class="import-templates">
+      <span class="template-label">下载模板：</span>
+      <a @click="downloadTemplate('jsonl')">JSONL 模板</a>
+      <a-divider type="vertical" />
+      <a @click="downloadTemplate('csv')">CSV 模板</a>
+    </div>
+
+    <div class="import-actions">
+      <a-button :disabled="!importFile" :loading="importing" type="primary" @click="handleImport">
+        确认导入
+      </a-button>
+    </div>
+
+    <!-- 导入结果 -->
+    <div v-if="importResult" class="import-result">
+      <a-alert
+        :type="importResult.skipped_count > 0 ? 'warning' : 'success'"
+        show-icon
+        :message="`成功导入 ${importResult.success_count} 条${importResult.skipped_count > 0 ? '，跳过 ' + importResult.skipped_count + ' 条' : ''}`"
+      />
+      <div v-if="importResult.skipped.length > 0" class="skipped-list">
+        <div class="skipped-title">跳过原因：</div>
+        <div v-for="s in importResult.skipped" :key="s.row" class="skipped-item">
+          第 {{ s.row }} 行：{{ s.reason }}
         </div>
       </div>
-    </a-modal>
+    </div>
+  </div>
+</a-modal>
+
+<!-- 详情 Drawer -->
+<a-drawer
+  v-model:open="detailDrawerVisible"
+  :title="detailRecord?.query || '详情'"
+  width="50%"
+  placement="right"
+>
+  <template v-if="detailRecord">
+    <a-descriptions :column="1" bordered size="small">
+      <a-descriptions-item label="状态">
+        <a-tag v-if="detailRecord.status === 'pending_review'" color="warning">待审核</a-tag>
+        <a-tag v-else-if="detailRecord.status === 'approved'" color="success">已通过</a-tag>
+        <a-tag v-else-if="detailRecord.status === 'rejected'" color="error">已拒绝</a-tag>
+        <a-tag v-else>{{ detailRecord.status }}</a-tag>
+      </a-descriptions-item>
+      <a-descriptions-item label="查询文本">{{ detailRecord.query }}</a-descriptions-item>
+      <a-descriptions-item label="关联分块">
+        <div v-if="detailRecord.ground_truth_chunks?.length">
+          <a-tag v-for="chunkId in detailRecord.ground_truth_chunks" :key="chunkId" style="margin-bottom: 4px">{{ chunkId }}</a-tag>
+        </div>
+        <span v-else>--</span>
+      </a-descriptions-item>
+      <a-descriptions-item label="参考答案">
+        <div class="detail-answer">{{ detailRecord.reference_answer || '--' }}</div>
+      </a-descriptions-item>
+      <a-descriptions-item label="评测状态">
+        <span v-if="detailRecord.evaluation?.is_hit === true" class="eval-hit">
+          <check-circle-outlined /> 命中 <span v-if="detailRecord.evaluation.hit_rank" class="eval-rank">(rank={{ detailRecord.evaluation.hit_rank }})</span>
+        </span>
+        <span v-else-if="detailRecord.evaluation?.is_hit === false" class="eval-miss">
+          <close-circle-outlined /> 未命中
+        </span>
+        <span v-else class="eval-none">未评测</span>
+      </a-descriptions-item>
+      <a-descriptions-item v-if="detailRecord.evaluation?.retrieved_chunk_ids?.length" label="检索命中的分块">
+        <a-tag v-for="cid in detailRecord.evaluation.retrieved_chunk_ids" :key="cid" style="margin-bottom: 4px">{{ cid }}</a-tag>
+      </a-descriptions-item>
+      <a-descriptions-item v-if="detailRecord.evaluation?.evaluated_at" label="评测时间">{{ detailRecord.evaluation.evaluated_at }}</a-descriptions-item>
+      <a-descriptions-item label="创建时间">{{ detailRecord.created_at }}</a-descriptions-item>
+      <a-descriptions-item v-if="detailRecord.metadata && Object.keys(detailRecord.metadata).length" label="元数据">
+        <pre class="detail-metadata">{{ JSON.stringify(detailRecord.metadata, null, 2) }}</pre>
+      </a-descriptions-item>
+    </a-descriptions>
+
+    <div class="detail-actions">
+      <a-button v-if="detailRecord.status === 'pending_review'" type="primary" @click="handleApprove(detailRecord); detailDrawerVisible = false">审批通过</a-button>
+      <a-button v-if="detailRecord.status === 'pending_review'" danger @click="handleReject(detailRecord); detailDrawerVisible = false">拒绝</a-button>
+      <a-button @click="handleEdit(detailRecord); detailDrawerVisible = false">编辑</a-button>
+      <a-button type="primary" :loading="evaluatingIds.includes(detailRecord.id)" @click="handleEvaluate(detailRecord)">评测</a-button>
+    </div>
+  </template>
+</a-drawer>
+
   </div>
 </template>
 
@@ -406,6 +461,15 @@ const importModalVisible = ref(false)
 const importFile = ref<File | null>(null)
 const importing = ref(false)
 const importResult = ref<ImportResult | null>(null)
+
+// 详情 Drawer
+const detailDrawerVisible = ref(false)
+const detailRecord = ref<GoldenDatasetItem | null>(null)
+
+function openDetailDrawer(record: GoldenDatasetItem) {
+  detailRecord.value = record
+  detailDrawerVisible.value = true
+}
 
 function formatTime(dateStr: string) {
   if (!dateStr) return '--'
@@ -974,5 +1038,24 @@ watch(importModalVisible, (val) => {
   font-size: 12px;
   color: #666;
   padding: 2px 0;
+}
+
+/* 详情 Drawer */
+.detail-answer {
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.detail-metadata {
+  margin: 0;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.detail-actions {
+  margin-top: 24px;
+  display: flex;
+  gap: 8px;
 }
 </style>
