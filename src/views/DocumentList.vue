@@ -537,6 +537,13 @@ async function fetchList() {
   try {
     const res = await getDocumentList(projectId.value)
     documents.value = res || []
+    // 清理 generatingDocs：如果文档已有 golden_record_count 且不在活跃 Drawer 中，移除生成中状态
+    for (const docId of Object.keys(generatingDocs.value)) {
+      const doc = documents.value.find(d => d.id === docId)
+      if (doc && doc.golden_record_count > 0 && !(genDrawerVisible.value && genDrawerDocumentId.value === docId && !genDrawerReadOnly.value)) {
+        delete generatingDocs.value[docId]
+      }
+    }
   } catch {
     message.error('获取文档列表失败')
   } finally {
@@ -680,6 +687,7 @@ function handleOpenGeneratingDrawer(record: DocumentItem) {
   if (!info) return
   genDrawerTaskId.value = info.taskId
   genDrawerDocName.value = record.filename
+  genDrawerDocumentId.value = record.id
   genDrawerReadOnly.value = false
   genDrawerConfigSummary.value = [
     { label: '每分块题数', value: String(genPerChunk.value) },
@@ -706,6 +714,11 @@ function handleDrawerClose() {
 
 // Drawer 生成完成回调
 function handleDrawerCompleted() {
+  // 清除该文档的生成中状态
+  const docId = genDrawerDocumentId.value
+  if (docId && generatingDocs.value[docId]) {
+    delete generatingDocs.value[docId]
+  }
   // 刷新列表以更新 golden_record_count
   fetchList()
 }

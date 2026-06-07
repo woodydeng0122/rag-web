@@ -6,21 +6,13 @@
     placement="right"
     @close="handleClose"
   >
-    <!-- 进度条 + 控制按钮 -->
-    <div class="drawer-header">
-      <a-progress
-        :percent="progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0"
-        :status="taskStatus === 'failed' ? 'exception' : taskStatus === 'completed' ? 'success' : 'active'"
-        size="small"
-      />
-      <div class="drawer-header-info">
-        <span>{{ progress.completed }}/{{ progress.total }} 完成 {{ progress.failed }} 失败</span>
-        <div class="drawer-header-actions">
-          <a-button v-if="taskStatus === 'running'" size="small" @click="handlePause">暂停</a-button>
-          <a-button v-if="taskStatus === 'paused'" size="small" type="primary" @click="handleResume">继续</a-button>
-          <a-button v-if="['running', 'paused'].includes(taskStatus)" size="small" danger @click="handleCancel">取消</a-button>
-          <a-button v-if="taskStatus === 'completed' && progress.failed > 0" size="small" type="primary" @click="handleRetry">重试失败</a-button>
-        </div>
+    <!-- 控制按钮 -->
+    <div v-if="!readOnly" class="drawer-header">
+      <div class="drawer-header-actions">
+        <a-button v-if="taskStatus === 'running'" size="small" @click="handlePause">暂停</a-button>
+        <a-button v-if="taskStatus === 'paused'" size="small" type="primary" @click="handleResume">继续</a-button>
+        <a-button v-if="['running', 'paused'].includes(taskStatus)" size="small" danger @click="handleCancel">取消</a-button>
+        <a-button v-if="taskStatus === 'completed' && progress.failed > 0" size="small" type="primary" @click="handleRetry">重试失败</a-button>
       </div>
     </div>
 
@@ -158,6 +150,7 @@ const recordsLoading = ref(false)
 
 let eventSource: EventSource | null = null
 let streamingItem: any = null
+let streamingTypingTimer: ReturnType<typeof setInterval> | null = null
 
 const drawerTitle = computed(() => {
   const name = props.docName || '生成进度'
@@ -191,8 +184,20 @@ function connectSSE() {
       streamingItem = { type: 'llm_streaming', content: '' }
       eventItems.value.push(streamingItem)
     }
-    streamingItem.content += data.content
-    scrollToBottom()
+    // 逐字追加，模拟打字效果
+    const chars = data.content
+    let i = 0
+    if (streamingTypingTimer) clearInterval(streamingTypingTimer)
+    streamingTypingTimer = setInterval(() => {
+      if (i < chars.length) {
+        streamingItem.content += chars[i]
+        i++
+        scrollToBottom()
+      } else {
+        clearInterval(streamingTypingTimer)
+        streamingTypingTimer = null
+      }
+    }, 20)
   })
 
   eventSource.addEventListener('llm_done', () => {
@@ -254,9 +259,18 @@ function disconnectSSE() {
     eventSource.close()
     eventSource = null
   }
+  if (streamingTypingTimer) {
+    clearInterval(streamingTypingTimer)
+    streamingTypingTimer = null
+  }
 }
 
 function finishStreaming() {
+  // 立即刷完剩余字符
+  if (streamingTypingTimer) {
+    clearInterval(streamingTypingTimer)
+    streamingTypingTimer = null
+  }
   streamingItem = null
 }
 
