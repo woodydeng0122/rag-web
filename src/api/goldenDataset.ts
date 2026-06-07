@@ -6,6 +6,10 @@ import type { GoldenDatasetItem, CreateGoldenDatasetParams, UpdateGoldenDatasetP
 export const getGoldenDatasetList = (projectId: string, status?: string) =>
   get<GoldenDatasetItem[]>({ url: `/projects/${projectId}/golden-datasets`, params: status ? { status } : undefined })
 
+/** 按文档 ID 查询关联的黄金记录 */
+export const getDocumentGoldenRecords = (projectId: string, documentId: string) =>
+  get<GoldenDatasetItem[]>({ url: `/projects/${projectId}/documents/${documentId}/golden-datasets` })
+
 /** 新增黄金记录 */
 export const createGoldenDataset = (projectId: string, params: CreateGoldenDatasetParams) =>
   post<GoldenDatasetItem>({ url: `/projects/${projectId}/golden-datasets`, data: params })

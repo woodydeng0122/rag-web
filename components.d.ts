@@ -51,6 +51,8 @@ declare module 'vue' {
     ATooltip: typeof import('ant-design-vue/es')['Tooltip']
     AUploadDragger: typeof import('ant-design-vue/es')['UploadDragger']
     EmbeddingViewer: typeof import('./src/components/EmbeddingViewer.vue')['default']
+    GenerationDrawer: typeof import('./src/components/GenerationDrawer.vue')['default']
+    GenerationPanel: typeof import('./src/components/GenerationPanel.vue')['default']
     MarkdownRenderer: typeof import('./src/components/MarkdownRenderer.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']

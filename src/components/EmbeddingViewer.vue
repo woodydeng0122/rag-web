@@ -199,7 +199,6 @@ watch(viewMode, async (mode) => {
 }
 
 .raw-data {
-  max-height: 400px;
   overflow-y: auto;
 }
 

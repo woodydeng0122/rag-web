@@ -24,6 +24,10 @@
           <template #icon><play-circle-outlined /></template>
           批量处理 ({{ selectedRowKeys.length }})
         </a-button>
+        <a-button :disabled="selectedReadyKeys.length === 0" @click="handleOpenGenModal(selectedReadyKeys)">
+          <template #icon><thunderbolt-outlined /></template>
+          批量生成 ({{ selectedReadyKeys.length }})
+        </a-button>
         <a-button type="primary" @click="handleUploadClick">
           <template #icon><upload-outlined /></template>
           上传文档
@@ -67,8 +71,16 @@
 
             <!-- 黄金数据集 -->
             <template v-if="column.key === 'golden_record_count'">
-              <span v-if="record.golden_record_count > 0" class="golden-count">{{ record.golden_record_count }}</span>
-              <a-button v-else type="link" size="small" :loading="generatingGoldenIds.includes(record.id)" :disabled="record.status !== 'ready'" @click="handleGenerateGolden(record)">
+              <!-- 生成中 -->
+              <a v-if="generatingDocs[record.id]" class="golden-generating" @click="handleOpenGeneratingDrawer(record)">
+                生成中({{ generatingDocs[record.id].completed }})
+              </a>
+              <!-- 已有记录 -->
+              <a v-else-if="record.golden_record_count > 0" class="golden-count" @click="handleOpenRecordsDrawer(record)">
+                {{ record.golden_record_count }}
+              </a>
+              <!-- 生成按钮 -->
+              <a-button v-else type="link" size="small" :disabled="record.status !== 'ready'" @click="handleOpenGenModal([record.id])">
                 生成
               </a-button>
             </template>
@@ -227,7 +239,7 @@
     <a-modal
       v-model:open="chunkDetailVisible"
       :title="`分块 #${activeChunkIndex}`"
-      width="720px"
+      width="50%"
       :footer="null"
     >
       <div class="chunk-modal-body">
@@ -259,6 +271,41 @@
         </a-tabs>
       </div>
     </a-modal>
+
+    <!-- 生成参数弹窗 -->
+    <a-modal
+      v-model:open="genModalVisible"
+      title="生成黄金数据集"
+      :confirm-loading="genModalSubmitting"
+      ok-text="开始生成"
+      cancel-text="取消"
+      @ok="handleGenModalSubmit"
+    >
+      <a-form :label-col="{ span: 6 }" :wrapper-col="{ span: 18 }" style="margin-top: 16px">
+        <a-form-item label="每分块问题数">
+          <a-input-number v-model:value="genPerChunk" :min="1" :max="5" />
+        </a-form-item>
+        <a-form-item label="用户画像">
+          <a-input v-model:value="genPersona" placeholder="如：开发者、产品经理" />
+        </a-form-item>
+        <a-form-item label="问题类型">
+          <a-checkbox-group v-model:value="genQuestionTypes" :options="questionTypeOptions" />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <!-- GenerationDrawer -->
+    <GenerationDrawer
+      :visible="genDrawerVisible"
+      :project-id="projectId || ''"
+      :task-id="genDrawerTaskId"
+      :doc-name="genDrawerDocName"
+      :document-id="genDrawerDocumentId"
+      :config-summary="genDrawerConfigSummary"
+      :read-only="genDrawerReadOnly"
+      @close="handleDrawerClose"
+      @completed="handleDrawerCompleted"
+    />
     </template>
   </div>
 </template>
@@ -282,7 +329,7 @@ import {
   FileExcelOutlined,
   FileOutlined,
   FileZipOutlined,
-
+  ThunderboltOutlined,
 } from '@ant-design/icons-vue'
 import { getDocumentList, uploadDocument, processDocument, deleteDocument, getChunkList, getSourceContent } from '@/api/document'
 import { getChunkGoldenRecords } from '@/api/chunk'
@@ -291,9 +338,18 @@ import type { DocumentItem, ChunkItem, UploadDocumentParams } from '@/api/model/
 import type { GoldenDatasetItem } from '@/api/model/goldenDatasetModel'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import EmbeddingViewer from '@/components/EmbeddingViewer.vue'
+import GenerationDrawer from '@/components/GenerationDrawer.vue'
 
 dayjs.locale('zh-cn')
 dayjs.extend(relativeTime)
+
+const questionTypeOptions = [
+  { label: '事实型', value: 'factual' },
+  { label: '过程型', value: 'procedural' },
+  { label: '推理型', value: 'reasoning' },
+  { label: '对比型', value: 'comparison' },
+  { label: '不可答', value: 'unanswerable' },
+]
 
 const router = useRouter()
 const pageStore = usePageStore()
@@ -320,9 +376,36 @@ const processingIds = ref<string[]>([])
 const generatingGoldenIds = ref<string[]>([])
 const batchProcessing = ref(false)
 
+// 生成中状态：doc_id → { taskId, completed, total, failed }
+const generatingDocs = ref<Record<string, { taskId: string; completed: number; total: number; failed: number }>>({})
+
+// GenerationDrawer
+const genDrawerVisible = ref(false)
+const genDrawerTaskId = ref('')
+const genDrawerDocName = ref('')
+const genDrawerReadOnly = ref(false)
+const genDrawerConfigSummary = ref<{ label: string; value: string }[]>([])
+const genDrawerDocumentId = ref('')
+
+// 生成参数弹窗
+const genModalVisible = ref(false)
+const genModalSubmitting = ref(false)
+const genModalDocIds = ref<string[]>([])
+const genPerChunk = ref(1)
+const genPersona = ref('开发者')
+const genQuestionTypes = ref<string[]>(['factual', 'reasoning'])
+
 const filteredDocuments = computed(() => {
   if (!filterStatus.value) return documents.value
   return documents.value.filter(d => d.status === filterStatus.value)
+})
+
+// 勾选的 ready 状态文档 ID
+const selectedReadyKeys = computed(() => {
+  return selectedRowKeys.value.filter(id => {
+    const doc = documents.value.find(d => d.id === id)
+    return doc?.status === 'ready'
+  })
 })
 
 const paginationConfig = reactive({
@@ -546,15 +629,85 @@ async function handleProcess(record: DocumentItem) {
 }
 
 async function handleGenerateGolden(record: DocumentItem) {
-  generatingGoldenIds.value.push(record.id)
+  // 保留旧方法兼容，重定向到新流程
+  handleOpenGenModal([record.id])
+}
+
+// 打开生成参数弹窗
+function handleOpenGenModal(docIds: string[]) {
+  genModalDocIds.value = docIds
+  genPerChunk.value = 1
+  genPersona.value = '开发者'
+  genQuestionTypes.value = ['factual', 'reasoning']
+  genModalVisible.value = true
+}
+
+// 提交生成任务
+async function handleGenModalSubmit() {
+  if (genModalDocIds.value.length === 0) return
+  genModalSubmitting.value = true
   try {
-    await generateGolden(projectId.value, { document_ids: [record.id] })
-    message.success('黄金数据集生成任务已提交')
+    // 每个文档独立提交
+    for (const docId of genModalDocIds.value) {
+      const res = await generateGolden(projectId.value!, {
+        document_ids: [docId],
+        config: {
+          per_chunk: genPerChunk.value,
+          user_persona: genPersona.value,
+          question_types: genQuestionTypes.value,
+        },
+      })
+      // 记录生成中状态
+      generatingDocs.value[docId] = {
+        taskId: res.task_id,
+        completed: 0,
+        total: 0,
+        failed: 0,
+      }
+    }
+    genModalVisible.value = false
+    message.success(`已提交 ${genModalDocIds.value.length} 个生成任务`)
   } catch {
     message.error('生成任务提交失败')
   } finally {
-    generatingGoldenIds.value = generatingGoldenIds.value.filter(id => id !== record.id)
+    genModalSubmitting.value = false
   }
+}
+
+// 点击"生成中(N)"打开 Drawer
+function handleOpenGeneratingDrawer(record: DocumentItem) {
+  const info = generatingDocs.value[record.id]
+  if (!info) return
+  genDrawerTaskId.value = info.taskId
+  genDrawerDocName.value = record.filename
+  genDrawerReadOnly.value = false
+  genDrawerConfigSummary.value = [
+    { label: '每分块题数', value: String(genPerChunk.value) },
+    { label: '用户画像', value: genPersona.value },
+    { label: '问题类型', value: genQuestionTypes.value.join(', ') },
+  ]
+  genDrawerVisible.value = true
+}
+
+// 点击数字打开 Drawer（只读模式）
+function handleOpenRecordsDrawer(record: DocumentItem) {
+  genDrawerTaskId.value = ''
+  genDrawerDocName.value = record.filename
+  genDrawerReadOnly.value = true
+  genDrawerConfigSummary.value = []
+  genDrawerDocumentId.value = record.id
+  genDrawerVisible.value = true
+}
+
+// Drawer 关闭
+function handleDrawerClose() {
+  genDrawerVisible.value = false
+}
+
+// Drawer 生成完成回调
+function handleDrawerCompleted() {
+  // 刷新列表以更新 golden_record_count
+  fetchList()
 }
 
 function handleDelete(id: string) {
@@ -849,6 +1002,19 @@ watch(() => pageStore.refreshTrigger, fetchList)
   font-size: 13px;
   font-weight: 500;
   color: #52c41a;
+  cursor: pointer;
+}
+.golden-count:hover {
+  text-decoration: underline;
+}
+
+.golden-generating {
+  font-size: 13px;
+  color: #1677ff;
+  cursor: pointer;
+}
+.golden-generating:hover {
+  text-decoration: underline;
 }
 
 /* 分块详情布局 */
@@ -953,8 +1119,6 @@ watch(() => pageStore.refreshTrigger, fetchList)
 
 /* 黄金记录列表 */
 .golden-records-list {
-  max-height: 400px;
-  overflow-y: auto;
 }
 .golden-record-item {
   padding: 10px 12px;
