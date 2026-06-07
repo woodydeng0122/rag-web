@@ -9,6 +9,15 @@
 
     <!-- 已选择项目 -->
     <template v-else>
+      <!-- 生成面板 -->
+      <GenerationPanel
+        :visible="generationPanelVisible"
+        :project-id="activeProjectStore.activeProjectId!"
+        :task-id="generationTaskId"
+        @close="generationPanelVisible = false"
+        @completed="fetchList()"
+      />
+
       <!-- 工具栏 -->
       <div class="toolbar">
         <div class="toolbar-left">
@@ -333,6 +342,7 @@ import {
 import { generateGolden } from '@/api/generationTask'
 import { getDocumentList } from '@/api/document'
 import { searchProjectChunks } from '@/api/chunk'
+import GenerationPanel from '@/components/GenerationPanel.vue'
 import type { GoldenDatasetItem, CreateGoldenDatasetParams, ImportResult } from '@/api/model/goldenDatasetModel'
 import type { ChunkItem } from '@/api/model/documentModel'
 
@@ -359,6 +369,10 @@ const generatePerChunk = ref(2)
 const generatePersona = ref('开发者')
 const documentOptions = ref<{ id: string; filename: string }[]>([])
 const documentsLoading = ref(false)
+
+// 生成面板
+const generationPanelVisible = ref(false)
+const generationTaskId = ref('')
 
 const columns = [
   { title: '状态', dataIndex: 'status', key: 'status', width: 90 },
@@ -632,9 +646,11 @@ async function handleGenerate() {
         user_persona: generatePersona.value,
       },
     })
-    message.success(`生成任务已提交，任务 ID: ${res.task_id}`)
+    message.success('生成任务已提交')
     generateModalVisible.value = false
-    await fetchList()
+    // 打开生成面板
+    generationTaskId.value = res.task_id
+    generationPanelVisible.value = true
   } catch {
     message.error('生成任务提交失败')
   } finally {

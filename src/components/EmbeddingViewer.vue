@@ -123,11 +123,11 @@ function drawHeatmap() {
   }
 }
 
-watch(() => props.visible, async (val) => {
-  if (val && props.chunkId) {
+watch(() => [props.visible, props.chunkId] as const, async ([visible, chunkId]) => {
+  if (visible && chunkId) {
     await fetchEmbedding()
   }
-})
+}, { immediate: true })
 
 watch(viewMode, async (mode) => {
   if (mode === 'heatmap' && vector.value.length) {

@@ -65,6 +65,14 @@
               <span v-else class="chunk-count-zero">0</span>
             </template>
 
+            <!-- 黄金数据集 -->
+            <template v-if="column.key === 'golden_record_count'">
+              <span v-if="record.golden_record_count > 0" class="golden-count">{{ record.golden_record_count }}</span>
+              <a-button v-else type="link" size="small" :loading="generatingGoldenIds.includes(record.id)" :disabled="record.status !== 'ready'" @click="handleGenerateGolden(record)">
+                生成
+              </a-button>
+            </template>
+
             <!-- 状态 -->
             <template v-if="column.key === 'status'">
               <a-tag :color="statusColor(record.status)" class="status-tag">
@@ -200,70 +208,57 @@
           </a-spin>
         </div>
 
-        <!-- 右侧：分块列表 / 分块详情 -->
+        <!-- 右侧：分块列表 -->
         <div class="chunk-detail-right">
-          <!-- 分块列表视图 -->
-          <template v-if="!chunkDetailVisible">
-            <div class="panel-title">分块列表 ({{ chunks.length }})</div>
-            <a-spin :spinning="chunksLoading">
-              <div class="chunk-list" ref="chunkListRef" @scroll="onChunkListScroll">
-                <div v-for="chunk in chunks" :key="chunk.index" class="chunk-item" :class="chunk.index % 2 === 0 ? 'chunk-item--even' : 'chunk-item--odd'" @click="handleChunkClick(chunk)">
-                  <MarkdownRenderer :content="chunk.content" :file-type="chunk.file_type" />
-                </div>
+          <div class="panel-title">分块列表 ({{ chunks.length }})</div>
+          <a-spin :spinning="chunksLoading">
+            <div class="chunk-list" ref="chunkListRef" @scroll="onChunkListScroll">
+              <div v-for="chunk in chunks" :key="chunk.index" class="chunk-item" :class="chunk.index % 2 === 0 ? 'chunk-item--even' : 'chunk-item--odd'" @click="handleChunkClick(chunk)">
+                <MarkdownRenderer :content="chunk.content" :file-type="chunk.file_type" />
               </div>
-              <a-empty v-if="!chunksLoading && chunks.length === 0" description="暂无分块" />
-            </a-spin>
-          </template>
-
-          <!-- 分块详情视图 -->
-          <template v-else>
-            <div class="chunk-detail-header">
-              <a-button type="text" size="small" @click="chunkDetailVisible = false" class="back-btn">
-                <template #icon><left-outlined /></template>
-                返回列表
-              </a-button>
-              <span class="chunk-detail-title">分块 #{{ activeChunkIndex }}</span>
             </div>
-            <div class="chunk-detail-body">
-              <!-- 分块内容预览 -->
-              <div class="chunk-detail-section">
-                <div class="section-label">分块内容</div>
-                <div class="chunk-content-preview">
-                  <MarkdownRenderer :content="activeChunkContent" :file-type="activeChunkFileType" />
-                </div>
-              </div>
-
-              <!-- 向量信息 & 黄金记录 -->
-              <a-tabs v-model:activeKey="chunkDetailTab" class="chunk-detail-tabs">
-                <a-tab-pane key="embedding" tab="向量信息">
-                  <EmbeddingViewer :project-id="projectId" :chunk-id="activeChunkId" :visible="chunkDetailVisible && chunkDetailTab === 'embedding'" />
-                </a-tab-pane>
-                <a-tab-pane key="golden" tab="关联黄金记录">
-                  <a-spin :spinning="goldenRecordsLoading">
-                    <div v-if="chunkGoldenRecords.length" class="golden-records-list">
-                      <div v-for="record in chunkGoldenRecords" :key="record.id" class="golden-record-item">
-                        <div class="golden-record-header">
-                          <span class="golden-record-query">{{ record.query }}</span>
-                          <a-tag :color="record.status === 'approved' ? 'green' : record.status === 'pending_review' ? 'orange' : 'red'" size="small">
-                            {{ record.status === 'approved' ? '已通过' : record.status === 'pending_review' ? '待审核' : '已拒绝' }}
-                          </a-tag>
-                        </div>
-                        <div class="golden-record-meta">
-                          <a-tag v-if="record.metadata?.type" size="small">{{ record.metadata.type }}</a-tag>
-                          <span v-if="record.metadata?.quality_score" class="golden-record-score">质量: {{ record.metadata.quality_score }}</span>
-                        </div>
-                        <div v-if="record.reference_answer" class="golden-record-answer">{{ record.reference_answer }}</div>
-                      </div>
-                    </div>
-                    <a-empty v-else-if="!goldenRecordsLoading" description="该分块暂无关联的黄金记录" />
-                  </a-spin>
-                </a-tab-pane>
-              </a-tabs>
-            </div>
-          </template>
+            <a-empty v-if="!chunksLoading && chunks.length === 0" description="暂无分块" />
+          </a-spin>
         </div>
       </div>
     </a-drawer>
+
+    <!-- 分块详情弹窗 -->
+    <a-modal
+      v-model:open="chunkDetailVisible"
+      :title="`分块 #${activeChunkIndex}`"
+      width="720px"
+      :footer="null"
+    >
+      <div class="chunk-modal-body">
+        <!-- 向量信息 & 黄金记录 -->
+        <a-tabs v-model:activeKey="chunkDetailTab" class="chunk-detail-tabs">
+          <a-tab-pane key="embedding" tab="向量信息">
+            <EmbeddingViewer :project-id="projectId" :chunk-id="activeChunkId" :visible="chunkDetailVisible && chunkDetailTab === 'embedding'" />
+          </a-tab-pane>
+          <a-tab-pane key="golden" tab="关联黄金记录">
+            <a-spin :spinning="goldenRecordsLoading">
+              <div v-if="chunkGoldenRecords.length" class="golden-records-list">
+                <div v-for="record in chunkGoldenRecords" :key="record.id" class="golden-record-item">
+                  <div class="golden-record-header">
+                    <span class="golden-record-query">{{ record.query }}</span>
+                    <a-tag :color="record.status === 'approved' ? 'green' : record.status === 'pending_review' ? 'orange' : 'red'" size="small">
+                      {{ record.status === 'approved' ? '已通过' : record.status === 'pending_review' ? '待审核' : '已拒绝' }}
+                    </a-tag>
+                  </div>
+                  <div class="golden-record-meta">
+                    <a-tag v-if="record.metadata?.type" size="small">{{ record.metadata.type }}</a-tag>
+                    <span v-if="record.metadata?.quality_score" class="golden-record-score">质量: {{ record.metadata.quality_score }}</span>
+                  </div>
+                  <div v-if="record.reference_answer" class="golden-record-answer">{{ record.reference_answer }}</div>
+                </div>
+              </div>
+              <a-empty v-else-if="!goldenRecordsLoading" description="该分块暂无关联的黄金记录" />
+            </a-spin>
+          </a-tab-pane>
+        </a-tabs>
+      </div>
+    </a-modal>
     </template>
   </div>
 </template>
@@ -287,10 +282,11 @@ import {
   FileExcelOutlined,
   FileOutlined,
   FileZipOutlined,
-  LeftOutlined,
+
 } from '@ant-design/icons-vue'
 import { getDocumentList, uploadDocument, processDocument, deleteDocument, getChunkList, getSourceContent } from '@/api/document'
 import { getChunkGoldenRecords } from '@/api/chunk'
+import { generateGolden } from '@/api/generationTask'
 import type { DocumentItem, ChunkItem, UploadDocumentParams } from '@/api/model/documentModel'
 import type { GoldenDatasetItem } from '@/api/model/goldenDatasetModel'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
@@ -313,6 +309,7 @@ const columns = [
   { title: '类型', dataIndex: 'file_type', key: 'file_type', width: 80 },
   { title: '大小', dataIndex: 'file_size', key: 'file_size', width: 100 },
   { title: '分块数', dataIndex: 'chunk_count', key: 'chunk_count', width: 80 },
+  { title: '黄金数据集', dataIndex: 'golden_record_count', key: 'golden_record_count', width: 110 },
   { title: '状态', dataIndex: 'status', key: 'status', width: 100 },
   { title: '上传时间', dataIndex: 'created_at', key: 'created_at', width: 130 },
   { title: '操作', key: 'action', fixed: 'right' as const, width: 180 },
@@ -320,6 +317,7 @@ const columns = [
 
 const selectedRowKeys = ref<string[]>([])
 const processingIds = ref<string[]>([])
+const generatingGoldenIds = ref<string[]>([])
 const batchProcessing = ref(false)
 
 const filteredDocuments = computed(() => {
@@ -544,6 +542,18 @@ async function handleProcess(record: DocumentItem) {
     message.error('处理失败')
   } finally {
     processingIds.value = processingIds.value.filter(id => id !== record.id)
+  }
+}
+
+async function handleGenerateGolden(record: DocumentItem) {
+  generatingGoldenIds.value.push(record.id)
+  try {
+    await generateGolden(projectId.value, { document_ids: [record.id] })
+    message.success('黄金数据集生成任务已提交')
+  } catch {
+    message.error('生成任务提交失败')
+  } finally {
+    generatingGoldenIds.value = generatingGoldenIds.value.filter(id => id !== record.id)
   }
 }
 
@@ -834,6 +844,13 @@ watch(() => pageStore.refreshTrigger, fetchList)
   font-size: 13px;
 }
 
+/* 黄金数据集 */
+.golden-count {
+  font-size: 13px;
+  font-weight: 500;
+  color: #52c41a;
+}
+
 /* 分块详情布局 */
 .chunk-detail-layout {
   display: flex;
@@ -975,35 +992,13 @@ watch(() => pageStore.refreshTrigger, fetchList)
   text-overflow: ellipsis;
 }
 
-/* 分块详情视图 */
-.chunk-detail-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-bottom: 1px solid #f0f0f0;
-  flex-shrink: 0;
-}
-.back-btn {
-  color: #1677ff;
-  padding: 0 4px;
-}
-.back-btn:hover {
-  color: #4096ff;
-}
-.chunk-detail-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
-}
-.chunk-detail-body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 16px;
+/* 分块详情弹窗 */
+.chunk-modal-body {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  max-height: 70vh;
+  overflow-y: auto;
 }
 .chunk-detail-section {
   border: 1px solid #f0f0f0;

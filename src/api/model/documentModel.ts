@@ -19,6 +19,7 @@ export interface DocumentItem {
   status: string
   splitter_config: SplitterConfig
   chunk_count: number
+  golden_record_count: number
   error_message: string
   created_at: string
   updated_at: string
