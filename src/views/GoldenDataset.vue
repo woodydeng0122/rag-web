@@ -261,15 +261,18 @@
       :show-upload-list="false"
       accept=".jsonl,.csv"
       :disabled="importing"
+      multiple
     >
       <p class="ant-upload-drag-icon"><upload-outlined style="font-size: 36px; color: #1677ff" /></p>
       <p class="ant-upload-text">拖拽或点击上传文件</p>
-      <p class="ant-upload-hint">支持 .jsonl / .csv 格式，单次最多 1000 条</p>
+      <p class="ant-upload-hint">支持 .jsonl / .csv 格式，可多选文件，单文件最多 1000 条</p>
     </a-upload-dragger>
 
-    <div v-if="importFile" class="import-file-info">
-      <a-tag color="blue">{{ importFile.name }}</a-tag>
-      <a-button type="link" size="small" @click="importFile = null">移除</a-button>
+    <div v-if="importFiles.length > 0" class="import-file-list">
+      <div v-for="(file, index) in importFiles" :key="index" class="import-file-item">
+        <a-tag color="blue">{{ file.name }}</a-tag>
+        <a-button type="link" size="small" :disabled="importing" @click="removeImportFile(index)">移除</a-button>
+      </div>
     </div>
 
     <div class="import-templates">
@@ -280,22 +283,29 @@
     </div>
 
     <div class="import-actions">
-      <a-button :disabled="!importFile" :loading="importing" type="primary" @click="handleImport">
-        确认导入
+      <a-button :disabled="importFiles.length === 0" :loading="importing" type="primary" @click="handleImport">
+        确认导入 ({{ importFiles.length }} 个文件)
       </a-button>
     </div>
 
+    <!-- 导入进度 -->
+    <div v-if="importing" class="import-progress">
+      <a-spin size="small" />
+      <span style="margin-left: 8px">正在导入第 {{ importCurrentIndex + 1 }} / {{ importFiles.length }} 个文件...</span>
+    </div>
+
     <!-- 导入结果 -->
-    <div v-if="importResult" class="import-result">
-      <a-alert
-        :type="importResult.skipped_count > 0 ? 'warning' : 'success'"
-        show-icon
-        :message="`成功导入 ${importResult.success_count} 条${importResult.skipped_count > 0 ? '，跳过 ' + importResult.skipped_count + ' 条' : ''}`"
-      />
-      <div v-if="importResult.skipped.length > 0" class="skipped-list">
-        <div class="skipped-title">跳过原因：</div>
-        <div v-for="s in importResult.skipped" :key="s.row" class="skipped-item">
-          第 {{ s.row }} 行：{{ s.reason }}
+    <div v-if="importResults.length > 0" class="import-result">
+      <div v-for="result in importResults" :key="result.filename" class="import-result-item">
+        <a-alert
+          :type="result.success_count > 0 ? (result.skipped_count > 0 ? 'warning' : 'success') : 'error'"
+          show-icon
+          :message="`${result.filename}：成功 ${result.success_count} 条${result.skipped_count > 0 ? '，跳过 ' + result.skipped_count + ' 条' : ''}`"
+        />
+        <div v-if="result.skipped.length > 0" class="skipped-list">
+          <div v-for="s in result.skipped" :key="s.row" class="skipped-item">
+            第 {{ s.row }} 行：{{ s.reason }}
+          </div>
         </div>
       </div>
     </div>
@@ -458,9 +468,10 @@ const hasMoreChunks = ref(false)
 
 // 上传相关
 const importModalVisible = ref(false)
-const importFile = ref<File | null>(null)
+const importFiles = ref<File[]>([])
 const importing = ref(false)
-const importResult = ref<ImportResult | null>(null)
+const importResults = ref<(ImportResult & { filename: string })[]>([])
+const importCurrentIndex = ref(0)
 
 // 详情 Drawer
 const detailDrawerVisible = ref(false)
@@ -796,26 +807,43 @@ function loadMoreChunks() {
 
 // 上传相关
 function beforeUpload(file: File) {
-  importFile.value = file
-  importResult.value = null
+  // 避免重复添加同名文件
+  if (!importFiles.value.some(f => f.name === file.name && f.size === file.size)) {
+    importFiles.value = [...importFiles.value, file]
+  }
+  importResults.value = []
   return false // 阻止自动上传
 }
 
+function removeImportFile(index: number) {
+  importFiles.value = importFiles.value.filter((_, i) => i !== index)
+}
+
 async function handleImport() {
-  if (!importFile.value || !activeProjectStore.activeProjectId) return
+  if (importFiles.value.length === 0 || !activeProjectStore.activeProjectId) return
   importing.value = true
-  importResult.value = null
-  try {
-    const result = await importGoldenDataset(activeProjectStore.activeProjectId, importFile.value)
-    importResult.value = result
-    if (result.success_count > 0) {
-      await fetchList()
+  importResults.value = []
+  importCurrentIndex.value = 0
+
+  let hasSuccess = false
+  for (let i = 0; i < importFiles.value.length; i++) {
+    importCurrentIndex.value = i
+    try {
+      const result = await importGoldenDataset(activeProjectStore.activeProjectId, importFiles.value[i])
+      importResults.value = [...importResults.value, { ...result, filename: importFiles.value[i].name }]
+      if (result.success_count > 0) hasSuccess = true
+    } catch {
+      importResults.value = [...importResults.value, {
+        success_count: 0,
+        skipped_count: 0,
+        skipped: [],
+        filename: importFiles.value[i].name,
+      }]
     }
-  } catch {
-    message.error('导入失败')
-  } finally {
-    importing.value = false
   }
+
+  if (hasSuccess) await fetchList()
+  importing.value = false
 }
 
 // 模板下载
@@ -866,8 +894,8 @@ watch(() => pageStore.refreshTrigger, fetchList)
 // 打开上传弹窗时重置状态
 watch(importModalVisible, (val) => {
   if (val) {
-    importFile.value = null
-    importResult.value = null
+    importFiles.value = []
+    importResults.value = []
   }
 })
 </script>
@@ -1000,8 +1028,13 @@ watch(importModalVisible, (val) => {
 .import-modal-content {
   padding: 8px 0;
 }
-.import-file-info {
+.import-file-list {
   margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.import-file-item {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1023,6 +1056,16 @@ watch(importModalVisible, (val) => {
 }
 .import-result {
   margin-top: 16px;
+}
+.import-result-item {
+  margin-bottom: 8px;
+}
+.import-progress {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  color: #1677ff;
 }
 .skipped-list {
   margin-top: 8px;
