@@ -33,10 +33,6 @@
       />
     </div>
     <div class="toolbar-right">
-      <a-button @click="openGenerateModal">
-        <template #icon><thunderbolt-outlined /></template>
-        LLM 生成
-      </a-button>
       <a-button
         type="primary"
         :disabled="selectedRowKeys.length === 0"
@@ -216,37 +212,6 @@
   </a-form>
 </a-modal>
 
-<!-- LLM 生成弹窗 -->
-<a-modal
-  v-model:open="generateModalVisible"
-  title="LLM 生成黄金数据集"
-  :confirm-loading="generateSubmitting"
-  width="50%"
-  ok-text="开始生成"
-  cancel-text="取消"
-  @ok="handleGenerate"
-  @cancel="generateModalVisible = false"
->
-  <a-form :label-col="{ span: 5 }" :wrapper-col="{ span: 18 }" style="padding-top: 16px">
-    <a-form-item label="选择文档" required>
-      <a-select
-        v-model:value="generateDocumentIds"
-        mode="multiple"
-        placeholder="请选择文档"
-        :loading="documentsLoading"
-        :options="documentOptions.map(d => ({ value: d.id, label: d.filename }))"
-        allow-clear
-      />
-    </a-form-item>
-    <a-form-item label="每分块生成数">
-      <a-input-number v-model:value="generatePerChunk" :min="1" :max="10" style="width: 100%" />
-    </a-form-item>
-    <a-form-item label="用户画像">
-      <a-input v-model:value="generatePersona" placeholder="请输入用户画像" />
-    </a-form-item>
-  </a-form>
-</a-modal>
-
 <!-- 上传弹窗 -->
 <a-modal
   v-model:open="importModalVisible"
@@ -379,7 +344,6 @@ import { useActiveProjectStore } from '@/store/activeProject'
 import {
   PlusOutlined,
   DeleteOutlined,
-  ThunderboltOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
   StopOutlined,
@@ -395,8 +359,6 @@ import {
   batchApprove,
   batchReject,
 } from '@/api/goldenDataset'
-import { generateGolden } from '@/api/generationTask'
-import { getDocumentList } from '@/api/document'
 import { searchProjectChunks } from '@/api/chunk'
 import type { GoldenDatasetItem, CreateGoldenDatasetParams, ImportResult } from '@/api/model/goldenDatasetModel'
 import type { ChunkItem } from '@/api/model/documentModel'
@@ -415,15 +377,6 @@ const evaluating = ref(false)
 const evaluatingIds = ref<string[]>([])
 
 const selectedRowKeys = ref<string[]>([])
-
-// 生成弹窗
-const generateModalVisible = ref(false)
-const generateSubmitting = ref(false)
-const generateDocumentIds = ref<string[]>([])
-const generatePerChunk = ref(2)
-const generatePersona = ref('开发者')
-const documentOptions = ref<{ id: string; filename: string }[]>([])
-const documentsLoading = ref(false)
 
 const columns = [
   { title: '状态', dataIndex: 'status', key: 'status', width: 90 },
@@ -670,50 +623,6 @@ async function handleBatchReject() {
     await fetchList()
   } catch {
     message.error('批量拒绝失败')
-  }
-}
-
-// LLM 生成弹窗
-async function openGenerateModal() {
-  generateModalVisible.value = true
-  generateDocumentIds.value = []
-  generatePerChunk.value = 2
-  generatePersona.value = '开发者'
-  if (documentOptions.value.length === 0) {
-    documentsLoading.value = true
-    try {
-      const res = await getDocumentList(activeProjectStore.activeProjectId!)
-      documentOptions.value = (res.documents || []).map(d => ({ id: d.id, filename: d.filename }))
-    } catch {
-      message.error('获取文档列表失败')
-    } finally {
-      documentsLoading.value = false
-    }
-  }
-}
-
-// LLM 生成提交
-async function handleGenerate() {
-  if (generateDocumentIds.value.length === 0) {
-    message.warning('请选择至少一个文档')
-    return
-  }
-  generateSubmitting.value = true
-  try {
-    await generateGolden(activeProjectStore.activeProjectId!, {
-      document_ids: generateDocumentIds.value,
-      config: {
-        per_chunk: generatePerChunk.value,
-        user_persona: generatePersona.value,
-      },
-    })
-    message.success('生成任务已提交')
-    generateModalVisible.value = false
-    await fetchList()
-  } catch {
-    message.error('生成任务提交失败')
-  } finally {
-    generateSubmitting.value = false
   }
 }
 
