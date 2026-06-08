@@ -34,15 +34,6 @@
     </div>
     <div class="toolbar-right">
       <a-button
-        type="primary"
-        :disabled="selectedRowKeys.length === 0"
-        :loading="evaluating"
-        @click="handleBatchEvaluate"
-      >
-        <template #icon><thunderbolt-outlined /></template>
-        批量评测 ({{ selectedRowKeys.length }})
-      </a-button>
-      <a-button
         :disabled="selectedRowKeys.length === 0"
         @click="handleBatchApprove"
       >
@@ -115,17 +106,6 @@
             </span>
           </template>
 
-          <!-- 评测状态 -->
-          <template v-if="column.key === 'eval_status'">
-            <span v-if="record.evaluation?.is_hit === true" class="eval-hit">
-              <check-circle-outlined /> 命中 <span v-if="record.evaluation.hit_rank" class="eval-rank">(rank={{ record.evaluation.hit_rank }})</span>
-            </span>
-            <span v-else-if="record.evaluation?.is_hit === false" class="eval-miss">
-              <close-circle-outlined /> 未命中
-            </span>
-            <span v-else class="eval-none">-- 未评测</span>
-          </template>
-
           <!-- 创建时间 -->
           <template v-if="column.key === 'created_at'">
             <span class="time-cell">{{ formatTime(record.created_at) }}</span>
@@ -152,7 +132,6 @@
                 <template #icon><close-circle-outlined /></template>
               </a-button>
               <a-button size="small" @click="handleEdit(record)">编辑</a-button>
-              <a-button size="small" type="primary" :loading="evaluatingIds.includes(record.id)" @click="handleEvaluate(record)">评测</a-button>
               <a-popconfirm title="确定删除此记录？" @confirm="handleDelete(record.id)">
                 <a-button size="small" danger>删除</a-button>
               </a-popconfirm>
@@ -302,19 +281,6 @@
       <a-descriptions-item label="参考答案">
         <div class="detail-answer">{{ detailRecord.reference_answer || '--' }}</div>
       </a-descriptions-item>
-      <a-descriptions-item label="评测状态">
-        <span v-if="detailRecord.evaluation?.is_hit === true" class="eval-hit">
-          <check-circle-outlined /> 命中 <span v-if="detailRecord.evaluation.hit_rank" class="eval-rank">(rank={{ detailRecord.evaluation.hit_rank }})</span>
-        </span>
-        <span v-else-if="detailRecord.evaluation?.is_hit === false" class="eval-miss">
-          <close-circle-outlined /> 未命中
-        </span>
-        <span v-else class="eval-none">未评测</span>
-      </a-descriptions-item>
-      <a-descriptions-item v-if="detailRecord.evaluation?.retrieved_chunk_ids?.length" label="检索命中的分块">
-        <a-tag v-for="cid in detailRecord.evaluation.retrieved_chunk_ids" :key="cid" style="margin-bottom: 4px">{{ cid }}</a-tag>
-      </a-descriptions-item>
-      <a-descriptions-item v-if="detailRecord.evaluation?.evaluated_at" label="评测时间">{{ detailRecord.evaluation.evaluated_at }}</a-descriptions-item>
       <a-descriptions-item label="创建时间">{{ detailRecord.created_at }}</a-descriptions-item>
       <a-descriptions-item v-if="detailRecord.metadata && Object.keys(detailRecord.metadata).length" label="元数据">
         <pre class="detail-metadata">{{ JSON.stringify(detailRecord.metadata, null, 2) }}</pre>
@@ -325,7 +291,6 @@
       <a-button v-if="detailRecord.status === 'pending_review'" type="primary" @click="handleApprove(detailRecord); detailDrawerVisible = false">审批通过</a-button>
       <a-button v-if="detailRecord.status === 'pending_review'" danger @click="handleReject(detailRecord); detailDrawerVisible = false">拒绝</a-button>
       <a-button @click="handleEdit(detailRecord); detailDrawerVisible = false">编辑</a-button>
-      <a-button type="primary" :loading="evaluatingIds.includes(detailRecord.id)" @click="handleEvaluate(detailRecord)">评测</a-button>
     </div>
   </template>
 </a-drawer>
@@ -354,7 +319,6 @@ import {
   createGolden,
   updateGolden,
   deleteGolden,
-  evaluateByProject,
   importGolden,
   batchApprove,
   batchReject,
@@ -373,8 +337,6 @@ const loading = ref(false)
 const dataList = ref<GoldenItem[]>([])
 const searchQuery = ref('')
 const statusFilter = ref('')
-const evaluating = ref(false)
-const evaluatingIds = ref<string[]>([])
 
 const selectedRowKeys = ref<string[]>([])
 
@@ -383,7 +345,6 @@ const columns = [
   { title: '查询文本', dataIndex: 'query', key: 'query', ellipsis: true, width: 220 },
   { title: '关联分块', dataIndex: 'chunk_count', key: 'chunk_count', width: 100 },
   { title: '参考答案', dataIndex: 'reference_answer', key: 'reference_answer', ellipsis: true, width: 180 },
-  { title: '评测状态', key: 'eval_status', width: 140 },
   { title: '创建时间', dataIndex: 'created_at', key: 'created_at', width: 120 },
   { title: '操作', key: 'action', fixed: 'right' as const, width: 180 },
 ]
@@ -626,56 +587,6 @@ async function handleBatchReject() {
   }
 }
 
-// 单条评测
-async function handleEvaluate(record: GoldenItem) {
-  evaluatingIds.value.push(record.id)
-  try {
-    await evaluateByProject(activeProjectStore.activeProjectId!, { golden_ids: [record.id] })
-    message.success('评测完成，项目评测数据已更新')
-    await fetchList()
-  } catch {
-    message.error('评测失败')
-  } finally {
-    evaluatingIds.value = evaluatingIds.value.filter(id => id !== record.id)
-  }
-}
-
-// 批量评测
-function handleBatchEvaluate() {
-  const ids = [...selectedRowKeys.value]
-  AModal.confirm({
-    title: '批量评测',
-    content: `确定要对选中的 ${ids.length} 条记录进行评测吗？`,
-    async onOk() {
-      evaluating.value = true
-      let successCount = 0
-      let failCount = 0
-      const remaining = [...ids]
-
-      while (remaining.length > 0) {
-        const batch = remaining.splice(0, 2)
-        try {
-          await evaluateByProject(activeProjectStore.activeProjectId!, {
-            golden_ids: batch,
-          })
-          successCount += batch.length
-          selectedRowKeys.value = selectedRowKeys.value.filter(k => !batch.includes(k))
-        } catch {
-          failCount += batch.length
-        }
-      }
-
-      if (failCount > 0) {
-        message.warning(`批量评测完成：${successCount} 条成功，${failCount} 条失败`)
-      } else {
-        message.success(`批量评测完成：${successCount} 条成功`)
-      }
-      evaluating.value = false
-      await fetchList()
-    },
-  })
-}
-
 // 分块搜索
 async function fetchChunks(reset: boolean = false) {
   if (!activeProjectStore.activeProjectId) return
@@ -863,23 +774,6 @@ watch(importModalVisible, (val) => {
 }
 .time-cell {
   color: #888;
-  font-size: 13px;
-}
-
-.eval-hit {
-  color: #52c41a;
-  font-size: 13px;
-}
-.eval-rank {
-  color: #999;
-  font-size: 12px;
-}
-.eval-miss {
-  color: #ff4d4f;
-  font-size: 13px;
-}
-.eval-none {
-  color: #bbb;
   font-size: 13px;
 }
 

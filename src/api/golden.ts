@@ -1,6 +1,6 @@
 import { get, post, patch, del } from './request'
 import instance from './request'
-import type { GoldenItem, CreateGoldenParams, UpdateGoldenParams, EvaluateByProjectParams, EvaluateResult, ImportResult, BatchStatusUpdateParams, BatchStatusUpdateResult } from './model/goldenModel'
+import type { GoldenItem, CreateGoldenParams, UpdateGoldenParams, ImportResult, BatchStatusUpdateParams, BatchStatusUpdateResult } from './model/goldenModel'
 
 /** 获取项目下的黄金数据集列表 */
 export const getGoldenList = (projectId: string, status?: string) =>
@@ -21,10 +21,6 @@ export const updateGolden = (projectId: string, id: string, params: UpdateGolden
 /** 删除黄金记录 */
 export const deleteGolden = (projectId: string, id: string) =>
   del({ url: `/projects/${projectId}/golden/${id}` })
-
-/** 按项目评测 */
-export const evaluateByProject = (projectId: string, params: EvaluateByProjectParams) =>
-  post<EvaluateResult>({ url: `/projects/${projectId}/evaluations`, data: params })
 
 /** 导入黄金数据集文件 */
 export const importGolden = (projectId: string, file: File): Promise<ImportResult> => {

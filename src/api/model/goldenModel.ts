@@ -1,12 +1,5 @@
 /** 黄金数据集相关接口类型定义 */
 
-export interface EvaluationMetrics {
-  retrieved_chunk_ids: string[]
-  is_hit: boolean | null
-  hit_rank: number | null
-  evaluated_at: string | null
-}
-
 export interface GoldenItem {
   id: string
   project_id: string
@@ -14,7 +7,6 @@ export interface GoldenItem {
   ground_truth_chunks: string[]
   reference_answer: string
   status: string
-  evaluation: EvaluationMetrics | null
   created_at: string
   metadata: Record<string, any>
 }
@@ -30,24 +22,6 @@ export interface UpdateGoldenParams {
   ground_truth_chunks?: string[]
   reference_answer?: string
   status?: string
-}
-
-export interface EvaluateByProjectParams {
-  golden_ids: string[]
-  k_list?: number[]
-}
-
-export interface EvaluateResult {
-  time: string
-  embedding_file: string
-  golden_file: string
-  embedder_model: string
-  answerable_count: number
-  recall: Record<string, { hits: number; recall: number }>
-  mrr: number
-  latency_total_ms: number
-  latency_avg_ms: number
-  failure: string[]
 }
 
 export interface SkippedRecord {
