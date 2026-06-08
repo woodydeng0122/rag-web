@@ -7,7 +7,7 @@ export interface EvaluationMetrics {
   evaluated_at: string | null
 }
 
-export interface GoldenDatasetItem {
+export interface GoldenItem {
   id: string
   project_id: string
   query: string
@@ -19,13 +19,13 @@ export interface GoldenDatasetItem {
   metadata: Record<string, any>
 }
 
-export interface CreateGoldenDatasetParams {
+export interface CreateGoldenParams {
   query: string
   ground_truth_chunks: string[]
   reference_answer?: string
 }
 
-export interface UpdateGoldenDatasetParams {
+export interface UpdateGoldenParams {
   query?: string
   ground_truth_chunks?: string[]
   reference_answer?: string

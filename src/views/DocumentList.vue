@@ -286,7 +286,7 @@ import {
 import { getDocumentList, uploadDocument, processDocument, deleteDocument, getChunkList, getSourceContent } from '@/api/document'
 import { getChunkGoldenRecords } from '@/api/chunk'
 import type { DocumentItem, ChunkItem, UploadDocumentParams } from '@/api/model/documentModel'
-import type { GoldenDatasetItem } from '@/api/model/goldenDatasetModel'
+import type { GoldenItem } from '@/api/model/goldenModel'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import EmbeddingViewer from '@/components/EmbeddingViewer.vue'
 
@@ -360,7 +360,7 @@ const activeChunkIndex = ref(0)
 const activeChunkContent = ref('')
 const activeChunkFileType = ref('')
 const chunkDetailTab = ref('embedding')
-const chunkGoldenRecords = ref<GoldenDatasetItem[]>([])
+const chunkGoldenRecords = ref<GoldenItem[]>([])
 const goldenRecordsLoading = ref(false)
 
 async function handleChunkClick(chunk: ChunkItem) {

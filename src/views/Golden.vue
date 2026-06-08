@@ -1,5 +1,5 @@
 <template>
-  <div class="golden-dataset">
+  <div class="golden">
     <!-- 未选择项目 -->
     <a-result v-if="!activeProjectStore.hasActiveProject" status="warning" title="请先选择一个项目" sub-title="在顶部点击项目名称可切换">
       <template #extra>
@@ -87,7 +87,7 @@
         :pagination="paginationConfig"
         size="middle"
         :scroll="{ x: 900 }"
-        :row-class-name="(record: GoldenDatasetItem) => record.status === 'rejected' ? 'row-rejected' : ''"
+        :row-class-name="(record: GoldenItem) => record.status === 'rejected' ? 'row-rejected' : ''"
       >
         <template #bodyCell="{ column, record }">
           <!-- 状态 -->
@@ -350,17 +350,17 @@ import {
   UploadOutlined,
 } from '@ant-design/icons-vue'
 import {
-  getGoldenDatasetList,
-  createGoldenDataset,
-  updateGoldenDataset,
-  deleteGoldenDataset,
+  getGoldenList,
+  createGolden,
+  updateGolden,
+  deleteGolden,
   evaluateByProject,
-  importGoldenDataset,
+  importGolden,
   batchApprove,
   batchReject,
-} from '@/api/goldenDataset'
+} from '@/api/golden'
 import { searchProjectChunks } from '@/api/chunk'
-import type { GoldenDatasetItem, CreateGoldenDatasetParams, ImportResult } from '@/api/model/goldenDatasetModel'
+import type { GoldenItem, CreateGoldenParams, ImportResult } from '@/api/model/goldenModel'
 import type { ChunkItem } from '@/api/model/documentModel'
 
 dayjs.locale('zh-cn')
@@ -370,7 +370,7 @@ const pageStore = usePageStore()
 const activeProjectStore = useActiveProjectStore()
 
 const loading = ref(false)
-const dataList = ref<GoldenDatasetItem[]>([])
+const dataList = ref<GoldenItem[]>([])
 const searchQuery = ref('')
 const statusFilter = ref('')
 const evaluating = ref(false)
@@ -428,9 +428,9 @@ const importCurrentIndex = ref(0)
 
 // 详情 Drawer
 const detailDrawerVisible = ref(false)
-const detailRecord = ref<GoldenDatasetItem | null>(null)
+const detailRecord = ref<GoldenItem | null>(null)
 
-function openDetailDrawer(record: GoldenDatasetItem) {
+function openDetailDrawer(record: GoldenItem) {
   detailRecord.value = record
   detailDrawerVisible.value = true
 }
@@ -453,7 +453,7 @@ async function fetchList() {
   if (!activeProjectStore.activeProjectId) return
   loading.value = true
   try {
-    const res = await getGoldenDatasetList(activeProjectStore.activeProjectId, statusFilter.value || undefined)
+    const res = await getGoldenList(activeProjectStore.activeProjectId, statusFilter.value || undefined)
     dataList.value = res || []
   } catch {
     message.error('获取黄金数据集失败')
@@ -479,7 +479,7 @@ function handleCreate() {
 }
 
 // 编辑
-function handleEdit(record: GoldenDatasetItem) {
+function handleEdit(record: GoldenItem) {
   isEdit.value = true
   editingId.value = record.id
   formState.value = {
@@ -507,16 +507,16 @@ async function handleSubmit() {
 
   submitLoading.value = true
   try {
-    const params: CreateGoldenDatasetParams = {
+    const params: CreateGoldenParams = {
       query: formState.value.query,
       ground_truth_chunks: formState.value.ground_truth_chunks,
       reference_answer: formState.value.reference_answer,
     }
     if (isEdit.value) {
-      await updateGoldenDataset(activeProjectStore.activeProjectId!, editingId.value, params)
+      await updateGolden(activeProjectStore.activeProjectId!, editingId.value, params)
       message.success('更新成功')
     } else {
-      await createGoldenDataset(activeProjectStore.activeProjectId!, params)
+      await createGolden(activeProjectStore.activeProjectId!, params)
       message.success('创建成功')
     }
     modalVisible.value = false
@@ -531,7 +531,7 @@ async function handleSubmit() {
 // 删除
 async function handleDelete(id: string) {
   try {
-    await deleteGoldenDataset(activeProjectStore.activeProjectId!, id)
+    await deleteGolden(activeProjectStore.activeProjectId!, id)
     message.success('删除成功')
     await fetchList()
   } catch {
@@ -554,7 +554,7 @@ function handleBatchDelete() {
       while (remaining.length > 0) {
         const batch = remaining.splice(0, 2)
         const results = await Promise.allSettled(
-          batch.map(id => deleteGoldenDataset(activeProjectStore.activeProjectId!, id))
+          batch.map(id => deleteGolden(activeProjectStore.activeProjectId!, id))
         )
         for (let i = 0; i < results.length; i++) {
           if (results[i].status === 'fulfilled') {
@@ -577,9 +577,9 @@ function handleBatchDelete() {
 }
 
 // 单条审批
-async function handleApprove(record: GoldenDatasetItem) {
+async function handleApprove(record: GoldenItem) {
   try {
-    await updateGoldenDataset(activeProjectStore.activeProjectId!, record.id, { status: 'approved' })
+    await updateGolden(activeProjectStore.activeProjectId!, record.id, { status: 'approved' })
     message.success('审批通过')
     await fetchList()
   } catch {
@@ -588,9 +588,9 @@ async function handleApprove(record: GoldenDatasetItem) {
 }
 
 // 单条拒绝
-async function handleReject(record: GoldenDatasetItem) {
+async function handleReject(record: GoldenItem) {
   try {
-    await updateGoldenDataset(activeProjectStore.activeProjectId!, record.id, { status: 'rejected' })
+    await updateGolden(activeProjectStore.activeProjectId!, record.id, { status: 'rejected' })
     message.success('已拒绝')
     await fetchList()
   } catch {
@@ -627,7 +627,7 @@ async function handleBatchReject() {
 }
 
 // 单条评测
-async function handleEvaluate(record: GoldenDatasetItem) {
+async function handleEvaluate(record: GoldenItem) {
   evaluatingIds.value.push(record.id)
   try {
     await evaluateByProject(activeProjectStore.activeProjectId!, { golden_ids: [record.id] })
@@ -738,7 +738,7 @@ async function handleImport() {
   for (let i = 0; i < importFiles.value.length; i++) {
     importCurrentIndex.value = i
     try {
-      const result = await importGoldenDataset(activeProjectStore.activeProjectId, importFiles.value[i])
+      const result = await importGolden(activeProjectStore.activeProjectId, importFiles.value[i])
       importResults.value = [...importResults.value, { ...result, filename: importFiles.value[i].name }]
       if (result.success_count > 0) hasSuccess = true
     } catch {
@@ -775,13 +775,13 @@ function downloadTemplate(format: 'jsonl' | 'csv') {
       metadata: { type: 'procedural', difficulty: 'medium' },
     }
     content = [example1, example2].map(r => JSON.stringify(r)).join('\n')
-    filename = 'golden_dataset_template.jsonl'
+    filename = 'golden_template.jsonl'
     mimeType = 'application/jsonl'
   } else {
     content = 'query,ground_truth_chunks,reference_answer,metadata\n'
     content += '什么是 RAG？,chunk_id_1;chunk_id_2,RAG 是检索增强生成技术。,"{""type"":""factual"",""difficulty"":""easy""}"\n'
     content += '如何评估检索系统的质量？,chunk_id_3,可以使用 Recall@K、MRR 等指标评估检索质量。,"{""type"":""procedural"",""difficulty"":""medium""}"\n'
-    filename = 'golden_dataset_template.csv'
+    filename = 'golden_template.csv'
     mimeType = 'text/csv'
   }
 

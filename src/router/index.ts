@@ -33,9 +33,9 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '文档管理' },
       },
       {
-        path: 'golden-dataset',
-        name: 'GoldenDataset',
-        component: () => import('@/views/GoldenDataset.vue'),
+        path: 'golden',
+        name: 'Golden',
+        component: () => import('@/views/Golden.vue'),
         meta: { title: '黄金数据集' },
       },
       {

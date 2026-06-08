@@ -1,6 +1,6 @@
 import { get } from './request'
 import type { ChunkItem } from './model/documentModel'
-import type { GoldenDatasetItem } from './model/goldenDatasetModel'
+import type { GoldenItem } from './model/goldenModel'
 
 export interface ChunkSearchResult {
   document_id: string
@@ -14,4 +14,4 @@ export const searchProjectChunks = (projectId: string, q: string = '', limit: nu
 
 /** 查询分块关联的黄金记录 */
 export const getChunkGoldenRecords = (projectId: string, chunkId: string) =>
-  get<GoldenDatasetItem[]>({ url: `/projects/${projectId}/chunks/${chunkId}/golden-records` })
+  get<GoldenItem[]>({ url: `/projects/${projectId}/chunks/${chunkId}/golden-records` })

@@ -185,7 +185,7 @@ const menuItems = computed<MenuProps['items']>(() => [
     label: '文档管理',
   },
   {
-    key: '/golden-dataset',
+    key: '/golden',
     icon: () => h(TrophyOutlined),
     label: '黄金数据集',
   },
@@ -201,8 +201,8 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => {
   const crumbs: BreadcrumbItem[] = []
   const path = route.path
 
-  if (path.startsWith('/golden-dataset')) {
-    crumbs.push({ key: 'golden-dataset', title: '黄金数据集' })
+  if (path.startsWith('/golden')) {
+    crumbs.push({ key: 'golden', title: '黄金数据集' })
   } else if (path.startsWith('/embed-models')) {
     crumbs.push({ key: 'embed-models', title: '模型配置' })
   } else if (path.startsWith('/documents')) {
