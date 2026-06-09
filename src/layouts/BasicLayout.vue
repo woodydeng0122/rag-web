@@ -106,6 +106,7 @@
             </a-breadcrumb>
           </div>
           <div class="header-center" @click="router.push('/projects')">
+            <home-outlined v-if="activeProjectStore.activeProject" class="header-project-icon" />
             <span v-if="activeProjectStore.activeProject" class="active-project-name">
               {{ activeProjectStore.activeProject.name }}
             </span>
@@ -141,6 +142,7 @@ import {
   ReloadOutlined,
   RobotOutlined,
   BarChartOutlined,
+  HomeOutlined,
 } from '@ant-design/icons-vue'
 import type { MenuProps } from 'ant-design-vue'
 
@@ -391,6 +393,7 @@ function handleRefresh() {
   justify-content: space-between;
   height: 56px;
   line-height: 56px;
+  position: relative;
 }
 .header-left {
   display: flex;
@@ -398,11 +401,23 @@ function handleRefresh() {
   gap: 12px;
 }
 .header-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   cursor: pointer;
   transition: opacity 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .header-center:hover {
   opacity: 0.7;
+}
+.header-project-icon {
+  flex-shrink: 0;
+  font-size: 16px;
+  color: #1677ff;
 }
 .active-project-name {
   font-size: 14px;

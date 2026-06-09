@@ -333,7 +333,7 @@
             <div class="retrieval-gt-label">Ground Truth ({{ retrievalRecord.ground_truth_chunks?.length || 0 }} 个分块)</div>
             <a-spin :spinning="gtChunksLoading">
               <div class="retrieval-gt-list">
-                <div v-for="chunk in gtChunks" :key="chunk.id" class="retrieval-gt-item">
+                <div v-for="(chunk, idx) in gtChunks" :key="chunk.id" class="retrieval-gt-item" :class="idx % 2 === 0 ? 'retrieval-gt-item--even' : 'retrieval-gt-item--odd'">
                   <div class="retrieval-gt-item-header">
                     <span class="retrieval-gt-index">#{{ chunk.index + 1 }}</span>
                     <span v-if="chunk.heading" class="retrieval-gt-item-heading">{{ chunk.heading }}</span>
@@ -378,7 +378,7 @@
             </div>
 
             <div class="retrieval-items">
-              <div v-for="item in retrievalResult.items" :key="item.chunk_id" class="retrieval-item" :class="{ 'retrieval-item-hit': item.is_ground_truth }">
+              <div v-for="(item, idx) in retrievalResult.items" :key="item.chunk_id" class="retrieval-item" :class="[idx % 2 === 0 ? 'retrieval-item--even' : 'retrieval-item--odd', { 'retrieval-item-hit': item.is_ground_truth }]">
                 <div class="retrieval-item-header">
                   <span class="retrieval-item-rank">#{{ item.rank }}</span>
                   <span class="retrieval-item-score">score: {{ item.score.toFixed(4) }}</span>
@@ -386,7 +386,7 @@
                   <a-tag v-else color="default" size="small">未命中</a-tag>
                 </div>
                 <div v-if="item.heading" class="retrieval-item-heading">{{ item.heading }}</div>
-                <div class="retrieval-item-content">{{ item.content.length > 200 ? item.content.slice(0, 200) + '...' : item.content }}</div>
+                <MarkdownRenderer :content="item.content" :file-type="item.file_type" />
                 <div v-if="item.source_file" class="retrieval-item-source">{{ item.source_file }}</div>
               </div>
             </div>
@@ -1202,10 +1202,16 @@ watch(importModalVisible, (val) => {
 }
 .retrieval-gt-item {
   padding: 10px 12px;
-  background: #f6ffed;
   border-radius: 6px;
-  border: 1px solid #b7eb8f;
   flex-shrink: 0;
+}
+.retrieval-gt-item--even {
+  background: #fff1f0;
+  border: 1px solid #ffccc7;
+}
+.retrieval-gt-item--odd {
+  background: #f6ffed;
+  border: 1px solid #b7eb8f;
 }
 .retrieval-gt-item-header {
   display: flex;
@@ -1263,11 +1269,18 @@ watch(importModalVisible, (val) => {
   overflow-y: auto;
 }
 .retrieval-item {
-  border: 1px solid #f0f0f0;
   border-radius: 6px;
   padding: 10px 12px;
   transition: border-color 0.2s;
   flex-shrink: 0;
+}
+.retrieval-item--even {
+  background: #fff1f0;
+  border: 1px solid #ffccc7;
+}
+.retrieval-item--odd {
+  background: #f6ffed;
+  border: 1px solid #b7eb8f;
 }
 .retrieval-item-hit {
   border-color: #b7eb8f;
@@ -1293,11 +1306,6 @@ watch(importModalVisible, (val) => {
   font-size: 12px;
   color: #1677ff;
   margin-bottom: 4px;
-}
-.retrieval-item-content {
-  font-size: 12px;
-  color: #666;
-  line-height: 1.6;
 }
 .retrieval-item-source {
   font-size: 11px;

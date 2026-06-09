@@ -50,6 +50,7 @@ export interface RetrievalItem {
   content: string
   heading: string
   source_file: string
+  file_type: string
   is_ground_truth: boolean
 }
 
