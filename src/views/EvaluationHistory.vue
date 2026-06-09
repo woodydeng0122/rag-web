@@ -60,6 +60,11 @@
             <template v-else-if="column.key === 'embed_model_name'">
               <span class="cell-model">{{ record.embed_model_name }}</span>
             </template>
+            <template v-else-if="column.key === 'action'">
+              <a-popconfirm title="确定删除此评估记录？" ok-text="确定" cancel-text="取消" @confirm="handleDelete(record)">
+                <a-button size="small" danger>删除</a-button>
+              </a-popconfirm>
+            </template>
           </template>
         </a-table>
       </a-spin>
@@ -85,15 +90,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import {
-  ReloadOutlined,
   PlusOutlined,
 } from '@ant-design/icons-vue'
 import { dayjs } from '@/utils/time'
-import { getEvaluationHistory, triggerEvaluation } from '@/api/project'
+import { getEvaluationHistory, triggerEvaluation, deleteEvaluation } from '@/api/project'
 import type { EvaluationStatsResult } from '@/api/model/projectModel'
 import { usePageStore } from '@/store/page'
 
@@ -116,6 +120,7 @@ const columns = [
   { title: '已检索', dataIndex: 'golden_retrieved', key: 'golden_retrieved', width: 70, align: 'center' as const },
   { title: '延迟(ms)', dataIndex: 'avg_latency_ms', key: 'avg_latency_ms', width: 90, align: 'right' as const },
   { title: '嵌入模型', dataIndex: 'embed_model_name', key: 'embed_model_name', width: 180 },
+  { title: '操作', key: 'action', width: 80 },
 ]
 
 function formatDateTime(dateStr: string) {
@@ -161,6 +166,16 @@ async function handleEval() {
     message.error('触发评估失败')
   } finally {
     evalLoading.value = false
+  }
+}
+
+async function handleDelete(record: EvaluationStatsResult) {
+  try {
+    await deleteEvaluation(projectId, record.id)
+    message.success('删除成功')
+    await fetchHistory()
+  } catch {
+    message.error('删除失败')
   }
 }
 

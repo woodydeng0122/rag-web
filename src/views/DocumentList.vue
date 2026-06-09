@@ -63,13 +63,13 @@
               <a-button v-if="record.chunk_count > 0" type="link" size="small" @click="handleViewChunks(record)">
                 {{ record.chunk_count }}
               </a-button>
-              <span v-else class="chunk-count-zero">0</span>
+              <a-typography-text type="secondary">0</a-typography-text>
             </template>
 
             <!-- 黄金数据集 -->
             <template v-if="column.key === 'golden_record_count'">
-              <span v-if="record.golden_record_count > 0" class="golden-count">{{ record.golden_record_count }}</span>
-              <span v-else class="chunk-count-zero">0</span>
+              <a-typography-text v-if="record.golden_record_count > 0" :style="{ color: 'var(--ant-color-success)', fontWeight: 500 }">{{ record.golden_record_count }}</a-typography-text>
+              <a-typography-text v-else type="secondary">0</a-typography-text>
             </template>
 
             <!-- 状态 -->
@@ -181,7 +181,7 @@
           <a-descriptions-item label="上传时间">{{ formatFullTime(currentDoc.created_at) }}</a-descriptions-item>
           <a-descriptions-item label="更新时间">{{ formatFullTime(currentDoc.updated_at) }}</a-descriptions-item>
           <a-descriptions-item label="错误信息" v-if="currentDoc.error_message">
-            <span class="error-text">{{ currentDoc.error_message }}</span>
+            <a-typography-text type="danger" :style="{ fontFamily: 'var(--ant-font-family-code)', fontSize: '12px', wordBreak: 'break-all' }">{{ currentDoc.error_message }}</a-typography-text>
           </a-descriptions-item>
         </a-descriptions>
       </template>
@@ -270,6 +270,7 @@ import { message, Modal as AModal } from 'ant-design-vue'
 import { usePageStore } from '@/store/page'
 import { useActiveProjectStore } from '@/store/activeProject'
 import { formatTime, formatFullTime } from '@/utils/time'
+import { batchExecute } from '@/utils/batch'
 import {
   UploadOutlined,
   InboxOutlined,
@@ -549,31 +550,14 @@ function handleBatchProcess() {
     content: `确定要处理选中的 ${processableIds.length} 个文档吗？${skipHint}`,
     onOk() {
       batchProcessing.value = true
-      let successCount = 0
-      let failCount = 0
-      const remaining = [...processableIds]
 
       void (async () => {
-        while (remaining.length > 0) {
-          const batch = remaining.splice(0, 2)
-          const results = await Promise.allSettled(
-            batch.map(id => processDocument(projectId.value, id))
-          )
-          for (let i = 0; i < results.length; i++) {
-            if (results[i].status === 'fulfilled') {
-              successCount++
-              selectedRowKeys.value = selectedRowKeys.value.filter(k => k !== batch[i])
-            } else {
-              failCount++
-            }
-          }
-        }
-
-        if (failCount > 0) {
-          message.warning(`批量处理完成：${successCount} 个成功，${failCount} 个失败`)
-        } else {
-          message.success(`批量处理完成：${successCount} 个成功`)
-        }
+        const succeeded = await batchExecute(
+          processableIds,
+          id => processDocument(projectId.value, id),
+          { label: '批量处理' },
+        )
+        selectedRowKeys.value = selectedRowKeys.value.filter(k => !succeeded.includes(k))
         batchProcessing.value = false
         await fetchList()
       })()
@@ -699,7 +683,7 @@ watch(() => pageStore.refreshTrigger, fetchList)
 }
 .file-icon {
   font-size: 16px;
-  color: #1677ff;
+  color: var(--ant-color-primary);
   flex-shrink: 0;
 }
 .file-name {
@@ -720,34 +704,34 @@ watch(() => pageStore.refreshTrigger, fetchList)
 .status-tag {
   margin: 0;
   padding: 2px 8px;
-  font-size: 12px;
-  border-radius: 4px;
+  font-size: var(--ant-font-size-sm);
+  border-radius: var(--ant-border-radius-sm);
 }
 
 /* 上传弹窗 */
 .upload-icon {
   font-size: 36px;
-  color: #1677ff;
+  color: var(--ant-color-primary);
   margin-bottom: 8px;
 }
 .upload-text {
   font-size: 14px;
-  color: #333;
+  color: var(--ant-color-text);
 }
 .upload-hint {
   font-size: 12px;
-  color: #999;
+  color: var(--ant-color-text-tertiary);
   margin-top: 4px;
 }
 .selected-file {
   margin-top: 8px;
   font-size: 13px;
-  color: #1677ff;
+  color: var(--ant-color-primary);
 }
 
 /* 错误文本 */
 .error-text {
-  color: #ff4d4f;
+  color: var(--ant-color-error);
   word-break: break-all;
   font-family: ui-monospace, 'SF Mono', monospace;
   font-size: 12px;
@@ -755,7 +739,7 @@ watch(() => pageStore.refreshTrigger, fetchList)
 
 /* 分块数 */
 .chunk-count-zero {
-  color: #bbb;
+  color: var(--ant-color-text-quaternary);
   font-size: 13px;
 }
 
@@ -763,7 +747,7 @@ watch(() => pageStore.refreshTrigger, fetchList)
 .golden-count {
   font-size: 13px;
   font-weight: 500;
-  color: #52c41a;
+  color: var(--ant-color-success);
 }
 
 /* 分块详情布局 */
@@ -775,7 +759,7 @@ watch(() => pageStore.refreshTrigger, fetchList)
 .chunk-detail-left {
   flex: 1;
   min-width: 0;
-  border: 1px solid #f0f0f0;
+  border: 1px solid var(--ant-color-border-secondary);
   border-radius: 8px;
   overflow: hidden;
   display: flex;
@@ -784,7 +768,7 @@ watch(() => pageStore.refreshTrigger, fetchList)
 .chunk-detail-right {
   flex: 1;
   min-width: 0;
-  border: 1px solid #f0f0f0;
+  border: 1px solid var(--ant-color-border-secondary);
   border-radius: 8px;
   overflow: hidden;
   display: flex;
@@ -794,15 +778,15 @@ watch(() => pageStore.refreshTrigger, fetchList)
   padding: 10px 16px;
   font-size: 14px;
   font-weight: 600;
-  color: #fff;
-  background: #1677ff;
+  color: var(--ant-color-text-light-solid);
+  background: var(--ant-color-primary);
   flex-shrink: 0;
 }
 .chunk-detail-left .panel-title {
-  background: #1677ff;
+  background: var(--ant-color-primary);
 }
 .chunk-detail-right .panel-title {
-  background: #52c41a;
+  background: var(--ant-color-success);
 }
 .source-content {
   flex: 1;
@@ -860,10 +844,10 @@ watch(() => pageStore.refreshTrigger, fetchList)
   transform: translateY(-1px);
 }
 .chunk-item--even {
-  background: #fff1f0;
+  background: var(--ant-color-error-bg);
 }
 .chunk-item--odd {
-  background: #f6ffed;
+  background: var(--ant-color-success-bg);
 }
 
 /* 黄金记录列表 */
@@ -871,7 +855,7 @@ watch(() => pageStore.refreshTrigger, fetchList)
 }
 .golden-record-item {
   padding: 10px 12px;
-  border: 1px solid #f0f0f0;
+  border: 1px solid var(--ant-color-border-secondary);
   border-radius: 6px;
   margin-bottom: 8px;
 }
@@ -884,7 +868,7 @@ watch(() => pageStore.refreshTrigger, fetchList)
 .golden-record-query {
   font-weight: 500;
   font-size: 13px;
-  color: #333;
+  color: var(--ant-color-text);
 }
 .golden-record-meta {
   display: flex;
@@ -894,11 +878,11 @@ watch(() => pageStore.refreshTrigger, fetchList)
 }
 .golden-record-score {
   font-size: 11px;
-  color: #8c8c8c;
+  color: var(--ant-color-text-tertiary);
 }
 .golden-record-answer {
   font-size: 12px;
-  color: #666;
+  color: var(--ant-color-text-secondary);
   line-height: 1.5;
   max-height: 60px;
   overflow: hidden;
@@ -914,7 +898,7 @@ watch(() => pageStore.refreshTrigger, fetchList)
   overflow-y: auto;
 }
 .chunk-detail-section {
-  border: 1px solid #f0f0f0;
+  border: 1px solid var(--ant-color-border-secondary);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -922,9 +906,9 @@ watch(() => pageStore.refreshTrigger, fetchList)
   padding: 8px 12px;
   font-size: 12px;
   font-weight: 600;
-  color: #595959;
-  background: #fafafa;
-  border-bottom: 1px solid #f0f0f0;
+  color: var(--ant-color-text-secondary);
+  background: var(--ant-color-fill-quaternary);
+  border-bottom: 1px solid var(--ant-color-border-secondary);
 }
 .chunk-content-preview {
   padding: 12px;

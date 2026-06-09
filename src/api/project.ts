@@ -36,3 +36,7 @@ export const triggerEvaluation = (projectId: string, topK: number = 10) =>
 /** 查询项目评估历史 */
 export const getEvaluationHistory = (projectId: string) =>
   get<EvaluationStatsResult[]>({ url: `${Api.List}/${projectId}/evaluation-stats` })
+
+/** 删除评估记录 */
+export const deleteEvaluation = (projectId: string, evaluationId: string) =>
+  del({ url: `${Api.List}/${projectId}/evaluation-stats/${evaluationId}` })

@@ -168,7 +168,7 @@
   width="50%"
   ok-text="确认"
   cancel-text="取消"
-  @ok="handleSubmit"
+  @ok="handleFormSubmit"
   @cancel="modalVisible = false"
 >
   <a-form :model="formState" :label-col="{ span: 5 }" :wrapper-col="{ span: 18 }" style="padding-top: 16px">
@@ -405,6 +405,8 @@ import { ref, reactive, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal as AModal } from 'ant-design-vue'
 import { formatTime } from '@/utils/time'
+import { batchExecute } from '@/utils/batch'
+import { useCrudModal } from '@/composables/useCrudModal'
 import { usePageStore } from '@/store/page'
 import { useActiveProjectStore } from '@/store/activeProject'
 import {
@@ -470,14 +472,11 @@ const filteredList = computed(() => {
 })
 
 // 弹窗
-const modalVisible = ref(false)
-const submitLoading = ref(false)
-const isEdit = ref(false)
-const editingId = ref('')
-const formState = ref<{ query: string; ground_truth_chunks: string[]; reference_answer: string }>({
-  query: '',
-  ground_truth_chunks: [],
-  reference_answer: '',
+const { modalVisible, submitLoading, isEdit, editingId, formState, openCreate, openEdit, handleSubmit } = useCrudModal({
+  defaultForm: () => ({ query: '', ground_truth_chunks: [] as string[], reference_answer: '' }),
+  createApi: (form) => createGolden(activeProjectStore.activeProjectId!, form as any),
+  updateApi: (id, form) => updateGolden(activeProjectStore.activeProjectId!, id, form as any),
+  afterSubmit: fetchList,
 })
 
 // 分块选择器
@@ -592,32 +591,14 @@ function handleBatchRetrieve() {
     onOk() {
       batchRetrieving.value = true
       batchRemaining.value = ids.length
-      let successCount = 0
-      let failCount = 0
-      const remaining = [...ids]
 
       void (async () => {
-        while (remaining.length > 0) {
-          const batch = remaining.splice(0, 2)
-          const results = await Promise.allSettled(
-            batch.map(id => createRetrieval(activeProjectStore.activeProjectId!, id, { max_k: 10 }))
-          )
-          for (let i = 0; i < results.length; i++) {
-            if (results[i].status === 'fulfilled') {
-              successCount++
-              selectedRowKeys.value = selectedRowKeys.value.filter(k => k !== batch[i])
-            } else {
-              failCount++
-            }
-          }
-          batchRemaining.value = remaining.length
-        }
-
-        if (failCount > 0) {
-          message.warning(`批量检索完成：${successCount} 条成功，${failCount} 条失败`)
-        } else {
-          message.success(`批量检索完成：${successCount} 条成功`)
-        }
+        const succeeded = await batchExecute(
+          ids,
+          id => createRetrieval(activeProjectStore.activeProjectId!, id, { max_k: 10 }),
+          { label: '批量检索', onProgress: (r) => { batchRemaining.value = r } },
+        )
+        selectedRowKeys.value = selectedRowKeys.value.filter(k => !succeeded.includes(k))
         batchRetrieving.value = false
         await fetchList()
       })()
@@ -650,64 +631,33 @@ function onSelectChange(keys: any[]) {
 
 // 新增
 function handleCreate() {
-  isEdit.value = false
-  editingId.value = ''
-  formState.value = { query: '', ground_truth_chunks: [], reference_answer: '' }
+  openCreate()
   chunkSearchQuery.value = ''
   chunkOptions.value = []
   chunkOffset.value = 0
-  modalVisible.value = true
   fetchChunks(true)
 }
 
 // 编辑
 function handleEdit(record: GoldenItem) {
-  isEdit.value = true
-  editingId.value = record.id
-  formState.value = {
+  openEdit(record.id, {
     query: record.query,
     ground_truth_chunks: [...record.ground_truth_chunks],
     reference_answer: record.reference_answer,
-  }
+  })
   chunkSearchQuery.value = ''
   chunkOptions.value = []
   chunkOffset.value = 0
-  modalVisible.value = true
   fetchChunks(true)
 }
 
 // 提交
-async function handleSubmit() {
-  if (!formState.value.query.trim()) {
-    message.warning('请输入查询文本')
-    return
-  }
-  if (formState.value.ground_truth_chunks.length === 0) {
-    message.warning('请选择至少一个关联分块')
-    return
-  }
-
-  submitLoading.value = true
-  try {
-    const params: CreateGoldenParams = {
-      query: formState.value.query,
-      ground_truth_chunks: formState.value.ground_truth_chunks,
-      reference_answer: formState.value.reference_answer,
-    }
-    if (isEdit.value) {
-      await updateGolden(activeProjectStore.activeProjectId!, editingId.value, params)
-      message.success('更新成功')
-    } else {
-      await createGolden(activeProjectStore.activeProjectId!, params)
-      message.success('创建成功')
-    }
-    modalVisible.value = false
-    await fetchList()
-  } catch {
-    message.error(isEdit.value ? '编辑失败' : '创建失败')
-  } finally {
-    submitLoading.value = false
-  }
+async function handleFormSubmit() {
+  await handleSubmit((form) => {
+    if (!form.query.trim()) return '请输入查询文本'
+    if (form.ground_truth_chunks.length === 0) return '请选择至少一个关联分块'
+    return null
+  })
 }
 
 // 删除
@@ -729,31 +679,13 @@ function handleBatchDelete() {
     content: `确定要删除选中的 ${ids.length} 条记录吗？此操作不可恢复。`,
     okType: 'danger',
     onOk() {
-      let successCount = 0
-      let failCount = 0
-      const remaining = [...ids]
-
       void (async () => {
-        while (remaining.length > 0) {
-          const batch = remaining.splice(0, 2)
-          const results = await Promise.allSettled(
-            batch.map(id => deleteGolden(activeProjectStore.activeProjectId!, id))
-          )
-          for (let i = 0; i < results.length; i++) {
-            if (results[i].status === 'fulfilled') {
-              successCount++
-              selectedRowKeys.value = selectedRowKeys.value.filter(k => k !== batch[i])
-            } else {
-              failCount++
-            }
-          }
-        }
-
-        if (failCount > 0) {
-          message.warning(`批量删除完成：${successCount} 条成功，${failCount} 条失败`)
-        } else {
-          message.success(`批量删除完成：${successCount} 条成功`)
-        }
+        const succeeded = await batchExecute(
+          ids,
+          id => deleteGolden(activeProjectStore.activeProjectId!, id),
+          { label: '批量删除' },
+        )
+        selectedRowKeys.value = selectedRowKeys.value.filter(k => !succeeded.includes(k))
         await fetchList()
       })()
     },
@@ -933,12 +865,12 @@ watch(importModalVisible, (val) => {
   font-weight: 500;
 }
 .answer-cell {
-  color: #888;
+  color: var(--ant-color-text-tertiary);
   font-size: 13px;
 }
 
 .chunk-selector {
-  border: 1px solid #d9d9d9;
+  border: 1px solid var(--ant-color-border);
   border-radius: 6px;
   padding: 8px 12px;
   max-height: 280px;
@@ -951,24 +883,24 @@ watch(importModalVisible, (val) => {
 }
 .chunk-option {
   padding: 4px 0;
-  border-bottom: 1px solid #f5f5f5;
+  border-bottom: 1px solid var(--ant-color-border-secondary);
 }
 .chunk-option:last-child {
   border-bottom: none;
 }
 .chunk-heading {
   font-weight: 500;
-  color: #1677ff;
+  color: var(--ant-color-primary);
   font-size: 12px;
 }
 .chunk-content {
   font-size: 12px;
-  color: #666;
+  color: var(--ant-color-text-secondary);
 }
 .load-more {
   text-align: center;
   padding: 8px;
-  color: #1677ff;
+  color: var(--ant-color-primary);
   cursor: pointer;
   font-size: 13px;
 }
@@ -978,7 +910,7 @@ watch(importModalVisible, (val) => {
 .selected-info {
   margin-top: 4px;
   font-size: 12px;
-  color: #1677ff;
+  color: var(--ant-color-primary);
 }
 
 /* 上传弹窗 */
@@ -999,12 +931,12 @@ watch(importModalVisible, (val) => {
 .import-templates {
   margin-top: 16px;
   padding: 12px;
-  background: #fafafa;
+  background: var(--ant-color-fill-quaternary);
   border-radius: 6px;
   font-size: 13px;
 }
 .template-label {
-  color: #888;
+  color: var(--ant-color-text-tertiary);
   margin-right: 4px;
 }
 .import-actions {
@@ -1022,7 +954,7 @@ watch(importModalVisible, (val) => {
   display: flex;
   align-items: center;
   font-size: 13px;
-  color: #1677ff;
+  color: var(--ant-color-primary);
 }
 .skipped-list {
   margin-top: 8px;
@@ -1036,7 +968,7 @@ watch(importModalVisible, (val) => {
 }
 .skipped-item {
   font-size: 12px;
-  color: #666;
+  color: var(--ant-color-text-secondary);
   padding: 2px 0;
 }
 
@@ -1049,7 +981,7 @@ watch(importModalVisible, (val) => {
 }
 .detail-metadata {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--ant-font-size-sm);
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -1068,7 +1000,7 @@ watch(importModalVisible, (val) => {
 .retrieval-detail-left {
   flex: 1;
   min-width: 0;
-  border: 1px solid #f0f0f0;
+  border: 1px solid var(--ant-color-border-secondary);
   border-radius: 8px;
   overflow: hidden;
   display: flex;
@@ -1077,17 +1009,17 @@ watch(importModalVisible, (val) => {
 .retrieval-detail-right {
   flex: 1;
   min-width: 0;
-  border: 1px solid #f0f0f0;
+  border: 1px solid var(--ant-color-border-secondary);
   border-radius: 8px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 .retrieval-detail-left .panel-title {
-  background: #1677ff;
+  background: var(--ant-color-primary);
 }
 .retrieval-detail-right .panel-title {
-  background: #52c41a;
+  background: var(--ant-color-success);
 }
 .retrieval-detail-body {
   flex: 1;
@@ -1116,14 +1048,14 @@ watch(importModalVisible, (val) => {
 }
 .retrieval-query-label {
   font-size: 13px;
-  color: #888;
+  color: var(--ant-color-text-tertiary);
   margin-bottom: 4px;
 }
 .retrieval-query-text {
   font-weight: 500;
   font-size: 14px;
   padding: 8px 12px;
-  background: #f5f7fa;
+  background: var(--ant-color-fill-quaternary);
   border-radius: 6px;
 }
 .retrieval-gt-section {
@@ -1134,7 +1066,7 @@ watch(importModalVisible, (val) => {
 }
 .retrieval-gt-label {
   font-size: 13px;
-  color: #888;
+  color: var(--ant-color-text-tertiary);
   margin-bottom: 8px;
 }
 .retrieval-gt-list {
@@ -1150,12 +1082,12 @@ watch(importModalVisible, (val) => {
   flex-shrink: 0;
 }
 .retrieval-gt-item--even {
-  background: #fff1f0;
-  border: 1px solid #ffccc7;
+  background: var(--ant-color-error-bg);
+  border: 1px solid var(--ant-color-error-border);
 }
 .retrieval-gt-item--odd {
-  background: #f6ffed;
-  border: 1px solid #b7eb8f;
+  background: var(--ant-color-success-bg);
+  border: 1px solid var(--ant-color-success-border);
 }
 .retrieval-gt-item-header {
   display: flex;
@@ -1165,14 +1097,14 @@ watch(importModalVisible, (val) => {
 }
 .retrieval-gt-index {
   font-weight: 600;
-  color: #52c41a;
+  color: var(--ant-color-success);
   font-size: 12px;
   flex-shrink: 0;
 }
 .retrieval-gt-item-heading {
   font-weight: 500;
   font-size: 12px;
-  color: #1677ff;
+  color: var(--ant-color-primary);
 }
 .retrieval-params {
   display: flex;
@@ -1187,7 +1119,7 @@ watch(importModalVisible, (val) => {
 }
 .retrieval-param-label {
   font-size: 13px;
-  color: #666;
+  color: var(--ant-color-text-secondary);
 }
 .retrieval-loading {
   display: flex;
@@ -1195,7 +1127,7 @@ watch(importModalVisible, (val) => {
   gap: 8px;
   padding: 24px 0;
   justify-content: center;
-  color: #1677ff;
+  color: var(--ant-color-primary);
 }
 .retrieval-metrics {
   display: flex;
@@ -1219,16 +1151,16 @@ watch(importModalVisible, (val) => {
   flex-shrink: 0;
 }
 .retrieval-item--even {
-  background: #fff1f0;
-  border: 1px solid #ffccc7;
+  background: var(--ant-color-error-bg);
+  border: 1px solid var(--ant-color-error-border);
 }
 .retrieval-item--odd {
-  background: #f6ffed;
-  border: 1px solid #b7eb8f;
+  background: var(--ant-color-success-bg);
+  border: 1px solid var(--ant-color-success-border);
 }
 .retrieval-item-hit {
-  border-color: #b7eb8f;
-  background: #f6ffed;
+  border-color: var(--ant-color-success-border);
+  background: var(--ant-color-success-bg);
 }
 .retrieval-item-header {
   display: flex;
@@ -1238,22 +1170,22 @@ watch(importModalVisible, (val) => {
 }
 .retrieval-item-rank {
   font-weight: 600;
-  color: #1677ff;
+  color: var(--ant-color-primary);
   font-size: 13px;
 }
 .retrieval-item-score {
   font-size: 12px;
-  color: #888;
+  color: var(--ant-color-text-tertiary);
 }
 .retrieval-item-heading {
   font-weight: 500;
   font-size: 12px;
-  color: #1677ff;
+  color: var(--ant-color-primary);
   margin-bottom: 4px;
 }
 .retrieval-item-source {
   font-size: 11px;
-  color: #aaa;
+  color: var(--ant-color-text-quaternary);
   margin-top: 4px;
 }
 .retrieval-actions {

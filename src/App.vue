@@ -20,10 +20,26 @@ const theme = {
   algorithm: antdTheme.defaultAlgorithm,
   token: {
     colorPrimary: '#1677ff',
+    colorSuccess: '#52c41a',
+    colorWarning: '#faad14',
+    colorError: '#ff4d4f',
     borderRadius: 8,
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif',
     fontSize: 14,
+    fontFamilyCode: "ui-monospace, 'SF Mono', 'Cascadia Code', monospace",
+  },
+  components: {
+    Menu: {
+      itemBorderRadius: 8,
+      itemMarginInline: 0,
+      itemMarginBlock: 2,
+      itemHeight: 40,
+      itemSelectedBg: 'rgba(22, 119, 255, 0.12)',
+      itemSelectedColor: '#1677ff',
+      itemHoverBg: 'rgba(255, 255, 255, 0.08)',
+      itemHoverColor: '#fff',
+    },
   },
 }
 </script>

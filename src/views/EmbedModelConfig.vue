@@ -58,7 +58,7 @@
       v-model:open="modalVisible"
       :title="isEdit ? '编辑模型' : '新增模型'"
       :confirm-loading="submitLoading"
-      @ok="handleSubmit"
+      @ok="handleFormSubmit"
       @cancel="modalVisible = false"
     >
       <a-form :model="formState" :label-col="{ span: 5 }" :wrapper-col="{ span: 18 }" style="padding-top: 16px">
@@ -130,6 +130,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import { ReloadOutlined, PlusOutlined } from '@ant-design/icons-vue'
 import { createEmbedModel, updateEmbedModel, deleteEmbedModel } from '@/api/embedModel'
+import { useCrudModal } from '@/composables/useCrudModal'
 import { useEmbedModelStore } from '@/store/embedModel'
 import { usePageStore } from '@/store/page'
 import type { EmbedModelItem } from '@/api/model/embedModelModel'
@@ -137,12 +138,21 @@ import type { EmbedModelItem } from '@/api/model/embedModelModel'
 const store = useEmbedModelStore()
 const pageStore = usePageStore()
 
-const submitLoading = ref(false)
-
-const modalVisible = ref(false)
-const isEdit = ref(false)
-const editingId = ref('')
-const formState = ref({ name: '', description: '', dimension: undefined as number | undefined })
+const { modalVisible, submitLoading, isEdit, editingId, formState, openCreate, openEdit, handleSubmit } = useCrudModal({
+  defaultForm: () => ({ name: '', description: '', dimension: undefined as number | undefined }),
+  createApi: async (form) => {
+    const params: any = { name: form.name, description: form.description }
+    if (form.dimension) params.dimension = form.dimension
+    return createEmbedModel(params)
+  },
+  updateApi: (id, form) => updateEmbedModel(id, { name: (form as any).name, description: (form as any).description }),
+  successMessage: { create: '新增成功' },
+  errorMessage: { create: '新增失败', update: '更新失败' },
+  afterSubmit: async () => {
+    store.invalidateCache()
+    await store.fetchModels(true)
+  },
+})
 
 const detailVisible = ref(false)
 const detailModel = ref<EmbedModelItem | null>(null)
@@ -198,18 +208,12 @@ const metadataEntries = computed(() => {
 })
 
 function handleCreate() {
-  isEdit.value = false
-  editingId.value = ''
-  formState.value = { name: '', description: '', dimension: undefined }
-  modalVisible.value = true
+  openCreate()
   store.fetchModels(true)
 }
 
 function handleEdit(record: EmbedModelItem) {
-  isEdit.value = true
-  editingId.value = record.id
-  formState.value = { name: record.name, description: record.description, dimension: undefined }
-  modalVisible.value = true
+  openEdit(record.id, { name: record.name, description: record.description })
 }
 
 function handleDetail(record: EmbedModelItem) {
@@ -217,31 +221,11 @@ function handleDetail(record: EmbedModelItem) {
   detailVisible.value = true
 }
 
-async function handleSubmit() {
-  if (!formState.value.name.trim()) {
-    message.warning('请输入模型名称')
-    return
-  }
-
-  submitLoading.value = true
-  try {
-    if (isEdit.value) {
-      await updateEmbedModel(editingId.value, { name: formState.value.name, description: formState.value.description })
-      message.success('更新成功')
-    } else {
-      const params: any = { name: formState.value.name, description: formState.value.description }
-      if (formState.value.dimension) params.dimension = formState.value.dimension
-      await createEmbedModel(params)
-      message.success('新增成功')
-    }
-    modalVisible.value = false
-    store.invalidateCache()
-    await store.fetchModels(true)
-  } catch {
-    message.error(isEdit.value ? '更新失败' : '新增失败')
-  } finally {
-    submitLoading.value = false
-  }
+async function handleFormSubmit() {
+  await handleSubmit((form) => {
+    if (!form.name.trim()) return '请输入模型名称'
+    return null
+  })
 }
 
 async function handleDelete(record: EmbedModelItem) {

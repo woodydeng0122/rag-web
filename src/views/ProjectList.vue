@@ -27,7 +27,7 @@
             <a-card-meta :title="project.name" :description="project.description || '暂无描述'" />
             <div style="margin-top: 12px; display: flex; align-items: center; justify-content: space-between">
               <a-tag color="default">{{ project.embed_model_name || '未知模型' }}</a-tag>
-              <span style="font-size: 12px; color: #999">{{ formatTime(project.created_at) }}</span>
+              <span style="font-size: 12px; color: var(--ant-color-text-tertiary)">{{ formatTime(project.created_at) }}</span>
             </div>
           </a-card>
         </a-col>
@@ -46,7 +46,7 @@
       :width="560"
       ok-text="确认"
       cancel-text="取消"
-      @ok="handleSubmit"
+      @ok="handleFormSubmit"
       @cancel="modalVisible = false"
     >
       <a-form :model="formState" :label-col="{ span: 5 }" :wrapper-col="{ span: 18 }" style="padding-top: 16px">
@@ -146,23 +146,17 @@
           <div class="latency-bars">
             <div class="latency-row">
               <span class="latency-label">总延迟</span>
-              <div class="latency-bar-bg">
-                <div class="latency-bar" :style="{ width: latencyBarWidth(evalResult.avg_latency_ms) }" />
-              </div>
+              <a-progress :percent="latencyPercent(evalResult.avg_latency_ms)" :show-info="false" :stroke-color="'var(--ant-color-primary)'" size="small" />
               <span class="latency-value">{{ evalResult.avg_latency_ms.toFixed(0) }} ms</span>
             </div>
             <div class="latency-row">
               <span class="latency-label">嵌入</span>
-              <div class="latency-bar-bg">
-                <div class="latency-bar latency-bar--embed" :style="{ width: latencyBarWidth(evalResult.avg_embed_latency_ms) }" />
-              </div>
+              <a-progress :percent="latencyPercent(evalResult.avg_embed_latency_ms)" :show-info="false" :stroke-color="'var(--ant-color-success)'" size="small" />
               <span class="latency-value">{{ evalResult.avg_embed_latency_ms.toFixed(0) }} ms</span>
             </div>
             <div class="latency-row">
               <span class="latency-label">检索</span>
-              <div class="latency-bar-bg">
-                <div class="latency-bar latency-bar--search" :style="{ width: latencyBarWidth(evalResult.avg_search_latency_ms) }" />
-              </div>
+              <a-progress :percent="latencyPercent(evalResult.avg_search_latency_ms)" :show-info="false" :stroke-color="'var(--ant-color-warning)'" size="small" />
               <span class="latency-value">{{ evalResult.avg_search_latency_ms.toFixed(0) }} ms</span>
             </div>
           </div>
@@ -183,6 +177,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal as AModal } from 'ant-design-vue'
 import { formatTime } from '@/utils/time'
+import { useCrudModal } from '@/composables/useCrudModal'
 import { usePageStore } from '@/store/page'
 import { useActiveProjectStore } from '@/store/activeProject'
 import { useEmbedModelStore } from '@/store/embedModel'
@@ -198,11 +193,12 @@ const embedModelStore = useEmbedModelStore()
 const loading = ref(false)
 const projectList = ref<ProjectItem[]>([])
 
-const modalVisible = ref(false)
-const submitLoading = ref(false)
-const isEdit = ref(false)
-const editingId = ref('')
-const formState = ref({ name: '', description: '', embed_model_id: '' })
+const { modalVisible, submitLoading, isEdit, editingId, formState, openCreate, openEdit, handleSubmit } = useCrudModal({
+  defaultForm: () => ({ name: '', description: '', embed_model_id: '' }),
+  createApi: createProject,
+  updateApi: updateProject,
+  afterSubmit: fetchList,
+})
 
 // 评估统计
 const evalDrawerVisible = ref(false)
@@ -215,10 +211,10 @@ function isActive(projectId: string) {
   return activeProjectStore.activeProjectId === projectId
 }
 
-function latencyBarWidth(ms: number) {
-  if (!evalResult.value) return '0%'
+function latencyPercent(ms: number) {
+  if (!evalResult.value) return 0
   const maxMs = evalResult.value.avg_latency_ms || 1
-  return `${Math.max((ms / maxMs) * 100, 1)}%`
+  return Math.max(Math.round((ms / maxMs) * 100), 1)
 }
 
 watch(() => pageStore.refreshTrigger, fetchList)
@@ -236,18 +232,12 @@ async function fetchList() {
 }
 
 function handleCreate() {
-  isEdit.value = false
-  editingId.value = ''
-  formState.value = { name: '', description: '', embed_model_id: '' }
-  modalVisible.value = true
+  openCreate()
   embedModelStore.fetchModels()
 }
 
 function handleEdit(project: ProjectItem) {
-  isEdit.value = true
-  editingId.value = project.id
-  formState.value = { name: project.name, description: project.description, embed_model_id: project.embed_model_id }
-  modalVisible.value = true
+  openEdit(project.id, { name: project.name, description: project.description, embed_model_id: project.embed_model_id })
 }
 
 function handleView(project: ProjectItem) {
@@ -312,32 +302,12 @@ function goToEvaluationHistory() {
   router.push({ path: `/projects/${evalProject.value.id}/evaluation` })
 }
 
-async function handleSubmit() {
-  if (!formState.value.name.trim()) {
-    message.warning('请输入项目名称')
-    return
-  }
-  if (!isEdit.value && !formState.value.embed_model_id) {
-    message.warning('请选择嵌入模型')
-    return
-  }
-
-  submitLoading.value = true
-  try {
-    if (isEdit.value) {
-      await updateProject(editingId.value, { name: formState.value.name, description: formState.value.description })
-      message.success('更新成功')
-    } else {
-      await createProject(formState.value)
-      message.success('创建成功')
-    }
-    modalVisible.value = false
-    await fetchList()
-  } catch {
-    message.error(isEdit.value ? '编辑失败' : '创建失败')
-  } finally {
-    submitLoading.value = false
-  }
+async function handleFormSubmit() {
+  await handleSubmit((form) => {
+    if (!form.name.trim()) return '请输入项目名称'
+    if (!isEdit.value && !form.embed_model_id) return '请选择嵌入模型'
+    return null
+  })
 }
 
 onMounted(fetchList)
@@ -360,8 +330,8 @@ onMounted(fetchList)
   transition: background 0.2s;
 }
 .project-card--active {
-  background: #f0f7ff;
-  border-left: 3px solid #1677ff;
+  background: var(--ant-color-primary-bg);
+  border-left: 3px solid var(--ant-color-primary);
 }
 .project-card--active :deep(.ant-card-body) {
   padding-left: 13px;
@@ -385,33 +355,14 @@ onMounted(fetchList)
 .latency-label {
   width: 48px;
   font-size: 13px;
-  color: #666;
+  color: var(--ant-color-text-secondary);
   text-align: right;
   flex-shrink: 0;
-}
-.latency-bar-bg {
-  flex: 1;
-  height: 20px;
-  background: #f0f0f0;
-  border-radius: 4px;
-  overflow: hidden;
-}
-.latency-bar {
-  height: 100%;
-  background: #1677ff;
-  border-radius: 4px;
-  transition: width 0.3s ease;
-}
-.latency-bar--embed {
-  background: #52c41a;
-}
-.latency-bar--search {
-  background: #faad14;
 }
 .latency-value {
   width: 80px;
   font-size: 13px;
-  color: #333;
+  color: var(--ant-color-text);
   text-align: right;
   flex-shrink: 0;
 }

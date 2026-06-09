@@ -45,6 +45,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '评估历史' },
       },
       {
+        path: 'qa',
+        name: 'QA',
+        component: () => import('@/views/QA.vue'),
+        meta: { title: '智能问答' },
+      },
+      {
         path: 'embed-models',
         name: 'EmbedModels',
         component: () => import('@/views/EmbedModelConfig.vue'),

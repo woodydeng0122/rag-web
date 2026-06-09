@@ -4,24 +4,21 @@
     <div v-if="activeProjectStore.appLoading" class="app-loading">
       <div class="app-loading__sider">
         <div class="app-loading__logo">
-          <div class="skeleton-block skeleton-shimmer" style="width:28px;height:28px;border-radius:8px"></div>
-          <div class="skeleton-block skeleton-shimmer" style="width:80px;height:16px;border-radius:4px"></div>
+          <a-skeleton-avatar :size="28" shape="square" active />
+          <a-skeleton-input :style="{ width: '80px' }" active size="small" />
         </div>
         <div class="app-loading__menu">
-          <div v-for="i in 4" :key="i" class="skeleton-block skeleton-shimmer" style="height:40px;border-radius:8px"></div>
+          <a-skeleton v-for="i in 4" :key="i" :paragraph="{ rows: 0 }" active />
         </div>
       </div>
       <div class="app-loading__main">
         <div class="app-loading__header">
-          <div class="skeleton-block skeleton-shimmer" style="width:120px;height:16px;border-radius:4px"></div>
-          <div class="skeleton-block skeleton-shimmer" style="width:80px;height:18px;border-radius:4px"></div>
-          <div class="skeleton-block skeleton-shimmer" style="width:24px;height:24px;border-radius:50%"></div>
+          <a-skeleton-input :style="{ width: '120px' }" active size="small" />
+          <a-skeleton-button active size="small" />
+          <a-skeleton-avatar :size="24" active />
         </div>
         <div class="app-loading__content">
-          <div class="skeleton-block skeleton-shimmer" style="width:160px;height:20px;border-radius:4px;margin-bottom:20px"></div>
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
-            <div v-for="i in 4" :key="i" class="skeleton-block skeleton-shimmer" style="height:160px;border-radius:8px"></div>
-          </div>
+          <a-skeleton active :paragraph="{ rows: 4 }" />
         </div>
       </div>
     </div>
@@ -39,15 +36,15 @@
           left: 0,
           top: 0,
           bottom: 0,
-          background: 'var(--sider-bg)',
-          borderRight: '1px solid var(--sider-border)',
+          background: '#001529',
+          borderRight: '1px solid rgba(255, 255, 255, 0.06)',
           overflow: 'hidden',
         }"
       >
         <div class="logo" @click="router.push('/dashboard')">
           <div class="logo-icon">
             <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
-              <rect width="32" height="32" rx="8" fill="var(--logo-bg)" />
+              <rect width="32" height="32" rx="8" fill="#1677ff" />
               <path d="M10 11h12M10 16h8M10 21h10" stroke="#fff" stroke-width="2" stroke-linecap="round" />
             </svg>
           </div>
@@ -145,6 +142,7 @@ import {
   RobotOutlined,
   BarChartOutlined,
   HomeOutlined,
+  MessageOutlined,
 } from '@ant-design/icons-vue'
 import type { MenuProps } from 'ant-design-vue'
 
@@ -200,6 +198,11 @@ const menuItems = computed<MenuProps['items']>(() => [
     label: '评估历史',
   },
   {
+    key: '/qa',
+    icon: () => h(MessageOutlined),
+    label: '智能问答',
+  },
+  {
     key: '/embed-models',
     icon: () => h(RobotOutlined),
     label: '模型配置',
@@ -218,6 +221,8 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => {
 
   if (path.startsWith('/golden')) {
     crumbs.push({ key: 'golden', title: '黄金数据集' })
+  } else if (path.startsWith('/qa')) {
+    crumbs.push({ key: 'qa', title: '智能问答' })
   } else if (path.startsWith('/embed-models')) {
     crumbs.push({ key: 'embed-models', title: '模型配置' })
   } else if (path.startsWith('/documents')) {
@@ -289,12 +294,12 @@ function handleRefresh() {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: #fafafa;
+  background: var(--ant-color-bg-layout);
 }
 .app-loading__header {
   height: 56px;
-  background: #fff;
-  border-bottom: 1px solid #f0f0f0;
+  background: var(--ant-color-bg-container);
+  border-bottom: 1px solid var(--ant-color-border-secondary);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -303,28 +308,6 @@ function handleRefresh() {
 .app-loading__content {
   padding: 24px 32px;
   flex: 1;
-}
-
-.skeleton-block {
-  background: #e8e8e8;
-}
-.app-loading__sider .skeleton-block {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-@keyframes shimmer {
-  0% { opacity: 1; }
-  50% { opacity: 0.55; }
-  100% { opacity: 1; }
-}
-.skeleton-shimmer {
-  animation: shimmer 1.8s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .skeleton-shimmer {
-    animation: none;
-  }
 }
 
 /* Layout styles */
@@ -358,10 +341,6 @@ function handleRefresh() {
   color: rgba(255, 255, 255, 0.75) !important;
 }
 .side-menu :deep(.ant-menu-item) {
-  border-radius: 8px;
-  margin-bottom: 2px;
-  height: 40px;
-  line-height: 40px;
   color: rgba(255, 255, 255, 0.75) !important;
 }
 .side-menu :deep(.ant-menu-item:hover) {
@@ -377,18 +356,18 @@ function handleRefresh() {
 
 .trigger {
   font-size: 16px;
-  color: #666;
+  color: var(--ant-color-text-secondary);
   cursor: pointer;
   transition: color 0.2s;
   flex-shrink: 0;
 }
 .trigger:hover {
-  color: #111;
+  color: var(--ant-color-text);
 }
 
 .site-header {
-  background: #fff;
-  border-bottom: 1px solid #f0f0f0;
+  background: var(--ant-color-bg-container);
+  border-bottom: 1px solid var(--ant-color-border-secondary);
   padding: 0 24px;
   display: flex;
   align-items: center;
@@ -419,16 +398,16 @@ function handleRefresh() {
 .header-project-icon {
   flex-shrink: 0;
   font-size: 16px;
-  color: #1677ff;
+  color: var(--ant-color-primary);
 }
 .active-project-name {
   font-size: 14px;
   font-weight: 600;
-  color: #1677ff;
+  color: var(--ant-color-primary);
 }
 .no-active-project {
   font-size: 13px;
-  color: #bbb;
+  color: var(--ant-color-text-quaternary);
 }
 .header-right {
   display: flex;
@@ -436,44 +415,26 @@ function handleRefresh() {
 }
 .header-right :deep(.anticon) {
   font-size: 16px;
-  color: #666;
+  color: var(--ant-color-text-secondary);
   cursor: pointer;
   transition: color 0.2s;
 }
 .header-right :deep(.anticon):hover {
-  color: #111;
+  color: var(--ant-color-text);
 }
 .header-breadcrumb {
   font-size: 14px;
 }
 .header-breadcrumb :deep(.ant-breadcrumb-link) {
-  color: #666;
+  color: var(--ant-color-text-secondary);
 }
 .header-breadcrumb :deep(.ant-breadcrumb-separator) {
-  color: #d9d9d9;
+  color: var(--ant-color-border);
 }
 
 .site-content {
   padding: 24px 32px;
   flex: 1;
-  background: #fafafa;
-}
-
-:deep(.ant-menu-item-selected) {
-  background: var(--menu-selected-bg) !important;
-  color: var(--menu-selected-color) !important;
-}
-:deep(.ant-menu-item-selected .anticon) {
-  color: var(--menu-selected-color) !important;
-}
-</style>
-
-<style>
-:root {
-  --sider-bg: #001529;
-  --sider-border: rgba(255, 255, 255, 0.06);
-  --logo-bg: #1677ff;
-  --menu-selected-bg: rgba(22, 119, 255, 0.12);
-  --menu-selected-color: #1677ff;
+  background: var(--ant-color-bg-layout);
 }
 </style>
