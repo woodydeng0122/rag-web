@@ -309,13 +309,12 @@
   </template>
 </a-drawer>
 
-<!-- 检索 Modal -->
-<a-modal
-  v-model:open="retrievalModalVisible"
-  :title="'检索验证'"
-  :footer="null"
+<!-- 检索 Drawer -->
+<a-drawer
+  v-model:open="retrievalDrawerVisible"
+  title="检索验证"
   width="680px"
-  @cancel="retrievalModalVisible = false"
+  placement="right"
 >
   <template v-if="retrievalRecord">
     <!-- 查询信息 -->
@@ -367,7 +366,7 @@
       </div>
     </template>
   </template>
-</a-modal>
+</a-drawer>
 
   </div>
 </template>
@@ -469,8 +468,8 @@ const importCurrentIndex = ref(0)
 const detailDrawerVisible = ref(false)
 const detailRecord = ref<GoldenItem | null>(null)
 
-// 检索 Modal
-const retrievalModalVisible = ref(false)
+// 检索 Drawer
+const retrievalDrawerVisible = ref(false)
 const retrievalRecord = ref<GoldenItem | null>(null)
 const retrievalResult = ref<RetrievalResponse | null>(null)
 const retrievalLoading = ref(false)
@@ -490,7 +489,7 @@ async function openRetrievalModal(record: GoldenItem) {
   retrievalResult.value = null
   retrievalMaxK.value = 10
   retrievalLoading.value = false
-  retrievalModalVisible.value = true
+  retrievalDrawerVisible.value = true
 
   // 如果已有检索结果，自动加载
   if (record.has_retrieval) {
@@ -1079,7 +1078,7 @@ watch(importModalVisible, (val) => {
   gap: 8px;
 }
 
-/* 检索 Modal */
+/* 检索 Drawer */
 .retrieval-query-section {
   margin-bottom: 16px;
 }
@@ -1125,8 +1124,6 @@ watch(importModalVisible, (val) => {
   margin-bottom: 12px;
 }
 .retrieval-items {
-  max-height: 400px;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 8px;

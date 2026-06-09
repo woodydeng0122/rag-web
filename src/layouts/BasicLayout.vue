@@ -71,6 +71,7 @@
           minHeight: '100dvh',
           display: 'flex',
           flexDirection: 'column',
+          overflow: 'hidden',
         }"
       >
         <a-layout-header
@@ -230,6 +231,7 @@ function handleRefresh() {
 <style scoped>
 .layout-root {
   min-height: 100dvh;
+  overflow-x: hidden;
 }
 
 /* 全局启动骨架屏 */
