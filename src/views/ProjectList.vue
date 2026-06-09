@@ -182,16 +182,13 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal as AModal } from 'ant-design-vue'
-import dayjs from 'dayjs'
-import 'dayjs/locale/zh-cn'
+import { formatTime } from '@/utils/time'
 import { usePageStore } from '@/store/page'
 import { useActiveProjectStore } from '@/store/activeProject'
 import { useEmbedModelStore } from '@/store/embedModel'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ThunderboltOutlined, BarChartOutlined } from '@ant-design/icons-vue'
 import { getProjectList, createProject, updateProject, deleteProject, triggerEvaluation } from '@/api/project'
 import type { ProjectItem, EvaluationStatsResult } from '@/api/model/projectModel'
-
-dayjs.locale('zh-cn')
 
 const router = useRouter()
 const pageStore = usePageStore()
@@ -216,18 +213,6 @@ const evalResult = ref<EvaluationStatsResult | null>(null)
 
 function isActive(projectId: string) {
   return activeProjectStore.activeProjectId === projectId
-}
-
-function formatTime(dateStr: string) {
-  if (!dateStr) return '--'
-  const d = dayjs(dateStr)
-  const now = dayjs()
-  const diffMs = now.diff(d, 'millisecond')
-  if (diffMs < 60 * 1000) return '刚刚'
-  if (diffMs < 3600 * 1000) return `${Math.floor(diffMs / 60000)} 分钟前`
-  if (diffMs < 24 * 3600 * 1000) return `${Math.floor(diffMs / 3600000)} 小时前`
-  if (diffMs < 7 * 24 * 3600 * 1000) return `${Math.floor(diffMs / 86400000)} 天前`
-  return d.format('YYYY-MM-DD HH:mm')
 }
 
 function latencyBarWidth(ms: number) {
@@ -359,16 +344,13 @@ onMounted(fetchList)
 </script>
 
 <style scoped>
+@import '@/styles/common-table.css';
+
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
-}
-.page-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #111;
 }
 
 /* 激活项目卡片样式 */
@@ -387,11 +369,6 @@ onMounted(fetchList)
 .active-tag {
   margin: 0;
   cursor: default;
-}
-.form-hint {
-  margin-left: 8px;
-  font-size: 12px;
-  color: #999;
 }
 
 /* 延迟条形图 */

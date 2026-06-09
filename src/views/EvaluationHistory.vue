@@ -5,6 +5,12 @@
       <div class="toolbar-left">
         <h2 class="page-title">评估历史</h2>
       </div>
+      <div class="toolbar-right">
+        <a-button type="primary" @click="showEvalModal">
+          <template #icon><plus-outlined /></template>
+          新增评估
+        </a-button>
+      </div>
     </div>
 
     <a-card :bordered="false" class="table-card">
@@ -58,6 +64,23 @@
         </a-table>
       </a-spin>
     </a-card>
+
+    <!-- 新增评估弹窗 -->
+    <a-modal
+      v-model:open="evalModalVisible"
+      title="新增评估"
+      :confirm-loading="evalLoading"
+      ok-text="开始评估"
+      cancel-text="取消"
+      @ok="handleEval"
+    >
+      <a-form :label-col="{ span: 6 }" :wrapper-col="{ span: 16 }" style="margin-top: 16px">
+        <a-form-item label="top_k" required>
+          <a-input-number v-model:value="evalTopK" :min="1" :max="100" style="width: 100%" />
+          <span class="form-hint">检索返回的最大文档数</span>
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
@@ -67,15 +90,15 @@ import { useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import {
   ReloadOutlined,
+  PlusOutlined,
 } from '@ant-design/icons-vue'
-import dayjs from 'dayjs'
-import 'dayjs/locale/zh-cn'
-import { getEvaluationHistory } from '@/api/project'
+import { dayjs } from '@/utils/time'
+import { getEvaluationHistory, triggerEvaluation } from '@/api/project'
 import type { EvaluationStatsResult } from '@/api/model/projectModel'
-
-dayjs.locale('zh-cn')
+import { usePageStore } from '@/store/page'
 
 const route = useRoute()
+const pageStore = usePageStore()
 const projectId = route.params.id as string
 
 const loading = ref(false)
@@ -118,50 +141,36 @@ async function fetchHistory() {
   }
 }
 
+const evalModalVisible = ref(false)
+const evalLoading = ref(false)
+const evalTopK = ref(10)
+
+function showEvalModal() {
+  evalTopK.value = 10
+  evalModalVisible.value = true
+}
+
+async function handleEval() {
+  evalLoading.value = true
+  try {
+    await triggerEvaluation(projectId, evalTopK.value)
+    message.success('评估已触发')
+    evalModalVisible.value = false
+    await fetchHistory()
+  } catch {
+    message.error('触发评估失败')
+  } finally {
+    evalLoading.value = false
+  }
+}
+
 onMounted(fetchHistory)
+
+watch(() => pageStore.refreshTrigger, fetchHistory)
 </script>
 
 <style scoped>
-/* 工具栏 */
-.toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-.toolbar-left {
-  display: flex;
-  align-items: center;
-}
-.toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.page-title {
-  font-size: 18px;
-  font-weight: 600;
-  margin: 0;
-}
-
-/* 表格卡片 */
-.table-card {
-  border-radius: 10px;
-}
-.table-card :deep(.ant-card-body) {
-  padding: 0;
-}
-.table-card :deep(.ant-table-thead > tr > th) {
-  font-weight: 500;
-  color: #666;
-  font-size: 13px;
-}
-.table-card :deep(.ant-table-tbody > tr > td) {
-  padding: 12px 16px;
-}
-.table-card :deep(.ant-table-tbody > tr:hover > td) {
-  background: #f5f7fa;
-}
+@import '@/styles/common-table.css';
 
 /* 表格单元格样式 */
 .cell-time {

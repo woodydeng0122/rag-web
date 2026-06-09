@@ -32,205 +32,224 @@
     </a-row>
 
     <!-- 项目级数据 -->
-    <div v-if="activeProjectStore.hasActiveProject" class="project-section">
-      <div class="project-section__header">
-        <div class="project-section__divider" />
-        <div class="project-section__title-row">
-          <span class="project-section__dot" />
-          <h2 class="project-section__title">{{ activeProjectStore.activeProject?.name }}</h2>
-          <span class="project-section__scope">项目数据</span>
-        </div>
-      </div>
+    <div v-if="activeProjectStore.hasActiveProject">
+      <a-divider style="margin: 24px 0 16px" />
+      <a-space align="center" :size="8" style="margin-bottom: 16px">
+        <h2 style="margin: 0; font-size: 18px; font-weight: 600">{{ activeProjectStore.activeProject?.name }}</h2>
+        <a-tag>项目数据</a-tag>
+      </a-space>
 
       <!-- 评估指标卡片 -->
       <a-spin :spinning="evalLoading" size="small">
         <template v-if="latestEval">
-          <div class="metrics-row__inner">
-            <div class="metric-card">
-              <div class="metric-card__header">
-                <span class="metric-card__label">Recall@k</span>
-                <span class="metric-card__badge" :class="recallTrend">Recall</span>
-              </div>
-              <div class="metric-card__value">{{ formatPercent(latestEval.recall_at_k) }}</div>
-              <div v-if="evalHistory.length >= 2" class="metric-card__trend">
-                <arrow-up-outlined v-if="recallDiff > 0" class="trend-icon trend-up" />
-                <arrow-down-outlined v-else-if="recallDiff < 0" class="trend-icon trend-down" />
-                <span :class="recallDiff > 0 ? 'trend-up' : recallDiff < 0 ? 'trend-down' : ''">
-                  {{ recallDiff === 0 ? '-' : formatPercent(Math.abs(recallDiff)) }}
-                </span>
-                <span class="trend-label">较上次</span>
-              </div>
-            </div>
-
-            <div class="metric-card">
-              <div class="metric-card__header">
-                <span class="metric-card__label">MRR</span>
-                <span class="metric-card__badge badge-green">MRR</span>
-              </div>
-              <div class="metric-card__value">{{ formatPercent(latestEval.mrr) }}</div>
-              <div v-if="evalHistory.length >= 2" class="metric-card__trend">
-                <arrow-up-outlined v-if="mrrDiff > 0" class="trend-icon trend-up" />
-                <arrow-down-outlined v-else-if="mrrDiff < 0" class="trend-icon trend-down" />
-                <span :class="mrrDiff > 0 ? 'trend-up' : mrrDiff < 0 ? 'trend-down' : ''">
-                  {{ mrrDiff === 0 ? '-' : formatPercent(Math.abs(mrrDiff)) }}
-                </span>
-                <span class="trend-label">较上次</span>
-              </div>
-            </div>
-
-            <div class="metric-card">
-              <div class="metric-card__header">
-                <span class="metric-card__label">命中率</span>
-                <span class="metric-card__badge badge-orange">Hit</span>
-              </div>
-              <div class="metric-card__value">{{ formatPercent(latestEval.hit_rate) }}</div>
-              <div class="metric-card__sub">
-                完全命中 {{ latestEval.full_hit_count }} / 非完全命中 {{ nonFullHitCount }} / 零命中 {{ latestEval.zero_hit_count }}
-              </div>
-            </div>
-
-            <div class="metric-card">
-              <div class="metric-card__header">
-                <span class="metric-card__label">平均延迟</span>
-                <span class="metric-card__badge badge-purple">Latency</span>
-              </div>
-              <div class="metric-card__value">{{ latestEval.avg_latency_ms.toFixed(0) }}<span class="metric-card__unit">ms</span></div>
-              <div class="metric-card__sub">
-                top_k = {{ latestEval.top_k }}
-              </div>
-            </div>
-          </div>
+          <a-row :gutter="[16, 16]">
+            <a-col :span="6">
+              <a-card :bordered="false" size="small">
+                <template #title>
+                  <a-space :size="8">
+                    <span>Recall@k</span>
+                    <a-tag :color="recallDiff > 0 ? 'blue' : recallDiff < 0 ? 'red' : 'default'">Recall</a-tag>
+                  </a-space>
+                </template>
+                <a-statistic :value="formatPercent(latestEval.recall_at_k)" :value-style="{ fontSize: '24px', fontWeight: 600 }" />
+                <div v-if="evalHistory.length >= 2">
+                  <a-space :size="4" v-if="recallDiff !== 0">
+                    <arrow-up-outlined v-if="recallDiff > 0" style="color: #52c41a" />
+                    <arrow-down-outlined v-else style="color: #ff4d4f" />
+                    <span :style="{ color: recallDiff > 0 ? '#52c41a' : '#ff4d4f', fontSize: '12px' }">
+                      {{ formatPercent(Math.abs(recallDiff)) }}
+                    </span>
+                    <span style="color: #bbb; font-size: 12px">较上次</span>
+                  </a-space>
+                  <span v-else style="color: #bbb; font-size: 12px">- 较上次</span>
+                </div>
+              </a-card>
+            </a-col>
+            <a-col :span="6">
+              <a-card :bordered="false" size="small">
+                <template #title>
+                  <a-space :size="8">
+                    <span>MRR</span>
+                    <a-tag color="green">MRR</a-tag>
+                  </a-space>
+                </template>
+                <a-statistic :value="formatPercent(latestEval.mrr)" :value-style="{ fontSize: '24px', fontWeight: 600 }" />
+                <div v-if="evalHistory.length >= 2">
+                  <a-space :size="4" v-if="mrrDiff !== 0">
+                    <arrow-up-outlined v-if="mrrDiff > 0" style="color: #52c41a" />
+                    <arrow-down-outlined v-else style="color: #ff4d4f" />
+                    <span :style="{ color: mrrDiff > 0 ? '#52c41a' : '#ff4d4f', fontSize: '12px' }">
+                      {{ formatPercent(Math.abs(mrrDiff)) }}
+                    </span>
+                    <span style="color: #bbb; font-size: 12px">较上次</span>
+                  </a-space>
+                  <span v-else style="color: #bbb; font-size: 12px">- 较上次</span>
+                </div>
+              </a-card>
+            </a-col>
+            <a-col :span="6">
+              <a-card :bordered="false" size="small">
+                <template #title>
+                  <a-space :size="8">
+                    <span>命中率</span>
+                    <a-tag color="orange">Hit</a-tag>
+                  </a-space>
+                </template>
+                <a-statistic :value="formatPercent(latestEval.hit_rate)" :value-style="{ fontSize: '24px', fontWeight: 600 }" />
+                <div style="color: #999; font-size: 12px; margin-top: 4px">
+                  完全命中 {{ latestEval.full_hit_count }} / 非完全命中 {{ nonFullHitCount }} / 零命中 {{ latestEval.zero_hit_count }}
+                </div>
+              </a-card>
+            </a-col>
+            <a-col :span="6">
+              <a-card :bordered="false" size="small">
+                <template #title>
+                  <a-space :size="8">
+                    <span>平均延迟</span>
+                    <a-tag color="purple">Latency</a-tag>
+                  </a-space>
+                </template>
+                <a-statistic :value="latestEval.avg_latency_ms.toFixed(0)" suffix="ms" :value-style="{ fontSize: '24px', fontWeight: 600 }" />
+                <div style="color: #999; font-size: 12px; margin-top: 4px">
+                  top_k = {{ latestEval.top_k }}
+                </div>
+              </a-card>
+            </a-col>
+          </a-row>
         </template>
-        <div v-else-if="!evalLoading" class="metrics-row__empty">
-          <span class="metrics-row__empty-text">暂无评估数据</span>
-          <a-button type="link" size="small" @click="goEvaluation">前往评估</a-button>
+        <div v-else-if="!evalLoading" style="text-align: center; padding: 12px 0">
+          <a-space :size="8">
+            <span style="color: #bbb; font-size: 13px">暂无评估数据</span>
+            <a-button type="link" size="small" @click="goEvaluation">前往评估</a-button>
+          </a-space>
         </div>
       </a-spin>
 
       <!-- 趋势折线图 -->
       <div v-if="sortedEvalHistory.length >= 2" class="chart-section">
-      <div class="section-header">
-        <h2 class="section-title">指标趋势</h2>
-        <div class="chart-legend">
-          <span class="legend-item">
-            <span class="legend-line" style="background: #1677ff" /> Recall@k
-          </span>
-          <span class="legend-item">
-            <span class="legend-line" style="background: #52c41a" /> MRR
-          </span>
+        <div class="section-header">
+          <h2 class="section-title">指标趋势</h2>
+          <div class="chart-legend">
+            <span class="legend-item">
+              <span class="legend-line" style="background: #1677ff" /> Recall@k
+            </span>
+            <span class="legend-item">
+              <span class="legend-line" style="background: #52c41a" /> MRR
+            </span>
+          </div>
+        </div>
+        <div class="chart-container">
+          <svg :viewBox="`0 0 ${chartWidth} ${chartHeight}`" class="trend-chart">
+            <defs>
+              <linearGradient id="recallGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#1677ff" stop-opacity="0.15" />
+                <stop offset="100%" stop-color="#1677ff" stop-opacity="0" />
+              </linearGradient>
+              <linearGradient id="mrrGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#52c41a" stop-opacity="0.12" />
+                <stop offset="100%" stop-color="#52c41a" stop-opacity="0" />
+              </linearGradient>
+            </defs>
+
+            <!-- 网格线 -->
+            <line
+              v-for="i in 5"
+              :key="`grid-${i}`"
+              :x1="chartPadding"
+              :y1="chartPadding + (chartHeight - 2 * chartPadding) * (i - 1) / 4"
+              :x2="chartWidth - chartPadding"
+              :y2="chartPadding + (chartHeight - 2 * chartPadding) * (i - 1) / 4"
+              stroke="#f0f0f0"
+              stroke-width="1"
+            />
+
+            <!-- Y轴标签 -->
+            <text
+              v-for="i in 5"
+              :key="`ylabel-${i}`"
+              :x="chartPadding - 10"
+              :y="chartPadding + (chartHeight - 2 * chartPadding) * (i - 1) / 4 + 4"
+              text-anchor="end"
+              font-size="11"
+              fill="#bbb"
+              font-family="-apple-system, BlinkMacSystemFont, sans-serif"
+            >
+              {{ (1 - (i - 1) / 4).toFixed(2) }}
+            </text>
+
+            <!-- Recall 面积填充 -->
+            <polygon
+              :points="recallAreaPoints"
+              fill="url(#recallGradient)"
+            />
+
+            <!-- MRR 面积填充 -->
+            <polygon
+              :points="mrrAreaPoints"
+              fill="url(#mrrGradient)"
+            />
+
+            <!-- recall 折线 -->
+            <polyline
+              :points="recallPoints"
+              fill="none"
+              stroke="#1677ff"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+
+            <!-- recall 数据点 -->
+            <circle
+              v-for="(p, i) in recallPointList"
+              :key="`recall-${i}`"
+              :cx="p.x"
+              :cy="p.y"
+              r="4.5"
+              fill="#fff"
+              stroke="#1677ff"
+              stroke-width="2.5"
+            />
+
+            <!-- MRR 折线 -->
+            <polyline
+              :points="mrrPoints"
+              fill="none"
+              stroke="#52c41a"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+
+            <!-- MRR 数据点 -->
+            <circle
+              v-for="(p, i) in mrrPointList"
+              :key="`mrr-${i}`"
+              :cx="p.x"
+              :cy="p.y"
+              r="4.5"
+              fill="#fff"
+              stroke="#52c41a"
+              stroke-width="2.5"
+            />
+
+            <!-- X轴标签 -->
+            <text
+              v-for="(item, i) in sortedEvalHistory"
+              :key="`xlabel-${i}`"
+              :x="chartPadding + i * xStep"
+              :y="chartHeight - 6"
+              text-anchor="middle"
+              font-size="11"
+              fill="#bbb"
+              font-family="-apple-system, BlinkMacSystemFont, sans-serif"
+            >
+              {{ formatShortDate(item.created_at) }}
+            </text>
+          </svg>
         </div>
       </div>
-      <div class="chart-container">
-        <svg :viewBox="`0 0 ${chartWidth} ${chartHeight}`" class="trend-chart">
-          <defs>
-            <linearGradient id="recallGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#1677ff" stop-opacity="0.15" />
-              <stop offset="100%" stop-color="#1677ff" stop-opacity="0" />
-            </linearGradient>
-            <linearGradient id="mrrGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#52c41a" stop-opacity="0.12" />
-              <stop offset="100%" stop-color="#52c41a" stop-opacity="0" />
-            </linearGradient>
-          </defs>
-
-          <!-- 网格线 -->
-          <line
-            v-for="i in 5"
-            :key="`grid-${i}`"
-            :x1="chartPadding"
-            :y1="chartPadding + (chartHeight - 2 * chartPadding) * (i - 1) / 4"
-            :x2="chartWidth - chartPadding"
-            :y2="chartPadding + (chartHeight - 2 * chartPadding) * (i - 1) / 4"
-            stroke="#f0f0f0"
-            stroke-width="1"
-          />
-
-          <!-- Y轴标签 -->
-          <text
-            v-for="i in 5"
-            :key="`ylabel-${i}`"
-            :x="chartPadding - 10"
-            :y="chartPadding + (chartHeight - 2 * chartPadding) * (i - 1) / 4 + 4"
-            text-anchor="end"
-            font-size="11"
-            fill="#bbb"
-            font-family="-apple-system, BlinkMacSystemFont, sans-serif"
-          >
-            {{ (1 - (i - 1) / 4).toFixed(2) }}
-          </text>
-
-          <!-- Recall 面积填充 -->
-          <polygon
-            :points="recallAreaPoints"
-            fill="url(#recallGradient)"
-          />
-
-          <!-- MRR 面积填充 -->
-          <polygon
-            :points="mrrAreaPoints"
-            fill="url(#mrrGradient)"
-          />
-
-          <!-- recall 折线 -->
-          <polyline
-            :points="recallPoints"
-            fill="none"
-            stroke="#1677ff"
-            stroke-width="2.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-
-          <!-- recall 数据点 -->
-          <circle
-            v-for="(p, i) in recallPointList"
-            :key="`recall-${i}`"
-            :cx="p.x"
-            :cy="p.y"
-            r="4.5"
-            fill="#fff"
-            stroke="#1677ff"
-            stroke-width="2.5"
-          />
-
-          <!-- MRR 折线 -->
-          <polyline
-            :points="mrrPoints"
-            fill="none"
-            stroke="#52c41a"
-            stroke-width="2.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-
-          <!-- MRR 数据点 -->
-          <circle
-            v-for="(p, i) in mrrPointList"
-            :key="`mrr-${i}`"
-            :cx="p.x"
-            :cy="p.y"
-            r="4.5"
-            fill="#fff"
-            stroke="#52c41a"
-            stroke-width="2.5"
-          />
-
-          <!-- X轴标签 -->
-          <text
-            v-for="(item, i) in sortedEvalHistory"
-            :key="`xlabel-${i}`"
-            :x="chartPadding + i * xStep"
-            :y="chartHeight - 6"
-            text-anchor="middle"
-            font-size="11"
-            fill="#bbb"
-            font-family="-apple-system, BlinkMacSystemFont, sans-serif"
-          >
-            {{ formatShortDate(item.created_at) }}
-          </text>
-        </svg>
-      </div>
-    </div>
+    </div><!-- /project-section -->
 
     <a-row :gutter="20" style="margin-top: 20px">
       <a-col :span="14">
@@ -264,16 +283,13 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ProjectOutlined, FileOutlined, SearchOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons-vue'
-import dayjs from 'dayjs'
-import 'dayjs/locale/zh-cn'
+import { dayjs, formatTime } from '@/utils/time'
 import { usePageStore } from '@/store/page'
 import { useActiveProjectStore } from '@/store/activeProject'
 import { getProjectList, getEvaluationHistory } from '@/api/project'
 import { getDocumentList } from '@/api/document'
 import type { ProjectItem, EvaluationStatsResult } from '@/api/model/projectModel'
 import type { DocumentItem } from '@/api/model/documentModel'
-
-dayjs.locale('zh-cn')
 
 const router = useRouter()
 const pageStore = usePageStore()
@@ -311,12 +327,6 @@ const recallDiff = computed(() => {
 const mrrDiff = computed(() => {
   if (!latestEval.value || !previousEval.value) return 0
   return latestEval.value.mrr - previousEval.value.mrr
-})
-
-const recallTrend = computed(() => {
-  if (recallDiff.value > 0) return 'badge-blue'
-  if (recallDiff.value < 0) return 'badge-red'
-  return 'badge-gray'
 })
 
 // 折线图参数
@@ -383,18 +393,6 @@ function formatPercent(value: number) {
   return (value * 100).toFixed(2) + '%'
 }
 
-function formatShortDate(dateStr: string) {
-  if (!dateStr) return ''
-  return dayjs(dateStr).format('MM-DD HH:mm')
-}
-
-function goEvaluation() {
-  const pid = activeProjectStore.activeProjectId
-  if (pid) {
-    router.push(`/projects/${pid}/evaluation`)
-  }
-}
-
 // 概览统计
 const projectCount = computed(() => projects.value.length)
 const docCount = computed(() => allDocs.value.length)
@@ -422,16 +420,16 @@ const columns = [
   { title: '更新时间', dataIndex: 'updated_at', key: 'updated_at' },
 ]
 
-function formatTime(dateStr: string) {
-  if (!dateStr) return '--'
-  const d = dayjs(dateStr)
-  const now = dayjs()
-  const diffMs = now.diff(d, 'millisecond')
-  if (diffMs < 60 * 1000) return '刚刚'
-  if (diffMs < 3600 * 1000) return `${Math.floor(diffMs / 60000)} 分钟前`
-  if (diffMs < 24 * 3600 * 1000) return `${Math.floor(diffMs / 3600000)} 小时前`
-  if (diffMs < 7 * 24 * 3600 * 1000) return `${Math.floor(diffMs / 86400000)} 天前`
-  return d.format('YYYY-MM-DD HH:mm')
+function formatShortDate(dateStr: string) {
+  if (!dateStr) return ''
+  return dayjs(dateStr).format('MM-DD HH:mm')
+}
+
+function goEvaluation() {
+  const pid = activeProjectStore.activeProjectId
+  if (pid) {
+    router.push(`/projects/${pid}/evaluation`)
+  }
 }
 
 async function fetchEvalData() {
@@ -512,115 +510,6 @@ watch(() => activeProjectStore.activeProjectId, (newId) => {
   margin-top: 12px;
   font-size: 13px;
   color: #666;
-}
-
-/* 评估指标卡片 */
-.metrics-row {
-  margin-top: 20px;
-  background: #fff;
-  border: 1px solid #f0f0f0;
-  border-radius: 12px;
-  padding: 20px;
-}
-.metrics-row__inner {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-}
-.metrics-row__empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px 0;
-}
-.metrics-row__empty-text {
-  font-size: 13px;
-  color: #bbb;
-}
-
-.metric-card {
-  padding: 4px 0;
-}
-.metric-card__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-.metric-card__label {
-  font-size: 13px;
-  color: #888;
-  font-weight: 500;
-}
-.metric-card__badge {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 10px;
-  letter-spacing: 0.02em;
-}
-.badge-blue {
-  background: rgba(22, 119, 255, 0.08);
-  color: #1677ff;
-}
-.badge-green {
-  background: rgba(82, 196, 26, 0.08);
-  color: #52c41a;
-}
-.badge-orange {
-  background: rgba(250, 173, 20, 0.08);
-  color: #faad14;
-}
-.badge-purple {
-  background: rgba(114, 46, 209, 0.08);
-  color: #722ed1;
-}
-.badge-red {
-  background: rgba(255, 77, 79, 0.08);
-  color: #ff4d4f;
-}
-.badge-gray {
-  background: rgba(0, 0, 0, 0.04);
-  color: #999;
-}
-.metric-card__value {
-  font-size: 28px;
-  font-weight: 700;
-  color: #111;
-  letter-spacing: -0.03em;
-  line-height: 1.2;
-}
-.metric-card__unit {
-  font-size: 14px;
-  font-weight: 500;
-  color: #999;
-  margin-left: 2px;
-}
-.metric-card__trend {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 6px;
-  font-size: 12px;
-}
-.trend-icon {
-  font-size: 11px;
-}
-.trend-up {
-  color: #52c41a;
-}
-.trend-down {
-  color: #ff4d4f;
-}
-.trend-label {
-  color: #bbb;
-  margin-left: 2px;
-}
-.metric-card__sub {
-  font-size: 12px;
-  color: #bbb;
-  margin-top: 6px;
 }
 
 /* 区块标题 */

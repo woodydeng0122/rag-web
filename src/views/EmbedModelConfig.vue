@@ -261,54 +261,10 @@ watch(() => pageStore.refreshTrigger, () => store.fetchModels(true))
 </script>
 
 <style scoped>
-/* 工具栏 */
-.toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-.toolbar-left {
-  display: flex;
-  align-items: center;
-}
-.toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.page-title {
-  font-size: 18px;
-  font-weight: 600;
-  margin: 0;
-}
-
-/* 表格卡片 */
-.table-card {
-  border-radius: 10px;
-}
-.table-card :deep(.ant-card-body) {
-  padding: 0;
-}
-.table-card :deep(.ant-table-thead > tr > th) {
-  font-weight: 500;
-  color: #666;
-  font-size: 13px;
-}
-.table-card :deep(.ant-table-tbody > tr > td) {
-  padding: 12px 16px;
-}
-.table-card :deep(.ant-table-tbody > tr:hover > td) {
-  background: #f5f7fa;
-}
+@import '@/styles/common-table.css';
 
 .model-name {
   font-family: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
   font-size: 13px;
-}
-.form-hint {
-  margin-left: 8px;
-  font-size: 12px;
-  color: #999;
 }
 </style>

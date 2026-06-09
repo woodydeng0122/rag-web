@@ -269,9 +269,7 @@ import { useRouter } from 'vue-router'
 import { message, Modal as AModal } from 'ant-design-vue'
 import { usePageStore } from '@/store/page'
 import { useActiveProjectStore } from '@/store/activeProject'
-import dayjs from 'dayjs'
-import relativeTime from 'dayjs/plugin/relativeTime'
-import 'dayjs/locale/zh-cn'
+import { formatTime, formatFullTime } from '@/utils/time'
 import {
   UploadOutlined,
   InboxOutlined,
@@ -289,9 +287,6 @@ import type { DocumentItem, ChunkItem, UploadDocumentParams } from '@/api/model/
 import type { GoldenItem } from '@/api/model/goldenModel'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import EmbeddingViewer from '@/components/EmbeddingViewer.vue'
-
-dayjs.locale('zh-cn')
-dayjs.extend(relativeTime)
 
 const router = useRouter()
 const pageStore = usePageStore()
@@ -487,23 +482,6 @@ function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-}
-
-function formatTime(dateStr: string) {
-  if (!dateStr) return '--'
-  const d = dayjs(dateStr)
-  const now = dayjs()
-  const diffMs = now.diff(d, 'millisecond')
-  if (diffMs < 60 * 1000) return '刚刚'
-  if (diffMs < 3600 * 1000) return `${Math.floor(diffMs / 60000)} 分钟前`
-  if (diffMs < 24 * 3600 * 1000) return `${Math.floor(diffMs / 3600000)} 小时前`
-  if (diffMs < 7 * 24 * 3600 * 1000) return `${Math.floor(diffMs / 86400000)} 天前`
-  return d.format('MM-DD HH:mm')
-}
-
-function formatFullTime(dateStr: string) {
-  if (!dateStr) return '--'
-  return dayjs(dateStr).format('YYYY-MM-DD HH:mm:ss')
 }
 
 function onSelectChange(keys: any[]) {
@@ -703,44 +681,12 @@ watch(() => pageStore.refreshTrigger, fetchList)
 </script>
 
 <style scoped>
-/* 工具栏 */
-.toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-.toolbar-left {
-  display: flex;
-  align-items: center;
-}
-.toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+@import '@/styles/common-table.css';
+
 .filter-select {
   width: 160px;
 }
 
-/* 表格卡片 */
-.table-card {
-  border-radius: 10px;
-}
-.table-card :deep(.ant-card-body) {
-  padding: 0;
-}
-.table-card :deep(.ant-table-thead > tr > th) {
-  font-weight: 500;
-  color: #666;
-  font-size: 13px;
-}
-.table-card :deep(.ant-table-tbody > tr > td) {
-  padding: 12px 16px;
-}
-.table-card :deep(.ant-table-tbody > tr:hover > td) {
-  background: #f5f7fa;
-}
 .table-card :deep(.ant-pagination) {
   margin-right: 16px;
 }
@@ -778,19 +724,6 @@ watch(() => pageStore.refreshTrigger, fetchList)
   border-radius: 4px;
 }
 
-/* 时间单元格 */
-.time-cell {
-  color: #888;
-  font-size: 13px;
-}
-
-/* 操作单元格 */
-.action-cell {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
 /* 上传弹窗 */
 .upload-icon {
   font-size: 36px;
@@ -810,11 +743,6 @@ watch(() => pageStore.refreshTrigger, fetchList)
   margin-top: 8px;
   font-size: 13px;
   color: #1677ff;
-}
-.form-hint {
-  margin-left: 8px;
-  font-size: 12px;
-  color: #999;
 }
 
 /* 错误文本 */

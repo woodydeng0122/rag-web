@@ -404,8 +404,7 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal as AModal } from 'ant-design-vue'
-import dayjs from 'dayjs'
-import 'dayjs/locale/zh-cn'
+import { formatTime } from '@/utils/time'
 import { usePageStore } from '@/store/page'
 import { useActiveProjectStore } from '@/store/activeProject'
 import {
@@ -429,8 +428,6 @@ import { searchProjectChunks, getChunksByIds } from '@/api/chunk'
 import type { GoldenItem, CreateGoldenParams, ImportResult, RetrievalResponse } from '@/api/model/goldenModel'
 import type { ChunkItem } from '@/api/model/documentModel'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
-
-dayjs.locale('zh-cn')
 
 const router = useRouter()
 const pageStore = usePageStore()
@@ -626,18 +623,6 @@ function handleBatchRetrieve() {
       })()
     },
   })
-}
-
-function formatTime(dateStr: string) {
-  if (!dateStr) return '--'
-  const d = dayjs(dateStr)
-  const now = dayjs()
-  const diffMs = now.diff(d, 'millisecond')
-  if (diffMs < 60 * 1000) return '刚刚'
-  if (diffMs < 3600 * 1000) return `${Math.floor(diffMs / 60000)} 分钟前`
-  if (diffMs < 24 * 3600 * 1000) return `${Math.floor(diffMs / 3600000)} 小时前`
-  if (diffMs < 7 * 24 * 3600 * 1000) return `${Math.floor(diffMs / 86400000)} 天前`
-  return d.format('MM-DD HH:mm')
 }
 
 function onSearch() {}
@@ -931,46 +916,15 @@ watch(importModalVisible, (val) => {
 </script>
 
 <style scoped>
-.toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-.toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+@import '@/styles/common-table.css';
+
 .status-filter {
   width: 120px;
-}
-.toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 .search-input {
   width: 220px;
 }
 
-.table-card {
-  border-radius: 10px;
-}
-.table-card :deep(.ant-card-body) {
-  padding: 0;
-}
-.table-card :deep(.ant-table-thead > tr > th) {
-  font-weight: 500;
-  color: #666;
-  font-size: 13px;
-}
-.table-card :deep(.ant-table-tbody > tr > td) {
-  padding: 12px 16px;
-}
-.table-card :deep(.ant-table-tbody > tr:hover > td) {
-  background: #f5f7fa;
-}
 .table-card :deep(.ant-table-tbody > tr.row-rejected > td) {
   opacity: 0.6;
 }
@@ -981,16 +935,6 @@ watch(importModalVisible, (val) => {
 .answer-cell {
   color: #888;
   font-size: 13px;
-}
-.time-cell {
-  color: #888;
-  font-size: 13px;
-}
-
-.action-cell {
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
 .chunk-selector {
