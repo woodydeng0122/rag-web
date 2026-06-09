@@ -569,34 +569,36 @@ function handleBatchProcess() {
   AModal.confirm({
     title: '批量处理',
     content: `确定要处理选中的 ${processableIds.length} 个文档吗？${skipHint}`,
-    async onOk() {
+    onOk() {
       batchProcessing.value = true
       let successCount = 0
       let failCount = 0
       const remaining = [...processableIds]
 
-      while (remaining.length > 0) {
-        const batch = remaining.splice(0, 2)
-        const results = await Promise.allSettled(
-          batch.map(id => processDocument(projectId.value, id))
-        )
-        for (let i = 0; i < results.length; i++) {
-          if (results[i].status === 'fulfilled') {
-            successCount++
-            selectedRowKeys.value = selectedRowKeys.value.filter(k => k !== batch[i])
-          } else {
-            failCount++
+      void (async () => {
+        while (remaining.length > 0) {
+          const batch = remaining.splice(0, 2)
+          const results = await Promise.allSettled(
+            batch.map(id => processDocument(projectId.value, id))
+          )
+          for (let i = 0; i < results.length; i++) {
+            if (results[i].status === 'fulfilled') {
+              successCount++
+              selectedRowKeys.value = selectedRowKeys.value.filter(k => k !== batch[i])
+            } else {
+              failCount++
+            }
           }
         }
-      }
 
-      if (failCount > 0) {
-        message.warning(`批量处理完成：${successCount} 个成功，${failCount} 个失败`)
-      } else {
-        message.success(`批量处理完成：${successCount} 个成功`)
-      }
-      batchProcessing.value = false
-      await fetchList()
+        if (failCount > 0) {
+          message.warning(`批量处理完成：${successCount} 个成功，${failCount} 个失败`)
+        } else {
+          message.success(`批量处理完成：${successCount} 个成功`)
+        }
+        batchProcessing.value = false
+        await fetchList()
+      })()
     },
     onCancel() {
       // 用户取消，不做任何操作

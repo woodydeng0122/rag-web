@@ -41,7 +41,7 @@ export const batchReject = (projectId: string, params: BatchStatusUpdateParams) 
 
 /** 触发检索 */
 export const createRetrieval = (projectId: string, recordId: string, params: CreateRetrievalParams) =>
-  post<RetrievalResponse>({ url: `/projects/${projectId}/golden/${recordId}/retrieval`, data: params })
+  post<RetrievalResponse>({ url: `/projects/${projectId}/golden/${recordId}/retrieval`, data: params, timeout: 60000 })
 
 /** 获取检索结果 */
 export const getRetrieval = (projectId: string, recordId: string) =>

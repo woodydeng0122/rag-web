@@ -67,6 +67,8 @@ export interface RetrievalResponse {
   golden_id: string
   max_k: number
   latency_ms: number
+  embed_latency_ms: number
+  search_latency_ms: number
   embed_model_name: string
   created_at: string
   items: RetrievalItem[]

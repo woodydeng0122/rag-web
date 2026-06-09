@@ -167,18 +167,20 @@ function handleDelete(project: ProjectItem) {
     title: '确认删除',
     content: `确定要删除项目「${project.name}」吗? 此操作不可恢复。`,
     okType: 'danger',
-    async onOk() {
-      try {
-        await deleteProject(project.id)
-        // 若删除的是激活项目，清空 Store
-        if (isActive(project.id)) {
-          activeProjectStore.clearActiveProject()
+    onOk() {
+      void (async () => {
+        try {
+          await deleteProject(project.id)
+          // 若删除的是激活项目，清空 Store
+          if (isActive(project.id)) {
+            activeProjectStore.clearActiveProject()
+          }
+          message.success('删除成功')
+          await fetchList()
+        } catch {
+          message.error('删除失败')
         }
-        message.success('删除成功')
-        await fetchList()
-      } catch {
-        message.error('删除失败')
-      }
+      })()
     },
   })
 }

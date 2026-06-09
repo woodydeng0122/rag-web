@@ -62,7 +62,7 @@
         @click="handleBatchRetrieve"
       >
         <template #icon><search-outlined /></template>
-        批量检索 ({{ selectedRowKeys.length }})
+        批量检索 ({{ batchRetrieving ? batchRemaining : selectedRowKeys.length }})
       </a-button>
       <a-button @click="importModalVisible = true">
         <template #icon><upload-outlined /></template>
@@ -87,6 +87,7 @@
         size="middle"
         :scroll="{ x: 900 }"
         :row-class-name="(record: GoldenItem) => record.status === 'rejected' ? 'row-rejected' : ''"
+        @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
           <!-- 状态 -->
@@ -359,7 +360,9 @@
     <template v-if="retrievalResult">
       <div class="retrieval-metrics">
         <a-tag>模型: {{ retrievalResult.embed_model_name || '--' }}</a-tag>
-        <a-tag>耗时: {{ retrievalResult.latency_ms }}ms</a-tag>
+        <a-tag>总耗时: {{ retrievalResult.latency_ms }}ms</a-tag>
+        <a-tag>嵌入: {{ retrievalResult.embed_latency_ms }}ms</a-tag>
+        <a-tag>检索: {{ retrievalResult.search_latency_ms }}ms</a-tag>
         <a-tag>max_k: {{ retrievalResult.max_k }}</a-tag>
         <a-tag color="green">命中GT: {{ retrievalResult.items.filter(i => i.is_ground_truth).length }}/{{ retrievalRecord.ground_truth_chunks?.length || 0 }}</a-tag>
       </div>
@@ -389,7 +392,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal as AModal } from 'ant-design-vue'
 import dayjs from 'dayjs'
@@ -443,11 +446,17 @@ const columns = [
   { title: '操作', key: 'action', fixed: 'right' as const, width: 180 },
 ]
 
-const paginationConfig = {
+const paginationConfig = reactive({
+  current: 1,
   pageSize: 10,
   showSizeChanger: true,
   showTotal: (total: number) => `共 ${total} 条`,
-  pageSizeOptions: ['10', '20', '50'],
+  pageSizeOptions: ['10', '20', '50', '100'],
+})
+
+function handleTableChange(pagination: any) {
+  paginationConfig.current = pagination.current
+  paginationConfig.pageSize = pagination.pageSize
 }
 
 const filteredList = computed(() => {
@@ -494,6 +503,7 @@ const retrievalMaxK = ref(10)
 
 // 批量检索
 const batchRetrieving = ref(false)
+const batchRemaining = ref(0)
 
 function openDetailDrawer(record: GoldenItem) {
   detailRecord.value = record
@@ -508,7 +518,7 @@ async function openRetrievalDrawer(record: GoldenItem) {
   retrievalLoading.value = false
   retrievalDrawerVisible.value = true
 
-  // 如果已有检索结果，自动加载详情
+  // 如果已有检索结果，自动加载
   if (record.retrieval_summary) {
     retrievalLoading.value = true
     try {
@@ -557,34 +567,38 @@ function handleBatchRetrieve() {
   AModal.confirm({
     title: '批量检索',
     content: `确定要对选中的 ${ids.length} 条记录执行检索吗？（max_k = 10，已有结果将被覆盖）`,
-    async onOk() {
+    onOk() {
       batchRetrieving.value = true
+      batchRemaining.value = ids.length
       let successCount = 0
       let failCount = 0
       const remaining = [...ids]
 
-      while (remaining.length > 0) {
-        const batch = remaining.splice(0, 2)
-        const results = await Promise.allSettled(
-          batch.map(id => createRetrieval(activeProjectStore.activeProjectId!, id, { max_k: 10 }))
-        )
-        for (let i = 0; i < results.length; i++) {
-          if (results[i].status === 'fulfilled') {
-            successCount++
-            selectedRowKeys.value = selectedRowKeys.value.filter(k => k !== batch[i])
-          } else {
-            failCount++
+      void (async () => {
+        while (remaining.length > 0) {
+          const batch = remaining.splice(0, 2)
+          const results = await Promise.allSettled(
+            batch.map(id => createRetrieval(activeProjectStore.activeProjectId!, id, { max_k: 10 }))
+          )
+          for (let i = 0; i < results.length; i++) {
+            if (results[i].status === 'fulfilled') {
+              successCount++
+              selectedRowKeys.value = selectedRowKeys.value.filter(k => k !== batch[i])
+            } else {
+              failCount++
+            }
           }
+          batchRemaining.value = remaining.length
         }
-      }
 
-      if (failCount > 0) {
-        message.warning(`批量检索完成：${successCount} 条成功，${failCount} 条失败`)
-      } else {
-        message.success(`批量检索完成：${successCount} 条成功`)
-      }
-      batchRetrieving.value = false
-      await fetchList()
+        if (failCount > 0) {
+          message.warning(`批量检索完成：${successCount} 条成功，${failCount} 条失败`)
+        } else {
+          message.success(`批量检索完成：${successCount} 条成功`)
+        }
+        batchRetrieving.value = false
+        await fetchList()
+      })()
     },
   })
 }
@@ -700,32 +714,34 @@ function handleBatchDelete() {
     title: '批量删除',
     content: `确定要删除选中的 ${ids.length} 条记录吗？此操作不可恢复。`,
     okType: 'danger',
-    async onOk() {
+    onOk() {
       let successCount = 0
       let failCount = 0
       const remaining = [...ids]
 
-      while (remaining.length > 0) {
-        const batch = remaining.splice(0, 2)
-        const results = await Promise.allSettled(
-          batch.map(id => deleteGolden(activeProjectStore.activeProjectId!, id))
-        )
-        for (let i = 0; i < results.length; i++) {
-          if (results[i].status === 'fulfilled') {
-            successCount++
-            selectedRowKeys.value = selectedRowKeys.value.filter(k => k !== batch[i])
-          } else {
-            failCount++
+      void (async () => {
+        while (remaining.length > 0) {
+          const batch = remaining.splice(0, 2)
+          const results = await Promise.allSettled(
+            batch.map(id => deleteGolden(activeProjectStore.activeProjectId!, id))
+          )
+          for (let i = 0; i < results.length; i++) {
+            if (results[i].status === 'fulfilled') {
+              successCount++
+              selectedRowKeys.value = selectedRowKeys.value.filter(k => k !== batch[i])
+            } else {
+              failCount++
+            }
           }
         }
-      }
 
-      if (failCount > 0) {
-        message.warning(`批量删除完成：${successCount} 条成功，${failCount} 条失败`)
-      } else {
-        message.success(`批量删除完成：${successCount} 条成功`)
-      }
-      await fetchList()
+        if (failCount > 0) {
+          message.warning(`批量删除完成：${successCount} 条成功，${failCount} 条失败`)
+        } else {
+          message.success(`批量删除完成：${successCount} 条成功`)
+        }
+        await fetchList()
+      })()
     },
   })
 }
