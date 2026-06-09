@@ -1,10 +1,10 @@
 import { get, post, patch, del } from './request'
 import instance from './request'
-import type { GoldenItem, CreateGoldenParams, UpdateGoldenParams, ImportResult, BatchStatusUpdateParams, BatchStatusUpdateResult, RetrievalResponse, CreateRetrievalParams } from './model/goldenModel'
+import type { GoldenItem, CreateGoldenParams, UpdateGoldenParams, ImportResult, RetrievalResponse, CreateRetrievalParams } from './model/goldenModel'
 
 /** 获取项目下的黄金数据集列表 */
-export const getGoldenList = (projectId: string, status?: string) =>
-  get<GoldenItem[]>({ url: `/projects/${projectId}/golden`, params: status ? { status } : undefined })
+export const getGoldenList = (projectId: string, params?: { status?: string; retrieval_status?: string }) =>
+  get<GoldenItem[]>({ url: `/projects/${projectId}/golden`, params })
 
 /** 按文档 ID 查询关联的黄金记录 */
 export const getDocumentGoldenRecords = (projectId: string, documentId: string) =>
@@ -30,14 +30,6 @@ export const importGolden = (projectId: string, file: File): Promise<ImportResul
     headers: { 'Content-Type': 'multipart/form-data' },
   })
 }
-
-/** 批量审批通过 */
-export const batchApprove = (projectId: string, params: BatchStatusUpdateParams) =>
-  post<BatchStatusUpdateResult>({ url: `/projects/${projectId}/golden/batch-approve`, data: params })
-
-/** 批量拒绝 */
-export const batchReject = (projectId: string, params: BatchStatusUpdateParams) =>
-  post<BatchStatusUpdateResult>({ url: `/projects/${projectId}/golden/batch-reject`, data: params })
 
 /** 触发检索 */
 export const createRetrieval = (projectId: string, recordId: string, params: CreateRetrievalParams) =>

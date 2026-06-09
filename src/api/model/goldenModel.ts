@@ -42,14 +42,6 @@ export interface ImportResult {
   skipped: SkippedRecord[]
 }
 
-export interface BatchStatusUpdateParams {
-  record_ids: string[]
-}
-
-export interface BatchStatusUpdateResult {
-  updated_count: number
-}
-
 /** 检索结果项 */
 export interface RetrievalItem {
   chunk_id: string

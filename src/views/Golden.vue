@@ -13,16 +13,16 @@
   <div class="toolbar">
     <div class="toolbar-left">
       <a-select
-        v-model:value="statusFilter"
-        placeholder="状态筛选"
+        v-model:value="retrievalFilter"
+        placeholder="检索情况"
         class="status-filter"
         allow-clear
         @change="fetchList()"
       >
         <a-select-option value="">全部</a-select-option>
-        <a-select-option value="pending_review">待审核</a-select-option>
-        <a-select-option value="approved">已审批</a-select-option>
-        <a-select-option value="rejected">已拒绝</a-select-option>
+        <a-select-option value="hit">命中</a-select-option>
+        <a-select-option value="miss">未命中</a-select-option>
+        <a-select-option value="unretrieved">未检索</a-select-option>
       </a-select>
       <a-input-search
         v-model:value="searchQuery"
@@ -33,21 +33,6 @@
       />
     </div>
     <div class="toolbar-right">
-      <a-button
-        :disabled="selectedRowKeys.length === 0"
-        @click="handleBatchApprove"
-      >
-        <template #icon><check-circle-outlined /></template>
-        批量审批 ({{ selectedRowKeys.length }})
-      </a-button>
-      <a-button
-        danger
-        :disabled="selectedRowKeys.length === 0"
-        @click="handleBatchReject"
-      >
-        <template #icon><close-circle-outlined /></template>
-        批量拒绝 ({{ selectedRowKeys.length }})
-      </a-button>
       <a-button
         danger
         :disabled="selectedRowKeys.length === 0"
@@ -404,7 +389,6 @@ import {
   DeleteOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
-  StopOutlined,
   UploadOutlined,
   SearchOutlined,
 } from '@ant-design/icons-vue'
@@ -414,8 +398,6 @@ import {
   updateGolden,
   deleteGolden,
   importGolden,
-  batchApprove,
-  batchReject,
   createRetrieval,
   getRetrieval,
 } from '@/api/golden'
@@ -432,7 +414,7 @@ const activeProjectStore = useActiveProjectStore()
 const loading = ref(false)
 const dataList = ref<GoldenItem[]>([])
 const searchQuery = ref('')
-const statusFilter = ref('')
+const retrievalFilter = ref('')
 
 const selectedRowKeys = ref<string[]>([])
 
@@ -621,7 +603,11 @@ async function fetchList() {
   if (!activeProjectStore.activeProjectId) return
   loading.value = true
   try {
-    const res = await getGoldenList(activeProjectStore.activeProjectId, statusFilter.value || undefined)
+    const params: { retrieval_status?: string } = {}
+    if (retrievalFilter.value) {
+      params.retrieval_status = retrievalFilter.value
+    }
+    const res = await getGoldenList(activeProjectStore.activeProjectId, params)
     dataList.value = res || []
   } catch {
     message.error('获取黄金数据集失败')
@@ -765,34 +751,6 @@ async function handleReject(record: GoldenItem) {
     await fetchList()
   } catch {
     message.error('操作失败')
-  }
-}
-
-// 批量审批
-async function handleBatchApprove() {
-  const ids = [...selectedRowKeys.value]
-  if (ids.length === 0) return
-  try {
-    const res = await batchApprove(activeProjectStore.activeProjectId!, { record_ids: ids })
-    message.success(`批量审批完成：${res.updated_count} 条已通过`)
-    selectedRowKeys.value = []
-    await fetchList()
-  } catch {
-    message.error('批量审批失败')
-  }
-}
-
-// 批量拒绝
-async function handleBatchReject() {
-  const ids = [...selectedRowKeys.value]
-  if (ids.length === 0) return
-  try {
-    const res = await batchReject(activeProjectStore.activeProjectId!, { record_ids: ids })
-    message.success(`批量拒绝完成：${res.updated_count} 条已拒绝`)
-    selectedRowKeys.value = []
-    await fetchList()
-  } catch {
-    message.error('批量拒绝失败')
   }
 }
 
