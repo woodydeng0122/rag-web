@@ -29,14 +29,14 @@ export async function askStream(
   params: AskStreamParams,
   onEvent: (event: SSEEvent) => void,
 ): Promise<void> {
-  const response = await fetch(
-    `${instance.defaults.baseURL}/projects/${projectId}/qa/sessions/${sessionId}/ask`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params),
-    },
-  )
+  const baseURL = instance.defaults.baseURL || ''
+  const url = `${baseURL}/projects/${projectId}/qa/sessions/${sessionId}/ask`
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  })
 
   if (!response.ok) {
     throw new Error(`请求失败: ${response.status}`)
@@ -53,16 +53,34 @@ export async function askStream(
     if (done) break
 
     buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split('\n')
-    buffer = lines.pop() || ''
 
-    for (const line of lines) {
+    // SSE 协议：事件以 \n\n 分隔
+    const eventBlocks = buffer.split('\n\n')
+    buffer = eventBlocks.pop() || ''
+
+    for (const block of eventBlocks) {
+      for (const line of block.split('\n')) {
+        if (line.startsWith('data: ')) {
+          try {
+            const event: SSEEvent = JSON.parse(line.slice(6))
+            onEvent(event)
+          } catch {
+            // 忽略解析错误
+          }
+        }
+      }
+    }
+  }
+
+  // 处理 buffer 中剩余内容
+  if (buffer.trim()) {
+    for (const line of buffer.split('\n')) {
       if (line.startsWith('data: ')) {
         try {
           const event: SSEEvent = JSON.parse(line.slice(6))
           onEvent(event)
         } catch {
-          // 忽略解析错误
+          // 忽略
         }
       }
     }

@@ -1,14 +1,12 @@
 <template>
   <div class="document-list">
     <!-- 无激活项目引导 -->
-    <a-empty v-if="!activeProjectStore.hasActiveProject" description="请先在项目页激活一个项目">
-      <a-button type="primary" @click="router.push('/projects')">前往项目页</a-button>
-    </a-empty>
+    <NoProjectPrompt v-if="!activeProjectStore.hasActiveProject" description="请先在项目页激活一个项目" />
 
     <template v-else>
     <!-- 工具栏 -->
-    <div class="toolbar">
-      <a-space>
+    <PageToolbar>
+      <template #left>
         <a-select v-model:value="filterStatus" placeholder="状态筛选" class="filter-select" @change="onFilter" allow-clear>
           <a-select-option value="">全部状态</a-select-option>
           <a-select-option value="ready">已完成</a-select-option>
@@ -18,19 +16,18 @@
           <a-select-option value="chunking">分块中</a-select-option>
           <a-select-option value="embedding">向量化中</a-select-option>
         </a-select>
-      </a-space>
-      <a-space :size="8">
+      </template>
+      <template #actions>
         <a-button @click="handleBatchProcess" :disabled="selectedRowKeys.length === 0 || batchProcessing" :loading="batchProcessing">
           <template #icon><play-circle-outlined /></template>
           批量处理 ({{ selectedRowKeys.length }})
         </a-button>
-
         <a-button type="primary" @click="handleUploadClick">
           <template #icon><upload-outlined /></template>
           上传文档
         </a-button>
-      </a-space>
-    </div>
+      </template>
+    </PageToolbar>
 
     <!-- 数据表格 -->
     <a-card :bordered="false" class="table-card" :body-style="{ padding: 0 }">
@@ -74,8 +71,8 @@
 
             <!-- 状态 -->
             <template v-if="column.key === 'status'">
-              <a-tag :color="statusColor(record.status)" class="status-tag">
-                {{ statusText(record.status) }}
+              <a-tag :color="getStatusInfo(DOC_STATUS_MAP, record.status).color" class="status-tag">
+                {{ getStatusInfo(DOC_STATUS_MAP, record.status).text }}
               </a-tag>
             </template>
 
@@ -173,7 +170,7 @@
           <a-descriptions-item label="文件类型">{{ currentDoc.file_type?.toUpperCase() }}</a-descriptions-item>
           <a-descriptions-item label="文件大小">{{ formatSize(currentDoc.file_size) }}</a-descriptions-item>
           <a-descriptions-item label="状态">
-            <a-tag :color="statusColor(currentDoc.status)">{{ statusText(currentDoc.status) }}</a-tag>
+            <a-tag :color="getStatusInfo(DOC_STATUS_MAP, currentDoc.status).color">{{ getStatusInfo(DOC_STATUS_MAP, currentDoc.status).text }}</a-tag>
           </a-descriptions-item>
           <a-descriptions-item label="分块数量">{{ currentDoc.chunk_count || 0 }}</a-descriptions-item>
           <a-descriptions-item label="分块策略">{{ currentDoc.splitter_config?.strategy || '--' }}</a-descriptions-item>
@@ -195,21 +192,16 @@
       placement="right"
       @close="chunkDetailVisible = false"
     >
-      <div class="chunk-detail-layout">
-        <!-- 左侧：源文档 -->
-        <div class="chunk-detail-left">
-          <div class="panel-title">源文档</div>
+      <SplitPanelLayout left-title="源文档" right-title="分块列表">
+        <template #left>
           <a-spin :spinning="sourceLoading">
             <div v-if="sourceContent" class="source-content" ref="sourceRef" @scroll="onSourceScroll">
               <MarkdownRenderer :content="sourceContent" :file-type="chunkDocFileType" full-height />
             </div>
             <a-empty v-else-if="!sourceLoading" :description="sourceError || '加载源文件失败'" />
           </a-spin>
-        </div>
-
-        <!-- 右侧：分块列表 -->
-        <div class="chunk-detail-right">
-          <div class="panel-title">分块列表 ({{ chunks.length }})</div>
+        </template>
+        <template #right>
           <a-spin :spinning="chunksLoading">
             <div class="chunk-list" ref="chunkListRef" @scroll="onChunkListScroll">
               <div v-for="chunk in chunks" :key="chunk.index" class="chunk-item" :class="chunk.index % 2 === 0 ? 'chunk-item--even' : 'chunk-item--odd'" @click="handleChunkClick(chunk)">
@@ -218,8 +210,8 @@
             </div>
             <a-empty v-if="!chunksLoading && chunks.length === 0" description="暂无分块" />
           </a-spin>
-        </div>
-      </div>
+        </template>
+      </SplitPanelLayout>
     </a-drawer>
 
     <!-- 分块详情弹窗 -->
@@ -264,13 +256,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, reactive } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal as AModal } from 'ant-design-vue'
 import { usePageStore } from '@/store/page'
 import { useActiveProjectStore } from '@/store/activeProject'
 import { formatTime, formatFullTime } from '@/utils/time'
 import { batchExecute } from '@/utils/batch'
+import { getStatusInfo, DOC_STATUS_MAP } from '@/utils/status'
+import { usePagination } from '@/composables/usePagination'
 import {
   UploadOutlined,
   InboxOutlined,
@@ -288,6 +282,9 @@ import type { DocumentItem, ChunkItem, UploadDocumentParams } from '@/api/model/
 import type { GoldenItem } from '@/api/model/goldenModel'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import EmbeddingViewer from '@/components/EmbeddingViewer.vue'
+import NoProjectPrompt from '@/components/NoProjectPrompt.vue'
+import PageToolbar from '@/components/PageToolbar.vue'
+import SplitPanelLayout from '@/components/SplitPanelLayout.vue'
 
 const router = useRouter()
 const pageStore = usePageStore()
@@ -318,20 +315,7 @@ const filteredDocuments = computed(() => {
   return documents.value.filter(d => d.status === filterStatus.value)
 })
 
-const paginationConfig = reactive({
-  current: 1,
-  pageSize: 10,
-  showSizeChanger: true,
-  showTotal: (total: number) => `共 ${total} 条`,
-  pageSizeOptions: ['10', '20', '50'],
-  onChange: (page: number) => {
-    paginationConfig.current = page
-  },
-  onShowSizeChange: (_current: number, size: number) => {
-    paginationConfig.pageSize = size
-    paginationConfig.current = 1
-  },
-})
+const paginationConfig = usePagination()
 
 // Drawer
 const drawerVisible = ref(false)
@@ -452,30 +436,6 @@ async function fetchList() {
   } finally {
     loading.value = false
   }
-}
-
-function statusColor(status: string) {
-  const map: Record<string, string> = {
-    ready: 'success',
-    processing: 'processing',
-    uploaded: 'default',
-    chunking: 'processing',
-    embedding: 'processing',
-    error: 'error',
-  }
-  return map[status] || 'default'
-}
-
-function statusText(status: string) {
-  const map: Record<string, string> = {
-    ready: '已完成',
-    processing: '处理中',
-    uploaded: '已上传',
-    chunking: '分块中',
-    embedding: '向量化中',
-    error: '失败',
-  }
-  return map[status] || status
 }
 
 function formatSize(bytes: number) {
@@ -692,14 +652,6 @@ watch(() => pageStore.refreshTrigger, fetchList)
   white-space: nowrap;
 }
 
-/* 类型单元格 */
-.type-cell {
-  font-family: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
-  font-size: 12px;
-  color: var(--ant-color-text-tertiary);
-  text-transform: uppercase;
-}
-
 /* 状态标签 */
 .status-tag {
   margin: 0;
@@ -729,101 +681,11 @@ watch(() => pageStore.refreshTrigger, fetchList)
   color: var(--ant-color-primary);
 }
 
-/* 错误文本 */
-.error-text {
-  color: var(--ant-color-error);
-  word-break: break-all;
-  font-family: ui-monospace, 'SF Mono', monospace;
-  font-size: 12px;
-}
-
-/* 分块数 */
-.chunk-count-zero {
-  color: var(--ant-color-text-quaternary);
-  font-size: 13px;
-}
-
-/* 黄金数据集 */
-.golden-count {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--ant-color-success);
-}
-
-/* 分块详情布局 */
-.chunk-detail-layout {
-  display: flex;
-  gap: 16px;
-  height: calc(100vh - 120px);
-}
-.chunk-detail-left {
-  flex: 1;
-  min-width: 0;
-  border: 1px solid var(--ant-color-border-secondary);
-  border-radius: 8px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-.chunk-detail-right {
-  flex: 1;
-  min-width: 0;
-  border: 1px solid var(--ant-color-border-secondary);
-  border-radius: 8px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-.panel-title {
-  padding: 10px 16px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--ant-color-text-light-solid);
-  background: var(--ant-color-primary);
-  flex-shrink: 0;
-}
-.chunk-detail-left .panel-title {
-  background: var(--ant-color-primary);
-}
-.chunk-detail-right .panel-title {
-  background: var(--ant-color-success);
-}
+/* 源文档内容 */
 .source-content {
   flex: 1;
   overflow-y: auto;
   padding: 0;
-}
-.chunk-detail-left :deep(.ant-spin-nested-loading) {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-.chunk-detail-left :deep(.ant-spin-container) {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-.chunk-detail-right :deep(.ant-spin-nested-loading) {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-.chunk-detail-right :deep(.ant-spin-container) {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-.chunk-detail-right .chunk-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
 }
 
 /* 分块列表 */
@@ -851,8 +713,6 @@ watch(() => pageStore.refreshTrigger, fetchList)
 }
 
 /* 黄金记录列表 */
-.golden-records-list {
-}
 .golden-record-item {
   padding: 10px 12px;
   border: 1px solid var(--ant-color-border-secondary);
@@ -895,24 +755,6 @@ watch(() => pageStore.refreshTrigger, fetchList)
   flex-direction: column;
   gap: 16px;
   max-height: 70vh;
-  overflow-y: auto;
-}
-.chunk-detail-section {
-  border: 1px solid var(--ant-color-border-secondary);
-  border-radius: 8px;
-  overflow: hidden;
-}
-.section-label {
-  padding: 8px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--ant-color-text-secondary);
-  background: var(--ant-color-fill-quaternary);
-  border-bottom: 1px solid var(--ant-color-border-secondary);
-}
-.chunk-content-preview {
-  padding: 12px;
-  max-height: 200px;
   overflow-y: auto;
 }
 .chunk-detail-tabs :deep(.ant-tabs-nav) {

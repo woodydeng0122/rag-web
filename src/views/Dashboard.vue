@@ -33,48 +33,14 @@
           <template v-if="latestEval">
             <a-row :gutter="[16, 16]">
               <a-col :span="6">
-                <a-card :bordered="false" size="small">
-                  <template #title>
-                    <a-space :size="8">
-                      <span>Recall@k</span>
-                      <a-tag :color="recallDiff > 0 ? 'blue' : recallDiff < 0 ? 'red' : 'default'">Recall</a-tag>
-                    </a-space>
-                  </template>
-                  <a-statistic :value="formatPercent(latestEval.recall_at_k)" :value-style="{ fontSize: '24px', fontWeight: 600 }" />
-                  <div v-if="evalHistory.length >= 2">
-                    <a-space :size="4" v-if="recallDiff !== 0">
-                      <arrow-up-outlined v-if="recallDiff > 0" style="color: var(--ant-color-success)" />
-                      <arrow-down-outlined v-else style="color: var(--ant-color-error)" />
-                      <span :style="{ color: recallDiff > 0 ? 'var(--ant-color-success)' : 'var(--ant-color-error)', fontSize: '12px' }">
-                        {{ formatPercent(Math.abs(recallDiff)) }}
-                      </span>
-                      <span style="color: var(--ant-color-text-quaternary); font-size: 12px">较上次</span>
-                    </a-space>
-                    <span v-else style="color: var(--ant-color-text-quaternary); font-size: 12px">- 较上次</span>
-                  </div>
-                </a-card>
+                <MetricCard title="Recall@k" tag="Recall" tag-color="blue"
+                  :value="formatPercent(latestEval.recall_at_k)"
+                  :diff="recallDiff" :show-diff="evalHistory.length >= 2" :format-diff="(v: number) => formatPercent(v)" />
               </a-col>
               <a-col :span="6">
-                <a-card :bordered="false" size="small">
-                  <template #title>
-                    <a-space :size="8">
-                      <span>MRR</span>
-                      <a-tag color="green">MRR</a-tag>
-                    </a-space>
-                  </template>
-                  <a-statistic :value="formatPercent(latestEval.mrr)" :value-style="{ fontSize: '24px', fontWeight: 600 }" />
-                  <div v-if="evalHistory.length >= 2">
-                    <a-space :size="4" v-if="mrrDiff !== 0">
-                      <arrow-up-outlined v-if="mrrDiff > 0" style="color: var(--ant-color-success)" />
-                      <arrow-down-outlined v-else style="color: var(--ant-color-error)" />
-                      <span :style="{ color: mrrDiff > 0 ? 'var(--ant-color-success)' : 'var(--ant-color-error)', fontSize: '12px' }">
-                        {{ formatPercent(Math.abs(mrrDiff)) }}
-                      </span>
-                      <span style="color: var(--ant-color-text-quaternary); font-size: 12px">较上次</span>
-                    </a-space>
-                    <span v-else style="color: var(--ant-color-text-quaternary); font-size: 12px">- 较上次</span>
-                  </div>
-                </a-card>
+                <MetricCard title="MRR" tag="MRR" tag-color="green"
+                  :value="formatPercent(latestEval.mrr)"
+                  :diff="mrrDiff" :show-diff="evalHistory.length >= 2" :format-diff="(v: number) => formatPercent(v)" />
               </a-col>
               <a-col :span="6">
                 <a-card :bordered="false" size="small">
@@ -166,10 +132,10 @@
               <polygon :points="mrrAreaPoints" fill="url(#mrrGradient)" />
 
               <polyline :points="recallPoints" fill="none" :stroke="getCssVar('--ant-color-primary')" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-              <circle v-for="(p, i) in recallPointList" :key="`recall-${i}`" :cx="p.x" :cy="p.y" r="4.5" fill="var(--ant-color-bg-container)" :stroke="getCssVar('--ant-color-primary')" stroke-width="2.5" />
+              <circle v-for="(p, i) in recallPointList" :key="`recall-${i}`" :cx="p.x" :cy="p.y" r="4.5" :fill="getCssVar('--ant-color-bg-container')" :stroke="getCssVar('--ant-color-primary')" stroke-width="2.5" />
 
               <polyline :points="mrrPoints" fill="none" :stroke="getCssVar('--ant-color-success')" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-              <circle v-for="(p, i) in mrrPointList" :key="`mrr-${i}`" :cx="p.x" :cy="p.y" r="4.5" fill="var(--ant-color-bg-container)" :stroke="getCssVar('--ant-color-success')" stroke-width="2.5" />
+              <circle v-for="(p, i) in mrrPointList" :key="`mrr-${i}`" :cx="p.x" :cy="p.y" r="4.5" :fill="getCssVar('--ant-color-bg-container')" :stroke="getCssVar('--ant-color-success')" stroke-width="2.5" />
 
               <text
                 v-for="(item, i) in sortedEvalHistory"
@@ -229,7 +195,7 @@
 
                 <polygon :points="latencyAreaPoints" fill="url(#latencyGradient)" />
                 <polyline :points="latencyPoints" fill="none" stroke="#722ed1" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-                <circle v-for="(p, i) in latencyPointList" :key="`latency-${i}`" :cx="p.x" :cy="p.y" r="4.5" fill="var(--ant-color-bg-container)" stroke="#722ed1" stroke-width="2.5" />
+                <circle v-for="(p, i) in latencyPointList" :key="`latency-${i}`" :cx="p.x" :cy="p.y" r="4.5" :fill="getCssVar('--ant-color-bg-container')" stroke="#722ed1" stroke-width="2.5" />
 
                 <text
                   v-for="(item, i) in sortedEvalHistory"
@@ -250,14 +216,14 @@
       </a-card>
     </template>
 
-    <a-empty v-else description="请先选择一个项目" />
+    <NoProjectPrompt v-else />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { FileOutlined, SearchOutlined, StarOutlined, HistoryOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons-vue'
+import { FileOutlined, SearchOutlined, StarOutlined, HistoryOutlined } from '@ant-design/icons-vue'
 import { dayjs } from '@/utils/time'
 import { computePointList, pointsToString, areaPointsToString } from '@/utils/chart'
 import { usePageStore } from '@/store/page'
@@ -267,6 +233,8 @@ import { getDocumentList } from '@/api/document'
 import { getGoldenList } from '@/api/golden'
 import type { EvaluationStatsResult } from '@/api/model/projectModel'
 import type { DocumentItem } from '@/api/model/documentModel'
+import MetricCard from '@/components/MetricCard.vue'
+import NoProjectPrompt from '@/components/NoProjectPrompt.vue'
 
 const router = useRouter()
 const pageStore = usePageStore()

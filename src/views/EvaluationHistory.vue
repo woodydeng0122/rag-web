@@ -1,17 +1,14 @@
 <template>
   <div class="evaluation-history">
     <!-- 工具栏 -->
-    <div class="toolbar">
-      <a-space>
-        <h2 class="page-title">评估历史</h2>
-      </a-space>
-      <a-space :size="8">
+    <PageToolbar title="评估历史">
+      <template #actions>
         <a-button type="primary" @click="showEvalModal">
           <template #icon><plus-outlined /></template>
           新增评估
         </a-button>
-      </a-space>
-    </div>
+      </template>
+    </PageToolbar>
 
     <a-card :bordered="false" class="table-card" :body-style="{ padding: 0 }">
       <a-spin :spinning="loading">
@@ -99,6 +96,7 @@ import {
 import { dayjs } from '@/utils/time'
 import { getEvaluationHistory, triggerEvaluation, deleteEvaluation } from '@/api/project'
 import type { EvaluationStatsResult } from '@/api/model/projectModel'
+import PageToolbar from '@/components/PageToolbar.vue'
 import { usePageStore } from '@/store/page'
 
 const route = useRoute()

@@ -1,51 +1,27 @@
 <template>
   <div class="golden">
     <!-- 未选择项目 -->
-    <a-result v-if="!activeProjectStore.hasActiveProject" status="warning" title="请先选择一个项目" sub-title="在顶部点击项目名称可切换">
-      <template #extra>
-        <a-button type="primary" @click="router.push('/projects')">前往项目列表</a-button>
-      </template>
-    </a-result>
+    <NoProjectPrompt v-if="!activeProjectStore.hasActiveProject" description="请先选择一个项目" button-text="前往项目列表" />
 
     <!-- 已选择项目 -->
 <template v-else>
   <!-- 工具栏 -->
-  <div class="toolbar">
-    <a-space>
-      <a-select
-        v-model:value="retrievalFilter"
-        placeholder="检索情况"
-        class="status-filter"
-        allow-clear
-        @change="fetchList()"
-      >
+  <PageToolbar>
+    <template #left>
+      <a-select v-model:value="retrievalFilter" placeholder="检索情况" class="status-filter" allow-clear @change="fetchList()">
         <a-select-option value="">全部</a-select-option>
         <a-select-option value="hit">命中</a-select-option>
         <a-select-option value="miss">未命中</a-select-option>
         <a-select-option value="unretrieved">未检索</a-select-option>
       </a-select>
-      <a-input-search
-        v-model:value="searchQuery"
-        placeholder="搜索查询文本..."
-        class="search-input"
-        allow-clear
-        @search="onSearch"
-      />
-    </a-space>
-    <a-space :size="8">
-      <a-button
-        danger
-        :disabled="selectedRowKeys.length === 0"
-        @click="handleBatchDelete"
-      >
+      <a-input-search v-model:value="searchQuery" placeholder="搜索查询文本..." class="search-input" allow-clear @search="onSearch" />
+    </template>
+    <template #actions>
+      <a-button danger :disabled="selectedRowKeys.length === 0" @click="handleBatchDelete">
         <template #icon><delete-outlined /></template>
         批量删除 ({{ selectedRowKeys.length }})
       </a-button>
-      <a-button
-        :disabled="selectedRowKeys.length === 0"
-        :loading="batchRetrieving"
-        @click="handleBatchRetrieve"
-      >
+      <a-button :disabled="selectedRowKeys.length === 0" :loading="batchRetrieving" @click="handleBatchRetrieve">
         <template #icon><search-outlined /></template>
         批量检索 ({{ batchRetrieving ? batchRemaining : selectedRowKeys.length }})
       </a-button>
@@ -57,8 +33,8 @@
         <template #icon><plus-outlined /></template>
         新增
       </a-button>
-    </a-space>
-  </div>
+    </template>
+  </PageToolbar>
 
   <!-- 数据表格 -->
   <a-card :bordered="false" class="table-card" :body-style="{ padding: 0 }">
@@ -72,15 +48,11 @@
         size="middle"
         :scroll="{ x: 900 }"
         :row-class-name="(record: GoldenItem) => record.status === 'rejected' ? 'row-rejected' : ''"
-        @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
           <!-- 状态 -->
           <template v-if="column.key === 'status'">
-            <a-tag v-if="record.status === 'pending_review'" color="warning">待审核</a-tag>
-            <a-tag v-else-if="record.status === 'approved'" color="success">已通过</a-tag>
-            <a-tag v-else-if="record.status === 'rejected'" color="error">已拒绝</a-tag>
-            <a-tag v-else>{{ record.status }}</a-tag>
+            <a-tag :color="getStatusInfo(GOLDEN_STATUS_MAP, record.status).color">{{ getStatusInfo(GOLDEN_STATUS_MAP, record.status).text }}</a-tag>
           </template>
 
           <!-- 查询文本 -->
@@ -283,10 +255,7 @@
   <template v-if="detailRecord">
     <a-descriptions :column="1" bordered size="small">
       <a-descriptions-item label="状态">
-        <a-tag v-if="detailRecord.status === 'pending_review'" color="warning">待审核</a-tag>
-        <a-tag v-else-if="detailRecord.status === 'approved'" color="success">已通过</a-tag>
-        <a-tag v-else-if="detailRecord.status === 'rejected'" color="error">已拒绝</a-tag>
-        <a-tag v-else>{{ detailRecord.status }}</a-tag>
+        <a-tag :color="getStatusInfo(GOLDEN_STATUS_MAP, detailRecord.status).color">{{ getStatusInfo(GOLDEN_STATUS_MAP, detailRecord.status).text }}</a-tag>
       </a-descriptions-item>
       <a-descriptions-item label="查询文本">{{ detailRecord.query }}</a-descriptions-item>
       <a-descriptions-item label="关联分块">
@@ -320,80 +289,65 @@
   placement="right"
 >
   <template v-if="retrievalRecord">
-    <div class="retrieval-detail-layout">
-      <!-- 左侧：查询 & GT -->
-      <div class="retrieval-detail-left">
-        <div class="panel-title">查询 & Ground Truth</div>
-        <div class="retrieval-detail-body">
-          <div class="retrieval-query-section">
-            <div class="retrieval-query-label">查询文本</div>
-            <div class="retrieval-query-text">{{ retrievalRecord.query }}</div>
-          </div>
-          <div class="retrieval-gt-section">
-            <div class="retrieval-gt-label">Ground Truth ({{ retrievalRecord.ground_truth_chunks?.length || 0 }} 个分块)</div>
-            <a-spin :spinning="gtChunksLoading">
-              <div class="retrieval-gt-list">
-                <div v-for="(chunk, idx) in gtChunks" :key="chunk.id" class="retrieval-gt-item" :class="idx % 2 === 0 ? 'retrieval-gt-item--even' : 'retrieval-gt-item--odd'">
-                  <div class="retrieval-gt-item-header">
-                    <span class="retrieval-gt-index">#{{ chunk.index + 1 }}</span>
-                    <span v-if="chunk.heading" class="retrieval-gt-item-heading">{{ chunk.heading }}</span>
-                  </div>
-                  <MarkdownRenderer :content="chunk.content" :file-type="chunk.file_type" />
-                </div>
-                <a-empty v-if="!gtChunksLoading && gtChunks.length === 0" description="无关联分块" :image="null" />
-              </div>
-            </a-spin>
-          </div>
+    <SplitPanelLayout left-title="查询 & Ground Truth" right-title="检索结果">
+      <template #left>
+        <div class="retrieval-query-section">
+          <div class="retrieval-query-label">查询文本</div>
+          <div class="retrieval-query-text">{{ retrievalRecord.query }}</div>
         </div>
-      </div>
-
-      <!-- 右侧：检索结果 -->
-      <div class="retrieval-detail-right">
-        <div class="panel-title">检索结果</div>
-        <div class="retrieval-detail-body">
-          <!-- 检索参数 -->
-          <div v-if="!retrievalResult" class="retrieval-params">
-            <div class="retrieval-param-row">
-              <span class="retrieval-param-label">max_k</span>
-              <a-input-number v-model:value="retrievalMaxK" :min="1" :max="100" style="width: 120px" />
-            </div>
-            <a-button type="primary" :loading="retrievalLoading" @click="handleRetrieve">确认检索</a-button>
-          </div>
-
-          <!-- 检索中 -->
-          <div v-if="retrievalLoading" class="retrieval-loading">
-            <a-spin />
-            <span>正在检索...</span>
-          </div>
-
-          <!-- 检索结果 -->
-          <template v-if="retrievalResult">
-            <div class="retrieval-metrics">
-              <a-tag>模型: {{ retrievalResult.embed_model_name || '--' }}</a-tag>
-              <a-tag>总耗时: {{ retrievalResult.latency_ms }}ms</a-tag>
-              <a-tag>嵌入: {{ retrievalResult.embed_latency_ms }}ms</a-tag>
-              <a-tag>检索: {{ retrievalResult.search_latency_ms }}ms</a-tag>
-              <a-tag>max_k: {{ retrievalResult.max_k }}</a-tag>
-              <a-tag color="green">命中GT: {{ retrievalResult.items.filter(i => i.is_ground_truth).length }}/{{ retrievalRecord.ground_truth_chunks?.length || 0 }}</a-tag>
-            </div>
-
-            <div class="retrieval-items">
-              <div v-for="(item, idx) in retrievalResult.items" :key="item.chunk_id" class="retrieval-item" :class="[idx % 2 === 0 ? 'retrieval-item--even' : 'retrieval-item--odd', { 'retrieval-item-hit': item.is_ground_truth }]">
-                <div class="retrieval-item-header">
-                  <span class="retrieval-item-rank">#{{ item.rank }}</span>
-                  <span class="retrieval-item-score">score: {{ item.score.toFixed(4) }}</span>
-                  <a-tag v-if="item.is_ground_truth" color="success" size="small">GT命中</a-tag>
-                  <a-tag v-else color="default" size="small">未命中</a-tag>
+        <div class="retrieval-gt-section">
+          <div class="retrieval-gt-label">Ground Truth ({{ retrievalRecord.ground_truth_chunks?.length || 0 }} 个分块)</div>
+          <a-spin :spinning="gtChunksLoading">
+            <div class="retrieval-gt-list">
+              <div v-for="(chunk, idx) in gtChunks" :key="chunk.id" class="retrieval-gt-item" :class="idx % 2 === 0 ? 'retrieval-gt-item--even' : 'retrieval-gt-item--odd'">
+                <div class="retrieval-gt-item-header">
+                  <span class="retrieval-gt-index">#{{ chunk.index + 1 }}</span>
+                  <span v-if="chunk.heading" class="retrieval-gt-item-heading">{{ chunk.heading }}</span>
                 </div>
-                <div v-if="item.heading" class="retrieval-item-heading">{{ item.heading }}</div>
-                <MarkdownRenderer :content="item.content" :file-type="item.file_type" />
-                <div v-if="item.source_file" class="retrieval-item-source">{{ item.source_file }}</div>
+                <MarkdownRenderer :content="chunk.content" :file-type="chunk.file_type" />
               </div>
+              <a-empty v-if="!gtChunksLoading && gtChunks.length === 0" description="无关联分块" :image="null" />
             </div>
-          </template>
+          </a-spin>
         </div>
-      </div>
-    </div>
+      </template>
+      <template #right>
+        <div v-if="!retrievalResult" class="retrieval-params">
+          <div class="retrieval-param-row">
+            <span class="retrieval-param-label">max_k</span>
+            <a-input-number v-model:value="retrievalMaxK" :min="1" :max="100" style="width: 120px" />
+          </div>
+          <a-button type="primary" :loading="retrievalLoading" @click="handleRetrieve">确认检索</a-button>
+        </div>
+        <div v-if="retrievalLoading" class="retrieval-loading">
+          <a-spin />
+          <span>正在检索...</span>
+        </div>
+        <template v-if="retrievalResult">
+          <div class="retrieval-metrics">
+            <a-tag>模型: {{ retrievalResult.embed_model_name || '--' }}</a-tag>
+            <a-tag>总耗时: {{ retrievalResult.latency_ms }}ms</a-tag>
+            <a-tag>嵌入: {{ retrievalResult.embed_latency_ms }}ms</a-tag>
+            <a-tag>检索: {{ retrievalResult.search_latency_ms }}ms</a-tag>
+            <a-tag>max_k: {{ retrievalResult.max_k }}</a-tag>
+            <a-tag color="green">命中GT: {{ retrievalResult.items.filter(i => i.is_ground_truth).length }}/{{ retrievalRecord.ground_truth_chunks?.length || 0 }}</a-tag>
+          </div>
+          <div class="retrieval-items">
+            <div v-for="(item, idx) in retrievalResult.items" :key="item.chunk_id" class="retrieval-item" :class="[idx % 2 === 0 ? 'retrieval-item--even' : 'retrieval-item--odd', { 'retrieval-item-hit': item.is_ground_truth }]">
+              <div class="retrieval-item-header">
+                <span class="retrieval-item-rank">#{{ item.rank }}</span>
+                <span class="retrieval-item-score">score: {{ item.score.toFixed(4) }}</span>
+                <a-tag v-if="item.is_ground_truth" color="success" size="small">GT命中</a-tag>
+                <a-tag v-else color="default" size="small">未命中</a-tag>
+              </div>
+              <div v-if="item.heading" class="retrieval-item-heading">{{ item.heading }}</div>
+              <MarkdownRenderer :content="item.content" :file-type="item.file_type" />
+              <div v-if="item.source_file" class="retrieval-item-source">{{ item.source_file }}</div>
+            </div>
+          </div>
+        </template>
+      </template>
+    </SplitPanelLayout>
   </template>
 </a-drawer>
 
@@ -401,14 +355,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, watch } from 'vue'
 import { message, Modal as AModal } from 'ant-design-vue'
 import { formatTime } from '@/utils/time'
 import { batchExecute } from '@/utils/batch'
 import { useCrudModal } from '@/composables/useCrudModal'
+import { usePagination } from '@/composables/usePagination'
 import { usePageStore } from '@/store/page'
 import { useActiveProjectStore } from '@/store/activeProject'
+import { getStatusInfo, GOLDEN_STATUS_MAP } from '@/utils/status'
 import {
   PlusOutlined,
   DeleteOutlined,
@@ -430,8 +385,10 @@ import { searchProjectChunks, getChunksByIds } from '@/api/chunk'
 import type { GoldenItem, CreateGoldenParams, ImportResult, RetrievalResponse } from '@/api/model/goldenModel'
 import type { ChunkItem } from '@/api/model/documentModel'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
+import NoProjectPrompt from '@/components/NoProjectPrompt.vue'
+import PageToolbar from '@/components/PageToolbar.vue'
+import SplitPanelLayout from '@/components/SplitPanelLayout.vue'
 
-const router = useRouter()
 const pageStore = usePageStore()
 const activeProjectStore = useActiveProjectStore()
 
@@ -452,18 +409,8 @@ const columns = [
   { title: '操作', key: 'action', fixed: 'right' as const, width: 180 },
 ]
 
-const paginationConfig = reactive({
-  current: 1,
-  pageSize: 10,
-  showSizeChanger: true,
-  showTotal: (total: number) => `共 ${total} 条`,
-  pageSizeOptions: ['10', '20', '50', '100'],
-})
+const paginationConfig = usePagination({ pageSizeOptions: ['10', '20', '50', '100'] })
 
-function handleTableChange(pagination: any) {
-  paginationConfig.current = pagination.current
-  paginationConfig.pageSize = pagination.pageSize
-}
 
 const filteredList = computed(() => {
   if (!searchQuery.value) return dataList.value
@@ -991,58 +938,7 @@ watch(importModalVisible, (val) => {
   gap: 8px;
 }
 
-/* 检索 Drawer - 左右对比布局 */
-.retrieval-detail-layout {
-  display: flex;
-  gap: 16px;
-  height: calc(100vh - 120px);
-}
-.retrieval-detail-left {
-  flex: 1;
-  min-width: 0;
-  border: 1px solid var(--ant-color-border-secondary);
-  border-radius: 8px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-.retrieval-detail-right {
-  flex: 1;
-  min-width: 0;
-  border: 1px solid var(--ant-color-border-secondary);
-  border-radius: 8px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-.retrieval-detail-left .panel-title {
-  background: var(--ant-color-primary);
-}
-.retrieval-detail-right .panel-title {
-  background: var(--ant-color-success);
-}
-.retrieval-detail-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.retrieval-detail-left :deep(.ant-spin-nested-loading),
-.retrieval-detail-right :deep(.ant-spin-nested-loading) {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-.retrieval-detail-left :deep(.ant-spin-container),
-.retrieval-detail-right :deep(.ant-spin-container) {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
+/* 检索 Drawer - 内容样式 */
 .retrieval-query-section {
   flex-shrink: 0;
 }

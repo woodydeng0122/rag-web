@@ -44,8 +44,8 @@
         <div class="logo" @click="router.push('/dashboard')">
           <div class="logo-icon">
             <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
-              <rect width="32" height="32" rx="8" fill="var(--ant-color-primary)" />
-              <path d="M10 11h12M10 16h8M10 21h10" stroke="var(--ant-color-text-light-solid)" stroke-width="2" stroke-linecap="round" />
+              <rect width="32" height="32" rx="8" :fill="getCssVar('--ant-color-primary')" />
+              <path d="M10 11h12M10 16h8M10 21h10" :stroke="getCssVar('--ant-color-text-light-solid')" stroke-width="2" stroke-linecap="round" />
             </svg>
           </div>
           <span v-show="!collapsed" class="logo-text">RAG 管理端</span>
@@ -256,6 +256,10 @@ function handleMenuClick({ key }: { key: string }) {
 
 function handleRefresh() {
   pageStore.triggerRefresh()
+}
+
+function getCssVar(name: string): string {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 }
 </script>
 

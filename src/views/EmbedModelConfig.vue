@@ -1,16 +1,13 @@
 <template>
   <div class="embed-model-config">
-    <div class="toolbar">
-      <a-space>
-        <h2 class="page-title">嵌入模型配置</h2>
-      </a-space>
-      <a-space :size="8">
+    <PageToolbar title="嵌入模型配置">
+      <template #actions>
         <a-button type="primary" @click="handleCreate">
           <template #icon><plus-outlined /></template>
           新增模型
         </a-button>
-      </a-space>
-    </div>
+      </template>
+    </PageToolbar>
 
     <a-card :bordered="false" class="table-card" :body-style="{ padding: 0 }">
       <a-spin :spinning="store.loading">
@@ -32,8 +29,8 @@
               <a-tag color="blue">{{ record.dimension }}</a-tag>
             </template>
             <template v-if="column.key === 'status'">
-              <a-tag :color="record.status === 'online' ? 'success' : 'default'">
-                {{ record.status === 'online' ? '在线' : '离线' }}
+              <a-tag :color="getStatusInfo(EMBED_MODEL_STATUS_MAP, record.status).color">
+                {{ getStatusInfo(EMBED_MODEL_STATUS_MAP, record.status).text }}
               </a-tag>
             </template>
             <template v-if="column.key === 'action'">
@@ -102,8 +99,8 @@
             <a-tag color="blue">{{ detailModel.dimension }}</a-tag>
           </a-descriptions-item>
           <a-descriptions-item label="状态">
-            <a-tag :color="detailModel.status === 'online' ? 'success' : 'default'">
-              {{ detailModel.status === 'online' ? '在线' : '离线' }}
+            <a-tag :color="getStatusInfo(EMBED_MODEL_STATUS_MAP, detailModel.status).color">
+              {{ getStatusInfo(EMBED_MODEL_STATUS_MAP, detailModel.status).text }}
             </a-tag>
           </a-descriptions-item>
           <a-descriptions-item label="备注">{{ detailModel.description || '--' }}</a-descriptions-item>
@@ -134,6 +131,8 @@ import { useCrudModal } from '@/composables/useCrudModal'
 import { useEmbedModelStore } from '@/store/embedModel'
 import { usePageStore } from '@/store/page'
 import type { EmbedModelItem } from '@/api/model/embedModelModel'
+import PageToolbar from '@/components/PageToolbar.vue'
+import { getStatusInfo, EMBED_MODEL_STATUS_MAP } from '@/utils/status'
 
 const store = useEmbedModelStore()
 const pageStore = usePageStore()

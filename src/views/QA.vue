@@ -2,9 +2,7 @@
   <div class="qa-page">
     <!-- 未选择项目提示 -->
     <div v-if="!activeProjectStore.activeProjectId" class="qa-empty">
-      <a-empty description="请先选择一个项目">
-        <a-button type="primary" @click="router.push('/projects')">选择项目</a-button>
-      </a-empty>
+      <NoProjectPrompt description="请先选择一个项目" button-text="选择项目" />
     </div>
 
     <template v-else>
@@ -13,36 +11,56 @@
         <div class="qa-sidebar">
           <div class="qa-sidebar-header">
             <span class="qa-sidebar-title">对话</span>
-            <a-button type="text" size="small" @click="handleNewSession">
+            <a-button type="text" size="small" class="qa-sidebar-new-btn" @click="handleNewSession">
               <template #icon><plus-outlined /></template>
+              新对话
             </a-button>
           </div>
-          <div class="qa-sidebar-list">
-            <a-spin v-if="sessionsLoading" class="qa-sidebar-spin" size="small" />
-            <div v-else-if="sessions.length === 0" class="qa-sidebar-empty">
-              暂无对话
-            </div>
-            <div
-              v-for="session in sessions"
-              :key="session.id"
-              class="qa-sidebar-item"
-              :class="{ 'qa-sidebar-item--active': activeSessionId === session.id }"
-              @click="handleSelectSession(session.id)"
+          <div v-if="sessions.length > 5" class="qa-sidebar-search">
+            <a-input
+              v-model:value="searchKeyword"
+              placeholder="搜索对话"
+              size="small"
+              allow-clear
             >
-              <div class="qa-sidebar-item-title">
-                {{ session.title || '新对话' }}
+              <template #prefix><search-outlined class="qa-search-icon" /></template>
+            </a-input>
+          </div>
+          <div class="qa-sidebar-list">
+            <template v-if="filteredGroupedSessions.length > 0">
+              <div v-for="group in filteredGroupedSessions" :key="group.label" class="qa-session-group">
+                <div class="qa-session-group-label">{{ group.label }}</div>
+                <div
+                  v-for="item in group.items"
+                  :key="item.id"
+                  class="qa-session-item"
+                  :class="{ 'qa-session-item--active': activeSessionId === item.id }"
+                  @click="handleSelectSession(item.id)"
+                >
+                  <div class="qa-session-item-body">
+                    <message-outlined class="qa-session-item-icon" />
+                    <div class="qa-session-item-content">
+                      <div class="qa-session-item-title">{{ item.title || '新对话' }}</div>
+                      <div class="qa-session-item-time">{{ formatRelativeTime(item.updated_at) }}</div>
+                    </div>
+                  </div>
+                  <div class="qa-session-item-actions">
+                    <a-button
+                      type="text"
+                      size="small"
+                      class="qa-session-item-delete"
+                      @click.stop="handleDeleteSession(item.id)"
+                    >
+                      <template #icon><delete-outlined /></template>
+                    </a-button>
+                  </div>
+                </div>
               </div>
-              <div class="qa-sidebar-item-time">
-                {{ formatRelativeTime(session.updated_at) }}
-              </div>
-              <a-button
-                type="text"
-                size="small"
-                class="qa-sidebar-item-delete"
-                @click.stop="handleDeleteSession(session.id)"
-              >
-                <template #icon><delete-outlined /></template>
-              </a-button>
+            </template>
+            <div v-else class="qa-sidebar-empty">
+              <comment-outlined class="qa-sidebar-empty-icon" />
+              <p v-if="searchKeyword" class="qa-sidebar-empty-text">未找到匹配的对话</p>
+              <p v-else class="qa-sidebar-empty-text">暂无对话</p>
             </div>
           </div>
         </div>
@@ -68,22 +86,22 @@
 
               <!-- 消息列表 -->
               <template v-for="msg in displayMessages" :key="msg.id">
-                <!-- 用户问题 -->
-                <div class="qa-message-row">
+                <!-- 用户问题：右对齐 -->
+                <div class="qa-message-row qa-message-row--user">
+                  <div class="qa-bubble qa-bubble--user">
+                    {{ msg.content }}
+                  </div>
                   <div class="qa-avatar qa-avatar--user">
                     <user-outlined />
                   </div>
-                  <div class="qa-bubble qa-bubble--question">
-                    {{ msg.content }}
-                  </div>
                 </div>
 
-                <!-- AI 回答 -->
-                <div v-if="msg.role === 'user' && (msg.answer || msg.loading)" class="qa-message-row">
+                <!-- AI 回答：左对齐 -->
+                <div v-if="msg.role === 'user' && (msg.answer || msg.loading)" class="qa-message-row qa-message-row--ai">
                   <div class="qa-avatar qa-avatar--ai">
                     <robot-outlined />
                   </div>
-                  <div class="qa-bubble qa-bubble--answer">
+                  <div class="qa-bubble qa-bubble--ai">
                     <!-- 加载状态 -->
                     <div v-if="msg.loading" class="qa-loading">
                       <a-spin size="small" />
@@ -180,11 +198,13 @@
 <script setup lang="ts">
 import { ref, nextTick, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { message as antMessage } from 'ant-design-vue'
+import { message as antMessage, Modal } from 'ant-design-vue'
 import { useActiveProjectStore } from '@/store/activeProject'
+import { dayjs } from '@/utils/time'
 import { createSession, getSessions, deleteSession, getMessages, askStream } from '@/api/qa'
 import type { QASession, QAChunk, SSEEvent } from '@/api/model/qaModel'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
+import NoProjectPrompt from '@/components/NoProjectPrompt.vue'
 import {
   UserOutlined,
   RobotOutlined,
@@ -198,6 +218,8 @@ import {
   CommentOutlined,
   PlusOutlined,
   DeleteOutlined,
+  SearchOutlined,
+  MessageOutlined,
 } from '@ant-design/icons-vue'
 
 const router = useRouter()
@@ -212,6 +234,47 @@ const inputRef = ref()
 const sessions = ref<QASession[]>([])
 const sessionsLoading = ref(false)
 const activeSessionId = ref<string | null>(null)
+const searchKeyword = ref('')
+
+// ── 会话分组 ──
+interface SessionGroup {
+  label: string
+  items: QASession[]
+}
+
+const filteredGroupedSessions = computed<SessionGroup[]>(() => {
+  const keyword = searchKeyword.value.trim().toLowerCase()
+  const filtered = keyword
+    ? sessions.value.filter(s => (s.title || '新对话').toLowerCase().includes(keyword))
+    : sessions.value
+
+  const now = dayjs()
+  const todayStart = now.startOf('day')
+  const yesterdayStart = todayStart.subtract(1, 'day')
+  const weekStart = todayStart.subtract(7, 'day')
+
+  const groups: SessionGroup[] = [
+    { label: '今天', items: [] },
+    { label: '昨天', items: [] },
+    { label: '7天内', items: [] },
+    { label: '更早', items: [] },
+  ]
+
+  for (const s of filtered) {
+    const t = dayjs(s.updated_at)
+    if (t.isAfter(todayStart)) {
+      groups[0].items.push(s)
+    } else if (t.isAfter(yesterdayStart)) {
+      groups[1].items.push(s)
+    } else if (t.isAfter(weekStart)) {
+      groups[2].items.push(s)
+    } else {
+      groups[3].items.push(s)
+    }
+  }
+
+  return groups.filter(g => g.items.length > 0)
+})
 
 // ── 消息展示 ──
 interface DisplayMessage {
@@ -307,19 +370,29 @@ async function loadMessages(sessionId: string) {
   }
 }
 
-async function handleDeleteSession(sessionId: string) {
-  const projectId = activeProjectStore.activeProjectId
-  if (!projectId) return
-  try {
-    await deleteSession(projectId, sessionId)
-    sessions.value = sessions.value.filter(s => s.id !== sessionId)
-    if (activeSessionId.value === sessionId) {
-      activeSessionId.value = null
-      displayMessages.value = []
-    }
-  } catch {
-    antMessage.error('删除会话失败')
-  }
+function handleDeleteSession(sessionId: string) {
+  const session = sessions.value.find(s => s.id === sessionId)
+  Modal.confirm({
+    title: '删除对话',
+    content: `确定删除「${session?.title || '新对话'}」？删除后不可恢复。`,
+    okText: '删除',
+    okType: 'danger',
+    cancelText: '取消',
+    onOk: async () => {
+      const projectId = activeProjectStore.activeProjectId
+      if (!projectId) return
+      try {
+        await deleteSession(projectId, sessionId)
+        sessions.value = sessions.value.filter(s => s.id !== sessionId)
+        if (activeSessionId.value === sessionId) {
+          activeSessionId.value = null
+          displayMessages.value = []
+        }
+      } catch {
+        antMessage.error('删除会话失败')
+      }
+    },
+  })
 }
 
 // ── 问答操作 ──
@@ -415,18 +488,7 @@ function scrollToBottom() {
 }
 
 function formatRelativeTime(dateStr: string): string {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  const minutes = Math.floor(diff / 60000)
-  if (minutes < 1) return '刚刚'
-  if (minutes < 60) return `${minutes}分钟前`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}小时前`
-  const days = Math.floor(hours / 24)
-  if (days < 7) return `${days}天前`
-  return date.toLocaleDateString()
+  return dateStr ? dayjs(dateStr).fromNow() : ''
 }
 
 // ── 生命周期 ──
@@ -469,12 +531,12 @@ watch(() => activeProjectStore.activeProjectId, () => {
 
 /* 左侧会话列表 */
 .qa-sidebar {
-  width: 260px;
+  width: 280px;
   flex-shrink: 0;
   border-right: 1px solid var(--ant-color-border-secondary);
   display: flex;
   flex-direction: column;
-  background: var(--ant-color-bg-layout);
+  background: var(--ant-color-bg-container);
 }
 .qa-sidebar-header {
   display: flex;
@@ -487,66 +549,133 @@ watch(() => activeProjectStore.activeProjectId, () => {
   font-weight: 600;
   color: var(--ant-color-text);
 }
+.qa-sidebar-new-btn {
+  font-size: 13px;
+  color: var(--ant-color-primary);
+  font-weight: 500;
+}
+.qa-sidebar-search {
+  padding: 0 12px 8px;
+}
+.qa-sidebar-search :deep(.ant-input-affix-wrapper) {
+  border-radius: 8px;
+  background: var(--ant-color-bg-container);
+}
+.qa-search-icon {
+  color: var(--ant-color-text-quaternary);
+  font-size: 12px;
+}
 .qa-sidebar-list {
   flex: 1;
   overflow-y: auto;
   padding: 0 8px 8px;
 }
-.qa-sidebar-spin {
-  display: flex;
-  justify-content: center;
-  padding: 24px 0;
+
+/* 会话分组 */
+.qa-session-group {
+  margin-bottom: 4px;
 }
-.qa-sidebar-empty {
-  text-align: center;
-  padding: 24px 0;
-  font-size: 13px;
+.qa-session-group-label {
+  font-size: 11px;
+  font-weight: 500;
   color: var(--ant-color-text-quaternary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 8px 8px 4px;
 }
-.qa-sidebar-item {
+
+/* 会话项 */
+.qa-session-item {
   display: flex;
   align-items: center;
-  padding: 10px 12px;
+  justify-content: space-between;
+  padding: 8px 10px;
   border-radius: 8px;
   cursor: pointer;
   transition: background 0.15s;
-  gap: 8px;
-  position: relative;
+  gap: 4px;
 }
-.qa-sidebar-item:hover {
+.qa-session-item:hover {
   background: var(--ant-color-fill-quaternary);
 }
-.qa-sidebar-item--active {
+.qa-session-item--active {
   background: var(--ant-color-primary-bg);
 }
-.qa-sidebar-item--active:hover {
+.qa-session-item--active:hover {
   background: var(--ant-color-primary-bg);
 }
-.qa-sidebar-item-title {
+.qa-session-item--active .qa-session-item-icon {
+  color: var(--ant-color-primary);
+}
+.qa-session-item--active .qa-session-item-title {
+  color: var(--ant-color-primary);
+  font-weight: 500;
+}
+.qa-session-item-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
   flex: 1;
+}
+.qa-session-item-icon {
+  font-size: 14px;
+  color: var(--ant-color-text-quaternary);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.qa-session-item-content {
+  min-width: 0;
+  flex: 1;
+}
+.qa-session-item-title {
   font-size: 13px;
+  line-height: 1.4;
   color: var(--ant-color-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.qa-sidebar-item-time {
+.qa-session-item-time {
   font-size: 11px;
   color: var(--ant-color-text-quaternary);
-  flex-shrink: 0;
+  margin-top: 1px;
 }
-.qa-sidebar-item-delete {
-  opacity: 0;
+.qa-session-item-actions {
   flex-shrink: 0;
-  font-size: 12px;
-  color: var(--ant-color-text-quaternary);
+  opacity: 0;
   transition: opacity 0.15s;
 }
-.qa-sidebar-item:hover .qa-sidebar-item-delete {
+.qa-session-item:hover .qa-session-item-actions {
   opacity: 1;
 }
-.qa-sidebar-item-delete:hover {
-  color: var(--ant-color-error);
+.qa-session-item-delete {
+  font-size: 12px;
+  color: var(--ant-color-text-quaternary);
+}
+.qa-session-item-delete:hover {
+  color: var(--ant-color-error) !important;
+}
+
+/* 空状态 */
+.qa-sidebar-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 16px;
+  text-align: center;
+}
+.qa-sidebar-empty-icon {
+  font-size: 32px;
+  color: var(--ant-color-text-quaternary);
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+.qa-sidebar-empty-text {
+  font-size: 13px;
+  color: var(--ant-color-text-quaternary);
+  margin: 0;
 }
 
 /* 右侧聊天区域 */
@@ -630,15 +759,21 @@ watch(() => activeProjectStore.activeProjectId, () => {
 /* 消息行 */
 .qa-message-row {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: flex-start;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+}
+.qa-message-row--user {
+  justify-content: flex-end;
+}
+.qa-message-row--ai {
+  justify-content: flex-start;
 }
 
 .qa-avatar {
   width: 36px;
   height: 36px;
-  border-radius: 10px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -646,26 +781,29 @@ watch(() => activeProjectStore.activeProjectId, () => {
   flex-shrink: 0;
 }
 .qa-avatar--user {
+  background: var(--ant-color-primary);
+  color: #fff;
+}
+.qa-avatar--ai {
   background: var(--ant-color-fill-quaternary);
   color: var(--ant-color-text-secondary);
 }
-.qa-avatar--ai {
-  background: linear-gradient(135deg, #1677ff 0%, #4096ff 100%);
-  color: #fff;
-}
 
 .qa-bubble {
-  max-width: calc(100% - 52px);
+  max-width: 70%;
   line-height: 1.6;
 }
-.qa-bubble--question {
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--ant-color-text);
+.qa-bubble--user {
+  background: var(--ant-color-primary);
+  color: #fff;
+  border-radius: 12px 2px 12px 12px;
+  padding: 10px 16px;
+  font-size: 14px;
+  word-break: break-word;
 }
-.qa-bubble--answer {
+.qa-bubble--ai {
   background: var(--ant-color-fill-quaternary);
-  border-radius: 0 12px 12px 12px;
+  border-radius: 2px 12px 12px 12px;
   padding: 16px 20px;
   font-size: 14px;
   color: var(--ant-color-text);

@@ -1,12 +1,13 @@
 <template>
   <div class="project-list">
-    <div class="page-header">
-      <span class="page-title">项目列表</span>
-      <a-button type="primary" @click="handleCreate">
-        <template #icon><plus-outlined /></template>
-        新建项目
-      </a-button>
-    </div>
+    <PageToolbar title="项目列表">
+      <template #actions>
+        <a-button type="primary" @click="handleCreate">
+          <template #icon><plus-outlined /></template>
+          新建项目
+        </a-button>
+      </template>
+    </PageToolbar>
 
     <a-spin :spinning="loading">
       <a-row :gutter="[16, 16]">
@@ -182,6 +183,7 @@ import { usePageStore } from '@/store/page'
 import { useActiveProjectStore } from '@/store/activeProject'
 import { useEmbedModelStore } from '@/store/embedModel'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ThunderboltOutlined, BarChartOutlined } from '@ant-design/icons-vue'
+import PageToolbar from '@/components/PageToolbar.vue'
 import { getProjectList, createProject, updateProject, deleteProject, triggerEvaluation } from '@/api/project'
 import type { ProjectItem, EvaluationStatsResult } from '@/api/model/projectModel'
 
@@ -315,13 +317,6 @@ onMounted(fetchList)
 
 <style scoped>
 @import '@/styles/common-table.css';
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
 
 /* 激活项目卡片样式 */
 .project-card {
