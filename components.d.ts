@@ -53,6 +53,7 @@ declare module 'vue' {
     ATabs: typeof import('ant-design-vue/es')['Tabs']
     ATag: typeof import('ant-design-vue/es')['Tag']
     ATextarea: typeof import('ant-design-vue/es')['Textarea']
+    ATooltip: typeof import('ant-design-vue/es')['Tooltip']
     ATypographyText: typeof import('ant-design-vue/es')['TypographyText']
     AUploadDragger: typeof import('ant-design-vue/es')['UploadDragger']
     EmbeddingViewer: typeof import('./src/components/EmbeddingViewer.vue')['default']
