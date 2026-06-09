@@ -1,39 +1,23 @@
 <template>
   <div class="evaluation-history">
-    <!-- 页面头部 -->
-    <div class="page-header">
-      <div class="page-header__info">
-        <h1 class="page-header__title">评估历史</h1>
+    <!-- 工具栏 -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <h2 class="page-title">评估历史</h2>
       </div>
-      <a-button type="primary" @click="fetchHistory" :loading="loading">
-        <template #icon><reload-outlined /></template>
-        刷新
-      </a-button>
     </div>
 
-    <a-spin :spinning="loading">
-      <!-- 空状态 -->
-      <div v-if="!loading && history.length === 0" class="empty-state">
-        <div class="empty-state__icon">
-          <bar-chart-outlined />
-        </div>
-        <p class="empty-state__title">暂无评估记录</p>
-        <p class="empty-state__desc">运行评估后，历史记录将显示在此处</p>
-      </div>
+    <a-card :bordered="false" class="table-card">
+      <a-spin :spinning="loading">
+        <a-empty v-if="!loading && history.length === 0" description="暂无评估记录，运行评估后历史记录将显示在此处" />
 
-      <!-- 评估记录表格 -->
-      <div v-else class="table-section">
-        <div class="section-header">
-          <h2 class="section-title">评估记录</h2>
-          <span class="section-count">{{ history.length }} 条记录</span>
-        </div>
         <a-table
+          v-else
           :columns="columns"
           :data-source="history"
           :pagination="false"
           row-key="id"
           size="middle"
-          class="eval-table"
         >
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'created_at'">
@@ -72,8 +56,8 @@
             </template>
           </template>
         </a-table>
-      </div>
-    </a-spin>
+      </a-spin>
+    </a-card>
   </div>
 </template>
 
@@ -83,7 +67,6 @@ import { useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import {
   ReloadOutlined,
-  BarChartOutlined,
 } from '@ant-design/icons-vue'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
@@ -139,108 +122,51 @@ onMounted(fetchHistory)
 </script>
 
 <style scoped>
-.evaluation-history {
-  max-width: 1200px;
-}
-
-/* 页面头部 */
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 28px;
-}
-.page-header__title {
-  font-size: 22px;
-  font-weight: 700;
-  color: #111;
-  margin: 0;
-  letter-spacing: -0.02em;
-}
-.page-header__info {
-  display: flex;
-  flex-direction: column;
-}
-
-/* 空状态 */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 80px 0;
-  text-align: center;
-}
-.empty-state__icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 16px;
-  background: #f5f5f5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  color: #ccc;
-  margin-bottom: 16px;
-}
-.empty-state__title {
-  font-size: 15px;
-  font-weight: 600;
-  color: #666;
-  margin: 0 0 4px;
-}
-.empty-state__desc {
-  font-size: 13px;
-  color: #bbb;
-  margin: 0;
-}
-
-/* 区块标题 */
-.section-header {
+/* 工具栏 */
+.toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
 }
-.section-title {
-  font-size: 16px;
+.toolbar-left {
+  display: flex;
+  align-items: center;
+}
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.page-title {
+  font-size: 18px;
   font-weight: 600;
-  color: #333;
   margin: 0;
 }
-.section-count {
-  font-size: 12px;
-  color: #bbb;
-}
 
-/* 表格区块 */
-.table-section {
-  background: #fff;
-  border: 1px solid #f0f0f0;
-  border-radius: 12px;
-  padding: 24px;
+/* 表格卡片 */
+.table-card {
+  border-radius: 10px;
 }
-.eval-table :deep(.ant-table) {
-  border-radius: 8px;
+.table-card :deep(.ant-card-body) {
+  padding: 0;
 }
-.eval-table :deep(.ant-table-thead > tr > th) {
-  background: #fafafa;
-  font-weight: 600;
-  font-size: 13px;
+.table-card :deep(.ant-table-thead > tr > th) {
+  font-weight: 500;
   color: #666;
-  border-bottom: 1px solid #f0f0f0;
-}
-.eval-table :deep(.ant-table-tbody > tr > td) {
   font-size: 13px;
-  border-bottom: 1px solid #f8f8f8;
 }
-.eval-table :deep(.ant-table-tbody > tr:hover > td) {
-  background: #fafbff;
+.table-card :deep(.ant-table-tbody > tr > td) {
+  padding: 12px 16px;
+}
+.table-card :deep(.ant-table-tbody > tr:hover > td) {
+  background: #f5f7fa;
 }
 
 /* 表格单元格样式 */
 .cell-time {
-  color: #666;
+  color: #888;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 .cell-metric {

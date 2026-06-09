@@ -5,10 +5,6 @@
         <h2 class="page-title">嵌入模型配置</h2>
       </div>
       <div class="toolbar-right">
-        <a-button :loading="store.loading" @click="store.refreshStatus()" style="margin-right: 8px">
-          <template #icon><reload-outlined /></template>
-          刷新状态
-        </a-button>
         <a-button type="primary" @click="handleCreate">
           <template #icon><plus-outlined /></template>
           新增模型
@@ -18,7 +14,10 @@
 
     <a-card :bordered="false" class="table-card">
       <a-spin :spinning="store.loading">
+        <a-empty v-if="!store.loading && store.models.length === 0" description="暂无模型，请新增或刷新状态" />
+
         <a-table
+          v-else
           :columns="columns"
           :data-source="store.models"
           row-key="id"
@@ -53,8 +52,6 @@
         </a-table>
       </a-spin>
     </a-card>
-
-    <a-empty v-if="!store.loading && store.models.length === 0" description="暂无模型，请新增或刷新状态" />
 
     <!-- 新增/编辑弹窗 -->
     <a-modal
@@ -264,20 +261,47 @@ watch(() => pageStore.refreshTrigger, () => store.fetchModels(true))
 </script>
 
 <style scoped>
+/* 工具栏 */
 .toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
 }
+.toolbar-left {
+  display: flex;
+  align-items: center;
+}
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .page-title {
   font-size: 18px;
   font-weight: 600;
   margin: 0;
 }
+
+/* 表格卡片 */
 .table-card {
   border-radius: 10px;
 }
+.table-card :deep(.ant-card-body) {
+  padding: 0;
+}
+.table-card :deep(.ant-table-thead > tr > th) {
+  font-weight: 500;
+  color: #666;
+  font-size: 13px;
+}
+.table-card :deep(.ant-table-tbody > tr > td) {
+  padding: 12px 16px;
+}
+.table-card :deep(.ant-table-tbody > tr:hover > td) {
+  background: #f5f7fa;
+}
+
 .model-name {
   font-family: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
   font-size: 13px;

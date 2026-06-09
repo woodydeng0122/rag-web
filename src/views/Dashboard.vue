@@ -3,7 +3,7 @@
     <!-- 概览统计 -->
     <a-row :gutter="[20, 20]">
       <a-col :span="8">
-        <a-card class="stat-card" :bordered="false" loading>
+        <a-card class="stat-card" :bordered="false" :loading="loading">
           <a-statistic title="项目总数" :value="projectCount" suffix="个">
             <template #prefix>
               <project-outlined />
@@ -12,7 +12,7 @@
         </a-card>
       </a-col>
       <a-col :span="8">
-        <a-card class="stat-card" :bordered="false" loading>
+        <a-card class="stat-card" :bordered="false" :loading="loading">
           <a-statistic title="文档总数" :value="docCount" suffix="篇">
             <template #prefix>
               <file-outlined />
@@ -31,8 +31,18 @@
       </a-col>
     </a-row>
 
-    <!-- 评估指标卡片 -->
-    <div v-if="activeProjectStore.hasActiveProject" class="metrics-row">
+    <!-- 项目级数据 -->
+    <div v-if="activeProjectStore.hasActiveProject" class="project-section">
+      <div class="project-section__header">
+        <div class="project-section__divider" />
+        <div class="project-section__title-row">
+          <span class="project-section__dot" />
+          <h2 class="project-section__title">{{ activeProjectStore.activeProject?.name }}</h2>
+          <span class="project-section__scope">项目数据</span>
+        </div>
+      </div>
+
+      <!-- 评估指标卡片 -->
       <a-spin :spinning="evalLoading" size="small">
         <template v-if="latestEval">
           <div class="metrics-row__inner">
@@ -96,10 +106,9 @@
           <a-button type="link" size="small" @click="goEvaluation">前往评估</a-button>
         </div>
       </a-spin>
-    </div>
 
-    <!-- 趋势折线图 -->
-    <div v-if="activeProjectStore.hasActiveProject && sortedEvalHistory.length >= 2" class="chart-section">
+      <!-- 趋势折线图 -->
+      <div v-if="sortedEvalHistory.length >= 2" class="chart-section">
       <div class="section-header">
         <h2 class="section-title">指标趋势</h2>
         <div class="chart-legend">

@@ -113,9 +113,11 @@
             <span v-else class="no-active-project">未选择项目</span>
           </div>
           <div class="header-right">
-            <a-tooltip placement="bottom" title="刷新">
-              <reload-outlined @click="handleRefresh" />
-            </a-tooltip>
+
+            <a-button @click="handleRefresh" style="margin-right: 8px">
+              <template #icon><reload-outlined /></template>
+              刷新
+            </a-button>
           </div>
         </a-layout-header>
 
