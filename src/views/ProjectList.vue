@@ -18,14 +18,16 @@
             @click="handleView(project)"
           >
             <template #actions>
+              <bar-chart-outlined @click.stop="handleEvaluation(project)" title="评估统计" />
               <edit-outlined @click.stop="handleEdit(project)" />
               <delete-outlined @click.stop="handleDelete(project)" />
               <a-tag v-if="isActive(project.id)" color="blue" class="active-tag">当前项目</a-tag>
               <thunderbolt-outlined v-else @click.stop="handleActivate(project)" title="激活项目" />
             </template>
             <a-card-meta :title="project.name" :description="project.description || '暂无描述'" />
-            <div style="margin-top: 12px; font-size: 12px; color: #999">
-              创建时间: {{ formatTime(project.created_at) }}
+            <div style="margin-top: 12px; display: flex; align-items: center; justify-content: space-between">
+              <a-tag color="default">{{ project.embed_model_name || '未知模型' }}</a-tag>
+              <span style="font-size: 12px; color: #999">{{ formatTime(project.created_at) }}</span>
             </div>
           </a-card>
         </a-col>
@@ -75,6 +77,104 @@
         </a-form-item>
       </a-form>
     </a-modal>
+
+    <!-- 评估统计 Drawer -->
+    <a-drawer
+      v-model:open="evalDrawerVisible"
+      :title="`评估统计 - ${evalProject?.name || ''}`"
+      :width="480"
+    >
+      <div v-if="!evalResult" style="margin-bottom: 24px">
+        <a-form layout="inline">
+          <a-form-item label="top_k">
+            <a-input-number v-model:value="evalTopK" :min="1" :max="100" style="width: 120px" />
+          </a-form-item>
+          <a-form-item>
+            <a-button type="primary" :loading="evalLoading" @click="handleTriggerEvaluation">
+              开始评估
+            </a-button>
+          </a-form-item>
+        </a-form>
+        <p style="margin-top: 8px; font-size: 12px; color: #999">
+          基于 top_k 截断已有检索结果，计算 recall@{top_k} 和 MRR
+        </p>
+      </div>
+
+      <a-spin :spinning="evalLoading">
+        <template v-if="evalResult">
+          <a-row :gutter="[16, 16]" style="margin-bottom: 24px">
+            <a-col :span="8">
+              <a-statistic title="黄金记录" :value="evalResult.golden_total" />
+            </a-col>
+            <a-col :span="8">
+              <a-statistic title="已检索" :value="evalResult.golden_retrieved" />
+            </a-col>
+            <a-col :span="8">
+              <a-statistic title="命中率" :value="evalResult.hit_rate" :precision="4" suffix="" />
+            </a-col>
+          </a-row>
+
+          <a-row :gutter="[16, 16]" style="margin-bottom: 24px">
+            <a-col :span="8">
+              <a-statistic title="完全命中" :value="evalResult.full_hit_count" />
+            </a-col>
+            <a-col :span="8">
+              <a-statistic title="零命中" :value="evalResult.zero_hit_count" />
+            </a-col>
+            <a-col :span="8">
+              <a-statistic title="嵌入模型" :value="evalResult.embed_model_name || '-'" />
+            </a-col>
+          </a-row>
+
+          <a-divider>核心指标</a-divider>
+
+          <a-row :gutter="[16, 16]" style="margin-bottom: 24px">
+            <a-col :span="12">
+              <a-statistic
+                :title="`Recall@${evalResult.top_k}`"
+                :value="evalResult.recall_at_k"
+                :precision="4"
+              />
+            </a-col>
+            <a-col :span="12">
+              <a-statistic title="MRR" :value="evalResult.mrr" :precision="4" />
+            </a-col>
+          </a-row>
+
+          <a-divider>延迟分布</a-divider>
+
+          <div class="latency-bars">
+            <div class="latency-row">
+              <span class="latency-label">总延迟</span>
+              <div class="latency-bar-bg">
+                <div class="latency-bar" :style="{ width: latencyBarWidth(evalResult.avg_latency_ms) }" />
+              </div>
+              <span class="latency-value">{{ evalResult.avg_latency_ms.toFixed(0) }} ms</span>
+            </div>
+            <div class="latency-row">
+              <span class="latency-label">嵌入</span>
+              <div class="latency-bar-bg">
+                <div class="latency-bar latency-bar--embed" :style="{ width: latencyBarWidth(evalResult.avg_embed_latency_ms) }" />
+              </div>
+              <span class="latency-value">{{ evalResult.avg_embed_latency_ms.toFixed(0) }} ms</span>
+            </div>
+            <div class="latency-row">
+              <span class="latency-label">检索</span>
+              <div class="latency-bar-bg">
+                <div class="latency-bar latency-bar--search" :style="{ width: latencyBarWidth(evalResult.avg_search_latency_ms) }" />
+              </div>
+              <span class="latency-value">{{ evalResult.avg_search_latency_ms.toFixed(0) }} ms</span>
+            </div>
+          </div>
+
+          <a-divider />
+
+          <a-button type="link" @click="goToEvaluationHistory">
+            查看评估历史
+          </a-button>
+        </template>
+      </a-spin>
+    </a-drawer>
   </div>
 </template>
 
@@ -87,9 +187,9 @@ import 'dayjs/locale/zh-cn'
 import { usePageStore } from '@/store/page'
 import { useActiveProjectStore } from '@/store/activeProject'
 import { useEmbedModelStore } from '@/store/embedModel'
-import { PlusOutlined, EditOutlined, DeleteOutlined, ThunderboltOutlined } from '@ant-design/icons-vue'
-import { getProjectList, createProject, updateProject, deleteProject } from '@/api/project'
-import type { ProjectItem } from '@/api/model/projectModel'
+import { PlusOutlined, EditOutlined, DeleteOutlined, ThunderboltOutlined, BarChartOutlined } from '@ant-design/icons-vue'
+import { getProjectList, createProject, updateProject, deleteProject, triggerEvaluation } from '@/api/project'
+import type { ProjectItem, EvaluationStatsResult } from '@/api/model/projectModel'
 
 dayjs.locale('zh-cn')
 
@@ -107,6 +207,13 @@ const isEdit = ref(false)
 const editingId = ref('')
 const formState = ref({ name: '', description: '', embed_model_id: '' })
 
+// 评估统计
+const evalDrawerVisible = ref(false)
+const evalLoading = ref(false)
+const evalProject = ref<ProjectItem | null>(null)
+const evalTopK = ref(10)
+const evalResult = ref<EvaluationStatsResult | null>(null)
+
 function isActive(projectId: string) {
   return activeProjectStore.activeProjectId === projectId
 }
@@ -121,6 +228,12 @@ function formatTime(dateStr: string) {
   if (diffMs < 24 * 3600 * 1000) return `${Math.floor(diffMs / 3600000)} 小时前`
   if (diffMs < 7 * 24 * 3600 * 1000) return `${Math.floor(diffMs / 86400000)} 天前`
   return d.format('YYYY-MM-DD HH:mm')
+}
+
+function latencyBarWidth(ms: number) {
+  if (!evalResult.value) return '0%'
+  const maxMs = evalResult.value.avg_latency_ms || 1
+  return `${Math.max((ms / maxMs) * 100, 1)}%`
 }
 
 watch(() => pageStore.refreshTrigger, fetchList)
@@ -153,7 +266,6 @@ function handleEdit(project: ProjectItem) {
 }
 
 function handleView(project: ProjectItem) {
-  // 点击卡片进入文档管理
   goToDocuments(project)
 }
 
@@ -171,7 +283,6 @@ function handleDelete(project: ProjectItem) {
       void (async () => {
         try {
           await deleteProject(project.id)
-          // 若删除的是激活项目，清空 Store
           if (isActive(project.id)) {
             activeProjectStore.clearActiveProject()
           }
@@ -183,6 +294,37 @@ function handleDelete(project: ProjectItem) {
       })()
     },
   })
+}
+
+function handleEvaluation(project: ProjectItem) {
+  evalProject.value = project
+  evalTopK.value = 10
+  evalResult.value = null
+  evalDrawerVisible.value = true
+}
+
+async function handleTriggerEvaluation() {
+  if (!evalProject.value) return
+  evalLoading.value = true
+  try {
+    const result = await triggerEvaluation(evalProject.value.id, evalTopK.value)
+    evalResult.value = result
+    message.success('评估完成')
+  } catch (e: any) {
+    const detail = e?.response?.data?.detail || e?.message || '评估失败'
+    message.error(detail)
+  } finally {
+    evalLoading.value = false
+  }
+}
+
+function goToDocuments(project: ProjectItem) {
+  router.push({ path: `/documents` })
+}
+
+function goToEvaluationHistory() {
+  if (!evalProject.value) return
+  router.push({ path: `/projects/${evalProject.value.id}/evaluation` })
 }
 
 async function handleSubmit() {
@@ -211,10 +353,6 @@ async function handleSubmit() {
   } finally {
     submitLoading.value = false
   }
-}
-
-function goToDocuments(project: ProjectItem) {
-  router.push({ path: `/documents` })
 }
 
 onMounted(fetchList)
@@ -254,5 +392,50 @@ onMounted(fetchList)
   margin-left: 8px;
   font-size: 12px;
   color: #999;
+}
+
+/* 延迟条形图 */
+.latency-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.latency-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.latency-label {
+  width: 48px;
+  font-size: 13px;
+  color: #666;
+  text-align: right;
+  flex-shrink: 0;
+}
+.latency-bar-bg {
+  flex: 1;
+  height: 20px;
+  background: #f0f0f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.latency-bar {
+  height: 100%;
+  background: #1677ff;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+.latency-bar--embed {
+  background: #52c41a;
+}
+.latency-bar--search {
+  background: #faad14;
+}
+.latency-value {
+  width: 80px;
+  font-size: 13px;
+  color: #333;
+  text-align: right;
+  flex-shrink: 0;
 }
 </style>

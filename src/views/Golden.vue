@@ -316,60 +316,84 @@
 <a-drawer
   v-model:open="retrievalDrawerVisible"
   title="检索验证"
-  width="680px"
+  width="80%"
   placement="right"
 >
   <template v-if="retrievalRecord">
-    <!-- 查询信息 -->
-    <div class="retrieval-query-section">
-      <div class="retrieval-query-label">查询文本</div>
-      <div class="retrieval-query-text">{{ retrievalRecord.query }}</div>
-    </div>
-
-    <!-- 检索参数 -->
-    <div v-if="!retrievalResult" class="retrieval-params">
-      <div class="retrieval-param-row">
-        <span class="retrieval-param-label">max_k</span>
-        <a-input-number v-model:value="retrievalMaxK" :min="1" :max="100" style="width: 120px" />
-      </div>
-      <a-button type="primary" :loading="retrievalLoading" @click="handleRetrieve">确认检索</a-button>
-    </div>
-
-    <!-- 检索中 -->
-    <div v-if="retrievalLoading" class="retrieval-loading">
-      <a-spin />
-      <span>正在检索...</span>
-    </div>
-
-    <!-- 检索结果 -->
-    <template v-if="retrievalResult">
-      <div class="retrieval-metrics">
-        <a-tag>模型: {{ retrievalResult.embed_model_name || '--' }}</a-tag>
-        <a-tag>总耗时: {{ retrievalResult.latency_ms }}ms</a-tag>
-        <a-tag>嵌入: {{ retrievalResult.embed_latency_ms }}ms</a-tag>
-        <a-tag>检索: {{ retrievalResult.search_latency_ms }}ms</a-tag>
-        <a-tag>max_k: {{ retrievalResult.max_k }}</a-tag>
-        <a-tag color="green">命中GT: {{ retrievalResult.items.filter(i => i.is_ground_truth).length }}/{{ retrievalRecord.ground_truth_chunks?.length || 0 }}</a-tag>
-      </div>
-
-      <div class="retrieval-items">
-        <div v-for="item in retrievalResult.items" :key="item.chunk_id" class="retrieval-item" :class="{ 'retrieval-item-hit': item.is_ground_truth }">
-          <div class="retrieval-item-header">
-            <span class="retrieval-item-rank">#{{ item.rank }}</span>
-            <span class="retrieval-item-score">score: {{ item.score.toFixed(4) }}</span>
-            <a-tag v-if="item.is_ground_truth" color="success" size="small">GT命中</a-tag>
-            <a-tag v-else color="default" size="small">未命中</a-tag>
+    <div class="retrieval-detail-layout">
+      <!-- 左侧：查询 & GT -->
+      <div class="retrieval-detail-left">
+        <div class="panel-title">查询 & Ground Truth</div>
+        <div class="retrieval-detail-body">
+          <div class="retrieval-query-section">
+            <div class="retrieval-query-label">查询文本</div>
+            <div class="retrieval-query-text">{{ retrievalRecord.query }}</div>
           </div>
-          <div v-if="item.heading" class="retrieval-item-heading">{{ item.heading }}</div>
-          <div class="retrieval-item-content">{{ item.content.length > 200 ? item.content.slice(0, 200) + '...' : item.content }}</div>
-          <div v-if="item.source_file" class="retrieval-item-source">{{ item.source_file }}</div>
+          <div class="retrieval-gt-section">
+            <div class="retrieval-gt-label">Ground Truth ({{ retrievalRecord.ground_truth_chunks?.length || 0 }} 个分块)</div>
+            <a-spin :spinning="gtChunksLoading">
+              <div class="retrieval-gt-list">
+                <div v-for="chunk in gtChunks" :key="chunk.id" class="retrieval-gt-item">
+                  <div class="retrieval-gt-item-header">
+                    <span class="retrieval-gt-index">#{{ chunk.index + 1 }}</span>
+                    <span v-if="chunk.heading" class="retrieval-gt-item-heading">{{ chunk.heading }}</span>
+                  </div>
+                  <MarkdownRenderer :content="chunk.content" :file-type="chunk.file_type" />
+                </div>
+                <a-empty v-if="!gtChunksLoading && gtChunks.length === 0" description="无关联分块" :image="null" />
+              </div>
+            </a-spin>
+          </div>
         </div>
       </div>
 
-      <div class="retrieval-actions">
-        <a-button type="primary" @click="handleReRetrieve">重新检索</a-button>
+      <!-- 右侧：检索结果 -->
+      <div class="retrieval-detail-right">
+        <div class="panel-title">检索结果</div>
+        <div class="retrieval-detail-body">
+          <!-- 检索参数 -->
+          <div v-if="!retrievalResult" class="retrieval-params">
+            <div class="retrieval-param-row">
+              <span class="retrieval-param-label">max_k</span>
+              <a-input-number v-model:value="retrievalMaxK" :min="1" :max="100" style="width: 120px" />
+            </div>
+            <a-button type="primary" :loading="retrievalLoading" @click="handleRetrieve">确认检索</a-button>
+          </div>
+
+          <!-- 检索中 -->
+          <div v-if="retrievalLoading" class="retrieval-loading">
+            <a-spin />
+            <span>正在检索...</span>
+          </div>
+
+          <!-- 检索结果 -->
+          <template v-if="retrievalResult">
+            <div class="retrieval-metrics">
+              <a-tag>模型: {{ retrievalResult.embed_model_name || '--' }}</a-tag>
+              <a-tag>总耗时: {{ retrievalResult.latency_ms }}ms</a-tag>
+              <a-tag>嵌入: {{ retrievalResult.embed_latency_ms }}ms</a-tag>
+              <a-tag>检索: {{ retrievalResult.search_latency_ms }}ms</a-tag>
+              <a-tag>max_k: {{ retrievalResult.max_k }}</a-tag>
+              <a-tag color="green">命中GT: {{ retrievalResult.items.filter(i => i.is_ground_truth).length }}/{{ retrievalRecord.ground_truth_chunks?.length || 0 }}</a-tag>
+            </div>
+
+            <div class="retrieval-items">
+              <div v-for="item in retrievalResult.items" :key="item.chunk_id" class="retrieval-item" :class="{ 'retrieval-item-hit': item.is_ground_truth }">
+                <div class="retrieval-item-header">
+                  <span class="retrieval-item-rank">#{{ item.rank }}</span>
+                  <span class="retrieval-item-score">score: {{ item.score.toFixed(4) }}</span>
+                  <a-tag v-if="item.is_ground_truth" color="success" size="small">GT命中</a-tag>
+                  <a-tag v-else color="default" size="small">未命中</a-tag>
+                </div>
+                <div v-if="item.heading" class="retrieval-item-heading">{{ item.heading }}</div>
+                <div class="retrieval-item-content">{{ item.content.length > 200 ? item.content.slice(0, 200) + '...' : item.content }}</div>
+                <div v-if="item.source_file" class="retrieval-item-source">{{ item.source_file }}</div>
+              </div>
+            </div>
+          </template>
+        </div>
       </div>
-    </template>
+    </div>
   </template>
 </a-drawer>
 
@@ -401,9 +425,10 @@ import {
   createRetrieval,
   getRetrieval,
 } from '@/api/golden'
-import { searchProjectChunks } from '@/api/chunk'
+import { searchProjectChunks, getChunksByIds } from '@/api/chunk'
 import type { GoldenItem, CreateGoldenParams, ImportResult, RetrievalResponse } from '@/api/model/goldenModel'
 import type { ChunkItem } from '@/api/model/documentModel'
+import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 
 dayjs.locale('zh-cn')
 
@@ -487,6 +512,10 @@ const retrievalMaxK = ref(10)
 const batchRetrieving = ref(false)
 const batchRemaining = ref(0)
 
+// GT 分块内容
+const gtChunks = ref<ChunkItem[]>([])
+const gtChunksLoading = ref(false)
+
 function openDetailDrawer(record: GoldenItem) {
   detailRecord.value = record
   detailDrawerVisible.value = true
@@ -499,6 +528,20 @@ async function openRetrievalDrawer(record: GoldenItem) {
   retrievalMaxK.value = 10
   retrievalLoading.value = false
   retrievalDrawerVisible.value = true
+
+  // 拉取 GT 分块内容
+  gtChunks.value = []
+  if (record.ground_truth_chunks?.length && activeProjectStore.activeProjectId) {
+    gtChunksLoading.value = true
+    try {
+      const res = await getChunksByIds(activeProjectStore.activeProjectId, record.ground_truth_chunks)
+      gtChunks.value = res?.chunks || []
+    } catch {
+      gtChunks.value = []
+    } finally {
+      gtChunksLoading.value = false
+    }
+  }
 
   // 如果已有检索结果，自动加载
   if (record.retrieval_summary) {
@@ -1072,9 +1115,60 @@ watch(importModalVisible, (val) => {
   gap: 8px;
 }
 
-/* 检索 Drawer */
+/* 检索 Drawer - 左右对比布局 */
+.retrieval-detail-layout {
+  display: flex;
+  gap: 16px;
+  height: calc(100vh - 120px);
+}
+.retrieval-detail-left {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.retrieval-detail-right {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.retrieval-detail-left .panel-title {
+  background: #1677ff;
+}
+.retrieval-detail-right .panel-title {
+  background: #52c41a;
+}
+.retrieval-detail-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.retrieval-detail-left :deep(.ant-spin-nested-loading),
+.retrieval-detail-right :deep(.ant-spin-nested-loading) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.retrieval-detail-left :deep(.ant-spin-container),
+.retrieval-detail-right :deep(.ant-spin-container) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 .retrieval-query-section {
-  margin-bottom: 16px;
+  flex-shrink: 0;
 }
 .retrieval-query-label {
   font-size: 13px;
@@ -1087,6 +1181,48 @@ watch(importModalVisible, (val) => {
   padding: 8px 12px;
   background: #f5f7fa;
   border-radius: 6px;
+}
+.retrieval-gt-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.retrieval-gt-label {
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 8px;
+}
+.retrieval-gt-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.retrieval-gt-item {
+  padding: 10px 12px;
+  background: #f6ffed;
+  border-radius: 6px;
+  border: 1px solid #b7eb8f;
+  flex-shrink: 0;
+}
+.retrieval-gt-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.retrieval-gt-index {
+  font-weight: 600;
+  color: #52c41a;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.retrieval-gt-item-heading {
+  font-weight: 500;
+  font-size: 12px;
+  color: #1677ff;
 }
 .retrieval-params {
   display: flex;
@@ -1116,17 +1252,22 @@ watch(importModalVisible, (val) => {
   flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 12px;
+  flex-shrink: 0;
 }
 .retrieval-items {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 .retrieval-item {
   border: 1px solid #f0f0f0;
   border-radius: 6px;
   padding: 10px 12px;
   transition: border-color 0.2s;
+  flex-shrink: 0;
 }
 .retrieval-item-hit {
   border-color: #b7eb8f;
@@ -1166,5 +1307,6 @@ watch(importModalVisible, (val) => {
 .retrieval-actions {
   margin-top: 16px;
   text-align: right;
+  flex-shrink: 0;
 }
 </style>

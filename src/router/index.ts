@@ -39,6 +39,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '黄金数据集' },
       },
       {
+        path: 'projects/:id/evaluation',
+        name: 'ProjectEvaluation',
+        component: () => import('@/views/EvaluationHistory.vue'),
+        meta: { title: '评估历史' },
+      },
+      {
         path: 'embed-models',
         name: 'EmbedModels',
         component: () => import('@/views/EmbedModelConfig.vue'),

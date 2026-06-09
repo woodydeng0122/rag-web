@@ -1,5 +1,5 @@
 import { get, post, put, del } from './request'
-import type { CreateProjectParams, ProjectItem } from './model/projectModel'
+import type { CreateProjectParams, EvaluationStatsResult, ProjectItem } from './model/projectModel'
 
 enum Api {
   List = '/projects',
@@ -28,3 +28,11 @@ export const updateProject = (id: string, params: CreateProjectParams) =>
 /** 删除项目 */
 export const deleteProject = (id: string) =>
   del({ url: `${Api.Delete}/${id}` })
+
+/** 触发项目评估统计 */
+export const triggerEvaluation = (projectId: string, topK: number = 10) =>
+  post<EvaluationStatsResult>({ url: `${Api.List}/${projectId}/evaluation-stats`, data: { top_k: topK } })
+
+/** 查询项目评估历史 */
+export const getEvaluationHistory = (projectId: string) =>
+  get<EvaluationStatsResult[]>({ url: `${Api.List}/${projectId}/evaluation-stats` })

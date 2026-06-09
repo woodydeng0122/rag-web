@@ -12,6 +12,10 @@ export interface ChunkSearchResult {
 export const searchProjectChunks = (projectId: string, q: string = '', limit: number = 20, offset: number = 0) =>
   get<ChunkSearchResult>({ url: `/projects/${projectId}/chunks/search`, params: { q, limit, offset } })
 
+/** 按 ID 列表批量查询分块内容 */
+export const getChunksByIds = (projectId: string, chunkIds: string[]) =>
+  get<ChunkSearchResult>({ url: `/projects/${projectId}/chunks/batch`, params: { ids: chunkIds.join(',') } })
+
 /** 查询分块关联的黄金记录 */
 export const getChunkGoldenRecords = (projectId: string, chunkId: string) =>
   get<GoldenItem[]>({ url: `/projects/${projectId}/chunks/${chunkId}/golden-records` })

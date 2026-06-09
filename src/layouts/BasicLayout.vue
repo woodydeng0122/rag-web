@@ -140,6 +140,7 @@ import {
   TrophyOutlined,
   ReloadOutlined,
   RobotOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons-vue'
 import type { MenuProps } from 'ant-design-vue'
 
@@ -158,8 +159,12 @@ activeProjectStore.fetchActiveProject()
 watch(
   () => route.path,
   (path) => {
-    const base = path.split('/').slice(0, 2).join('/') || '/dashboard'
-    selectedKeys.value = [base === '/' ? '/dashboard' : base]
+    if (path.includes('/evaluation')) {
+      selectedKeys.value = ['/evaluation']
+    } else {
+      const base = path.split('/').slice(0, 2).join('/') || '/dashboard'
+      selectedKeys.value = [base === '/' ? '/dashboard' : base]
+    }
   },
   { immediate: true },
 )
@@ -169,11 +174,6 @@ const menuItems = computed<MenuProps['items']>(() => [
     key: '/dashboard',
     icon: () => h(DashboardOutlined),
     label: '仪表盘',
-  },
-  {
-    key: '/embed-models',
-    icon: () => h(RobotOutlined),
-    label: '模型配置',
   },
   {
     key: '/projects',
@@ -189,6 +189,16 @@ const menuItems = computed<MenuProps['items']>(() => [
     key: '/golden',
     icon: () => h(TrophyOutlined),
     label: '黄金数据集',
+  },
+  {
+    key: '/evaluation',
+    icon: () => h(BarChartOutlined),
+    label: '评估历史',
+  },
+  {
+    key: '/embed-models',
+    icon: () => h(RobotOutlined),
+    label: '模型配置',
   },
 ])
 
@@ -208,6 +218,9 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => {
     crumbs.push({ key: 'embed-models', title: '模型配置' })
   } else if (path.startsWith('/documents')) {
     crumbs.push({ key: 'documents', title: '文档管理' })
+  } else if (path.startsWith('/projects') && path.includes('/evaluation')) {
+    crumbs.push({ key: 'projects', title: '项目管理', link: '/projects' })
+    crumbs.push({ key: 'evaluation', title: '评估历史' })
   } else if (path.startsWith('/projects')) {
     crumbs.push({ key: 'projects', title: '项目管理' })
   } else if (path.startsWith('/dashboard') || path === '/') {
@@ -220,7 +233,16 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => {
 })
 
 function handleMenuClick({ key }: { key: string }) {
-  router.push(key)
+  if (key === '/evaluation') {
+    const pid = activeProjectStore.activeProjectId
+    if (pid) {
+      router.push(`/projects/${pid}/evaluation`)
+    } else {
+      router.push('/projects')
+    }
+  } else {
+    router.push(key)
+  }
 }
 
 function handleRefresh() {
