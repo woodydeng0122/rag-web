@@ -9,6 +9,7 @@ export interface GoldenItem {
   status: string
   created_at: string
   metadata: Record<string, any>
+  has_retrieval: boolean
 }
 
 export interface CreateGoldenParams {
@@ -41,4 +42,31 @@ export interface BatchStatusUpdateParams {
 
 export interface BatchStatusUpdateResult {
   updated_count: number
+}
+
+/** 检索结果项 */
+export interface RetrievalItem {
+  chunk_id: string
+  score: number
+  rank: number
+  content: string
+  heading: string
+  source_file: string
+  is_ground_truth: boolean
+}
+
+/** 检索结果 */
+export interface RetrievalResponse {
+  id: string
+  golden_id: string
+  max_k: number
+  latency_ms: number
+  embed_model_name: string
+  created_at: string
+  items: RetrievalItem[]
+}
+
+/** 触发检索请求参数 */
+export interface CreateRetrievalParams {
+  max_k: number
 }

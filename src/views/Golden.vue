@@ -56,6 +56,14 @@
         <template #icon><delete-outlined /></template>
         批量删除 ({{ selectedRowKeys.length }})
       </a-button>
+      <a-button
+        :disabled="selectedRowKeys.length === 0"
+        :loading="batchRetrieving"
+        @click="handleBatchRetrieve"
+      >
+        <template #icon><search-outlined /></template>
+        批量检索 ({{ selectedRowKeys.length }})
+      </a-button>
       <a-button @click="importModalVisible = true">
         <template #icon><upload-outlined /></template>
         上传
@@ -109,6 +117,12 @@
           <!-- 创建时间 -->
           <template v-if="column.key === 'created_at'">
             <span class="time-cell">{{ formatTime(record.created_at) }}</span>
+          </template>
+
+          <!-- 检索 -->
+          <template v-if="column.key === 'retrieval'">
+            <a-button v-if="record.has_retrieval" size="small" type="link" style="color: #52c41a" @click="openRetrievalModal(record)">查看结果</a-button>
+            <a-button v-else size="small" type="link" @click="openRetrievalModal(record)">检索</a-button>
           </template>
 
           <!-- 操作 -->
@@ -295,6 +309,66 @@
   </template>
 </a-drawer>
 
+<!-- 检索 Modal -->
+<a-modal
+  v-model:open="retrievalModalVisible"
+  :title="'检索验证'"
+  :footer="null"
+  width="680px"
+  @cancel="retrievalModalVisible = false"
+>
+  <template v-if="retrievalRecord">
+    <!-- 查询信息 -->
+    <div class="retrieval-query-section">
+      <div class="retrieval-query-label">查询文本</div>
+      <div class="retrieval-query-text">{{ retrievalRecord.query }}</div>
+    </div>
+
+    <!-- 检索参数 -->
+    <div v-if="!retrievalResult" class="retrieval-params">
+      <div class="retrieval-param-row">
+        <span class="retrieval-param-label">max_k</span>
+        <a-input-number v-model:value="retrievalMaxK" :min="1" :max="100" style="width: 120px" />
+      </div>
+      <a-button type="primary" :loading="retrievalLoading" @click="handleRetrieve">确认检索</a-button>
+    </div>
+
+    <!-- 检索中 -->
+    <div v-if="retrievalLoading" class="retrieval-loading">
+      <a-spin />
+      <span>正在检索...</span>
+    </div>
+
+    <!-- 检索结果 -->
+    <template v-if="retrievalResult">
+      <div class="retrieval-metrics">
+        <a-tag>模型: {{ retrievalResult.embed_model_name || '--' }}</a-tag>
+        <a-tag>耗时: {{ retrievalResult.latency_ms }}ms</a-tag>
+        <a-tag>max_k: {{ retrievalResult.max_k }}</a-tag>
+        <a-tag color="green">命中GT: {{ retrievalResult.items.filter(i => i.is_ground_truth).length }}/{{ retrievalRecord.ground_truth_chunks?.length || 0 }}</a-tag>
+      </div>
+
+      <div class="retrieval-items">
+        <div v-for="item in retrievalResult.items" :key="item.chunk_id" class="retrieval-item" :class="{ 'retrieval-item-hit': item.is_ground_truth }">
+          <div class="retrieval-item-header">
+            <span class="retrieval-item-rank">#{{ item.rank }}</span>
+            <span class="retrieval-item-score">score: {{ item.score.toFixed(4) }}</span>
+            <a-tag v-if="item.is_ground_truth" color="success" size="small">GT命中</a-tag>
+            <a-tag v-else color="default" size="small">未命中</a-tag>
+          </div>
+          <div v-if="item.heading" class="retrieval-item-heading">{{ item.heading }}</div>
+          <div class="retrieval-item-content">{{ item.content.length > 200 ? item.content.slice(0, 200) + '...' : item.content }}</div>
+          <div v-if="item.source_file" class="retrieval-item-source">{{ item.source_file }}</div>
+        </div>
+      </div>
+
+      <div class="retrieval-actions">
+        <a-button type="primary" @click="handleReRetrieve">重新检索</a-button>
+      </div>
+    </template>
+  </template>
+</a-modal>
+
   </div>
 </template>
 
@@ -313,6 +387,7 @@ import {
   CloseCircleOutlined,
   StopOutlined,
   UploadOutlined,
+  SearchOutlined,
 } from '@ant-design/icons-vue'
 import {
   getGoldenList,
@@ -322,9 +397,11 @@ import {
   importGolden,
   batchApprove,
   batchReject,
+  createRetrieval,
+  getRetrieval,
 } from '@/api/golden'
 import { searchProjectChunks } from '@/api/chunk'
-import type { GoldenItem, CreateGoldenParams, ImportResult } from '@/api/model/goldenModel'
+import type { GoldenItem, CreateGoldenParams, ImportResult, RetrievalResponse } from '@/api/model/goldenModel'
 import type { ChunkItem } from '@/api/model/documentModel'
 
 dayjs.locale('zh-cn')
@@ -346,6 +423,7 @@ const columns = [
   { title: '关联分块', dataIndex: 'chunk_count', key: 'chunk_count', width: 100 },
   { title: '参考答案', dataIndex: 'reference_answer', key: 'reference_answer', ellipsis: true, width: 180 },
   { title: '创建时间', dataIndex: 'created_at', key: 'created_at', width: 120 },
+  { title: '检索', key: 'retrieval', width: 90 },
   { title: '操作', key: 'action', fixed: 'right' as const, width: 180 },
 ]
 
@@ -391,9 +469,105 @@ const importCurrentIndex = ref(0)
 const detailDrawerVisible = ref(false)
 const detailRecord = ref<GoldenItem | null>(null)
 
+// 检索 Modal
+const retrievalModalVisible = ref(false)
+const retrievalRecord = ref<GoldenItem | null>(null)
+const retrievalResult = ref<RetrievalResponse | null>(null)
+const retrievalLoading = ref(false)
+const retrievalMaxK = ref(10)
+
+// 批量检索
+const batchRetrieving = ref(false)
+
 function openDetailDrawer(record: GoldenItem) {
   detailRecord.value = record
   detailDrawerVisible.value = true
+}
+
+// 检索相关
+async function openRetrievalModal(record: GoldenItem) {
+  retrievalRecord.value = record
+  retrievalResult.value = null
+  retrievalMaxK.value = 10
+  retrievalLoading.value = false
+  retrievalModalVisible.value = true
+
+  // 如果已有检索结果，自动加载
+  if (record.has_retrieval) {
+    retrievalLoading.value = true
+    try {
+      const res = await getRetrieval(activeProjectStore.activeProjectId!, record.id)
+      retrievalResult.value = res
+    } catch {
+      // 无检索结果或加载失败，显示检索参数界面
+      retrievalResult.value = null
+    } finally {
+      retrievalLoading.value = false
+    }
+  }
+}
+
+async function handleRetrieve() {
+  if (!retrievalRecord.value || !activeProjectStore.activeProjectId) return
+  retrievalLoading.value = true
+  try {
+    const res = await createRetrieval(activeProjectStore.activeProjectId, retrievalRecord.value.id, {
+      max_k: retrievalMaxK.value,
+    })
+    retrievalResult.value = res
+    // 更新列表中的 has_retrieval 状态
+    const item = dataList.value.find(d => d.id === retrievalRecord.value!.id)
+    if (item) item.has_retrieval = true
+    message.success('检索完成')
+  } catch {
+    message.error('检索失败')
+  } finally {
+    retrievalLoading.value = false
+  }
+}
+
+function handleReRetrieve() {
+  retrievalResult.value = null
+}
+
+// 批量检索
+function handleBatchRetrieve() {
+  const ids = [...selectedRowKeys.value]
+  if (ids.length === 0) return
+
+  AModal.confirm({
+    title: '批量检索',
+    content: `确定要对选中的 ${ids.length} 条记录执行检索吗？（max_k = 10，已有结果将被覆盖）`,
+    async onOk() {
+      batchRetrieving.value = true
+      let successCount = 0
+      let failCount = 0
+      const remaining = [...ids]
+
+      while (remaining.length > 0) {
+        const batch = remaining.splice(0, 2)
+        const results = await Promise.allSettled(
+          batch.map(id => createRetrieval(activeProjectStore.activeProjectId!, id, { max_k: 10 }))
+        )
+        for (let i = 0; i < results.length; i++) {
+          if (results[i].status === 'fulfilled') {
+            successCount++
+            selectedRowKeys.value = selectedRowKeys.value.filter(k => k !== batch[i])
+          } else {
+            failCount++
+          }
+        }
+      }
+
+      if (failCount > 0) {
+        message.warning(`批量检索完成：${successCount} 条成功，${failCount} 条失败`)
+      } else {
+        message.success(`批量检索完成：${successCount} 条成功`)
+      }
+      batchRetrieving.value = false
+      await fetchList()
+    },
+  })
 }
 
 function formatTime(dateStr: string) {
@@ -903,5 +1077,103 @@ watch(importModalVisible, (val) => {
   margin-top: 24px;
   display: flex;
   gap: 8px;
+}
+
+/* 检索 Modal */
+.retrieval-query-section {
+  margin-bottom: 16px;
+}
+.retrieval-query-label {
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 4px;
+}
+.retrieval-query-text {
+  font-weight: 500;
+  font-size: 14px;
+  padding: 8px 12px;
+  background: #f5f7fa;
+  border-radius: 6px;
+}
+.retrieval-params {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.retrieval-param-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.retrieval-param-label {
+  font-size: 13px;
+  color: #666;
+}
+.retrieval-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 0;
+  justify-content: center;
+  color: #1677ff;
+}
+.retrieval-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.retrieval-items {
+  max-height: 400px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.retrieval-item {
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+  padding: 10px 12px;
+  transition: border-color 0.2s;
+}
+.retrieval-item-hit {
+  border-color: #b7eb8f;
+  background: #f6ffed;
+}
+.retrieval-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.retrieval-item-rank {
+  font-weight: 600;
+  color: #1677ff;
+  font-size: 13px;
+}
+.retrieval-item-score {
+  font-size: 12px;
+  color: #888;
+}
+.retrieval-item-heading {
+  font-weight: 500;
+  font-size: 12px;
+  color: #1677ff;
+  margin-bottom: 4px;
+}
+.retrieval-item-content {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.6;
+}
+.retrieval-item-source {
+  font-size: 11px;
+  color: #aaa;
+  margin-top: 4px;
+}
+.retrieval-actions {
+  margin-top: 16px;
+  text-align: right;
 }
 </style>

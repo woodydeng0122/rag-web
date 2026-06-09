@@ -1,6 +1,6 @@
 import { get, post, patch, del } from './request'
 import instance from './request'
-import type { GoldenItem, CreateGoldenParams, UpdateGoldenParams, ImportResult, BatchStatusUpdateParams, BatchStatusUpdateResult } from './model/goldenModel'
+import type { GoldenItem, CreateGoldenParams, UpdateGoldenParams, ImportResult, BatchStatusUpdateParams, BatchStatusUpdateResult, RetrievalResponse, CreateRetrievalParams } from './model/goldenModel'
 
 /** 获取项目下的黄金数据集列表 */
 export const getGoldenList = (projectId: string, status?: string) =>
@@ -38,3 +38,11 @@ export const batchApprove = (projectId: string, params: BatchStatusUpdateParams)
 /** 批量拒绝 */
 export const batchReject = (projectId: string, params: BatchStatusUpdateParams) =>
   post<BatchStatusUpdateResult>({ url: `/projects/${projectId}/golden/batch-reject`, data: params })
+
+/** 触发检索 */
+export const createRetrieval = (projectId: string, recordId: string, params: CreateRetrievalParams) =>
+  post<RetrievalResponse>({ url: `/projects/${projectId}/golden/${recordId}/retrieval`, data: params })
+
+/** 获取检索结果 */
+export const getRetrieval = (projectId: string, recordId: string) =>
+  get<RetrievalResponse>({ url: `/projects/${projectId}/golden/${recordId}/retrieval` })
