@@ -1,5 +1,10 @@
 /** 黄金数据集相关接口类型定义 */
 
+export interface RetrievalSummary {
+  hit_count: number
+  gt_total: number
+}
+
 export interface GoldenItem {
   id: string
   project_id: string
@@ -10,6 +15,7 @@ export interface GoldenItem {
   created_at: string
   metadata: Record<string, any>
   has_retrieval: boolean
+  retrieval_summary: RetrievalSummary | null
 }
 
 export interface CreateGoldenParams {

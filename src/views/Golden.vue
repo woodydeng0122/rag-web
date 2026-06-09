@@ -121,8 +121,25 @@
 
           <!-- 检索 -->
           <template v-if="column.key === 'retrieval'">
-            <a-button v-if="record.has_retrieval" size="small" type="link" style="color: #52c41a" @click="openRetrievalModal(record)">查看结果</a-button>
-            <a-button v-else size="small" type="link" @click="openRetrievalModal(record)">检索</a-button>
+            <template v-if="record.retrieval_summary">
+              <a-tag
+                v-if="record.retrieval_summary.hit_count > 0"
+                color="success"
+                style="cursor: pointer"
+                @click="openRetrievalDrawer(record)"
+              >
+                命中({{ record.retrieval_summary.hit_count }}/{{ record.retrieval_summary.gt_total }})
+              </a-tag>
+              <a-tag
+                v-else
+                color="error"
+                style="cursor: pointer"
+                @click="openRetrievalDrawer(record)"
+              >
+                未命中
+              </a-tag>
+            </template>
+            <a-button v-else size="small" type="link" @click="openRetrievalDrawer(record)">检索</a-button>
           </template>
 
           <!-- 操作 -->
@@ -484,21 +501,20 @@ function openDetailDrawer(record: GoldenItem) {
 }
 
 // 检索相关
-async function openRetrievalModal(record: GoldenItem) {
+async function openRetrievalDrawer(record: GoldenItem) {
   retrievalRecord.value = record
   retrievalResult.value = null
   retrievalMaxK.value = 10
   retrievalLoading.value = false
   retrievalDrawerVisible.value = true
 
-  // 如果已有检索结果，自动加载
-  if (record.has_retrieval) {
+  // 如果已有检索结果，自动加载详情
+  if (record.retrieval_summary) {
     retrievalLoading.value = true
     try {
       const res = await getRetrieval(activeProjectStore.activeProjectId!, record.id)
       retrievalResult.value = res
     } catch {
-      // 无检索结果或加载失败，显示检索参数界面
       retrievalResult.value = null
     } finally {
       retrievalLoading.value = false
@@ -514,9 +530,13 @@ async function handleRetrieve() {
       max_k: retrievalMaxK.value,
     })
     retrievalResult.value = res
-    // 更新列表中的 has_retrieval 状态
+    // 更新列表中的检索状态
     const item = dataList.value.find(d => d.id === retrievalRecord.value!.id)
-    if (item) item.has_retrieval = true
+    if (item) {
+      item.has_retrieval = true
+      const hitCount = res.items.filter(i => i.is_ground_truth).length
+      item.retrieval_summary = { hit_count: hitCount, gt_total: item.ground_truth_chunks.length }
+    }
     message.success('检索完成')
   } catch {
     message.error('检索失败')
