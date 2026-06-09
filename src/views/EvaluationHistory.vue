@@ -2,18 +2,18 @@
   <div class="evaluation-history">
     <!-- 工具栏 -->
     <div class="toolbar">
-      <div class="toolbar-left">
+      <a-space>
         <h2 class="page-title">评估历史</h2>
-      </div>
-      <div class="toolbar-right">
+      </a-space>
+      <a-space :size="8">
         <a-button type="primary" @click="showEvalModal">
           <template #icon><plus-outlined /></template>
           新增评估
         </a-button>
-      </div>
+      </a-space>
     </div>
 
-    <a-card :bordered="false" class="table-card">
+    <a-card :bordered="false" class="table-card" :body-style="{ padding: 0 }">
       <a-spin :spinning="loading">
         <a-empty v-if="!loading && history.length === 0" description="暂无评估记录，运行评估后历史记录将显示在此处" />
 
@@ -58,7 +58,7 @@
               </span>
             </template>
             <template v-else-if="column.key === 'embed_model_name'">
-              <span class="cell-model">{{ record.embed_model_name }}</span>
+              <a-tag>{{ record.embed_model_name }}</a-tag>
             </template>
             <template v-else-if="column.key === 'action'">
               <a-popconfirm title="确定删除此评估记录？" ok-text="确定" cancel-text="取消" @confirm="handleDelete(record)">
@@ -189,7 +189,7 @@ watch(() => pageStore.refreshTrigger, fetchHistory)
 
 /* 表格单元格样式 */
 .cell-time {
-  color: #888;
+  color: var(--ant-color-text-tertiary);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
@@ -198,27 +198,20 @@ watch(() => pageStore.refreshTrigger, fetchHistory)
   font-variant-numeric: tabular-nums;
 }
 .metric-good {
-  color: #52c41a;
+  color: var(--ant-color-success);
 }
 .metric-mid {
-  color: #faad14;
+  color: var(--ant-color-warning);
 }
 .metric-low {
-  color: #ff4d4f;
+  color: var(--ant-color-error);
 }
 .cell-positive {
-  color: #52c41a;
+  color: var(--ant-color-success);
   font-weight: 500;
 }
 .cell-negative {
-  color: #ff4d4f;
+  color: var(--ant-color-error);
   font-weight: 500;
-}
-.cell-model {
-  font-size: 12px;
-  color: #888;
-  background: #f5f5f5;
-  padding: 2px 8px;
-  border-radius: 4px;
 }
 </style>

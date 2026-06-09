@@ -11,7 +11,7 @@
 <template v-else>
   <!-- 工具栏 -->
   <div class="toolbar">
-    <div class="toolbar-left">
+    <a-space>
       <a-select
         v-model:value="retrievalFilter"
         placeholder="检索情况"
@@ -31,8 +31,8 @@
         allow-clear
         @search="onSearch"
       />
-    </div>
-    <div class="toolbar-right">
+    </a-space>
+    <a-space :size="8">
       <a-button
         danger
         :disabled="selectedRowKeys.length === 0"
@@ -57,11 +57,11 @@
         <template #icon><plus-outlined /></template>
         新增
       </a-button>
-    </div>
+    </a-space>
   </div>
 
   <!-- 数据表格 -->
-  <a-card :bordered="false" class="table-card">
+  <a-card :bordered="false" class="table-card" :body-style="{ padding: 0 }">
     <a-spin :spinning="loading">
       <a-table
         :columns="columns"
@@ -224,7 +224,7 @@
       :disabled="importing"
       multiple
     >
-      <p class="ant-upload-drag-icon"><upload-outlined style="font-size: 36px; color: #1677ff" /></p>
+      <p class="ant-upload-drag-icon"><upload-outlined style="font-size: 36px; color: var(--ant-color-primary)" /></p>
       <p class="ant-upload-text">拖拽或点击上传文件</p>
       <p class="ant-upload-hint">支持 .jsonl / .csv 格式，可多选文件，单文件最多 1000 条</p>
     </a-upload-dragger>

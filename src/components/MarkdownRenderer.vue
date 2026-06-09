@@ -47,7 +47,7 @@ const renderedHtml = computed(() => {
   padding: 12px;
   font-size: 14px;
   line-height: 1.7;
-  color: #333;
+  color: var(--ant-color-text);
   word-break: break-word;
 }
 .markdown-body--full {
@@ -79,7 +79,7 @@ const renderedHtml = computed(() => {
 }
 
 .markdown-body :deep(code) {
-  background: #f5f5f5;
+  background: var(--ant-color-fill-quaternary);
   padding: 2px 6px;
   border-radius: 3px;
   font-size: 0.9em;
@@ -87,8 +87,8 @@ const renderedHtml = computed(() => {
 }
 
 .markdown-body :deep(pre.hljs) {
-  background: #f8f8f8;
-  border: 1px solid #e8e8e8;
+  background: var(--ant-color-fill-quaternary);
+  border: 1px solid var(--ant-color-border-secondary);
   border-radius: 6px;
   padding: 12px;
   overflow-x: auto;
@@ -103,10 +103,10 @@ const renderedHtml = computed(() => {
 }
 
 .markdown-body :deep(blockquote) {
-  border-left: 3px solid #d9d9d9;
+  border-left: 3px solid var(--ant-color-border);
   padding-left: 12px;
   margin: 8px 0;
-  color: #666;
+  color: var(--ant-color-text-secondary);
 }
 
 .markdown-body :deep(table) {
@@ -117,18 +117,18 @@ const renderedHtml = computed(() => {
 
 .markdown-body :deep(th),
 .markdown-body :deep(td) {
-  border: 1px solid #e8e8e8;
+  border: 1px solid var(--ant-color-border-secondary);
   padding: 6px 12px;
   text-align: left;
 }
 
 .markdown-body :deep(th) {
-  background: #fafafa;
+  background: var(--ant-color-fill-quaternary);
   font-weight: 500;
 }
 
 .markdown-body :deep(a) {
-  color: #1677ff;
+  color: var(--ant-color-primary);
   text-decoration: none;
 }
 
@@ -138,7 +138,7 @@ const renderedHtml = computed(() => {
 
 .markdown-body :deep(hr) {
   border: none;
-  border-top: 1px solid #e8e8e8;
+  border-top: 1px solid var(--ant-color-border-secondary);
   margin: 12px 0;
 }
 
@@ -147,7 +147,7 @@ const renderedHtml = computed(() => {
   margin: 0;
   font-size: 13px;
   line-height: 1.6;
-  color: #333;
+  color: var(--ant-color-text);
   white-space: pre-wrap;
   word-break: break-word;
 }

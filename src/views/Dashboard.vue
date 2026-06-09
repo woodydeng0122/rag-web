@@ -129,12 +129,12 @@
             <svg :viewBox="`0 0 ${chartWidth} ${chartHeight}`" style="width: 100%; height: auto">
               <defs>
                 <linearGradient id="recallGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="#1677ff" stop-opacity="0.15" />
-                  <stop offset="100%" stop-color="#1677ff" stop-opacity="0" />
+                  <stop offset="0%" :stop-color="getCssVar('--ant-color-primary')" stop-opacity="0.15" />
+                  <stop offset="100%" :stop-color="getCssVar('--ant-color-primary')" stop-opacity="0" />
                 </linearGradient>
                 <linearGradient id="mrrGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="#52c41a" stop-opacity="0.12" />
-                  <stop offset="100%" stop-color="#52c41a" stop-opacity="0" />
+                  <stop offset="0%" :stop-color="getCssVar('--ant-color-success')" stop-opacity="0.12" />
+                  <stop offset="100%" :stop-color="getCssVar('--ant-color-success')" stop-opacity="0" />
                 </linearGradient>
               </defs>
 
@@ -145,7 +145,7 @@
                 :y1="chartPadding + (chartHeight - 2 * chartPadding) * (i - 1) / 4"
                 :x2="chartWidth - chartPadding"
                 :y2="chartPadding + (chartHeight - 2 * chartPadding) * (i - 1) / 4"
-                stroke="#f0f0f0"
+                :stroke="getCssVar('--ant-color-border-secondary')"
                 stroke-width="1"
               />
 
@@ -156,7 +156,7 @@
                 :y="chartPadding + (chartHeight - 2 * chartPadding) * (i - 1) / 4 + 4"
                 text-anchor="end"
                 font-size="11"
-                fill="#bbb"
+                :fill="getCssVar('--ant-color-text-quaternary')"
                 font-family="-apple-system, BlinkMacSystemFont, sans-serif"
               >
                 {{ (1 - (i - 1) / 4).toFixed(2) }}
@@ -165,11 +165,11 @@
               <polygon :points="recallAreaPoints" fill="url(#recallGradient)" />
               <polygon :points="mrrAreaPoints" fill="url(#mrrGradient)" />
 
-              <polyline :points="recallPoints" fill="none" stroke="#1677ff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-              <circle v-for="(p, i) in recallPointList" :key="`recall-${i}`" :cx="p.x" :cy="p.y" r="4.5" fill="#fff" stroke="#1677ff" stroke-width="2.5" />
+              <polyline :points="recallPoints" fill="none" :stroke="getCssVar('--ant-color-primary')" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+              <circle v-for="(p, i) in recallPointList" :key="`recall-${i}`" :cx="p.x" :cy="p.y" r="4.5" fill="var(--ant-color-bg-container)" :stroke="getCssVar('--ant-color-primary')" stroke-width="2.5" />
 
-              <polyline :points="mrrPoints" fill="none" stroke="#52c41a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-              <circle v-for="(p, i) in mrrPointList" :key="`mrr-${i}`" :cx="p.x" :cy="p.y" r="4.5" fill="#fff" stroke="#52c41a" stroke-width="2.5" />
+              <polyline :points="mrrPoints" fill="none" :stroke="getCssVar('--ant-color-success')" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+              <circle v-for="(p, i) in mrrPointList" :key="`mrr-${i}`" :cx="p.x" :cy="p.y" r="4.5" fill="var(--ant-color-bg-container)" :stroke="getCssVar('--ant-color-success')" stroke-width="2.5" />
 
               <text
                 v-for="(item, i) in sortedEvalHistory"
@@ -178,7 +178,7 @@
                 :y="chartHeight - 6"
                 text-anchor="middle"
                 font-size="11"
-                fill="#bbb"
+                :fill="getCssVar('--ant-color-text-quaternary')"
                 font-family="-apple-system, BlinkMacSystemFont, sans-serif"
               >
                 {{ formatShortDate(item.created_at) }}
@@ -210,7 +210,7 @@
                   :y1="chartPadding + (chartHeight - 2 * chartPadding) * (i - 1) / 4"
                   :x2="chartWidth - chartPadding"
                   :y2="chartPadding + (chartHeight - 2 * chartPadding) * (i - 1) / 4"
-                  stroke="#f0f0f0"
+                  :stroke="getCssVar('--ant-color-border-secondary')"
                   stroke-width="1"
                 />
 
@@ -221,7 +221,7 @@
                   :y="chartPadding + (chartHeight - 2 * chartPadding) * (i - 1) / 4 + 4"
                   text-anchor="end"
                   font-size="11"
-                  fill="#bbb"
+                  :fill="getCssVar('--ant-color-text-quaternary')"
                   font-family="-apple-system, BlinkMacSystemFont, sans-serif"
                 >
                   {{ (maxLatency * (1 - (i - 1) / 4)).toFixed(0) }}
@@ -229,7 +229,7 @@
 
                 <polygon :points="latencyAreaPoints" fill="url(#latencyGradient)" />
                 <polyline :points="latencyPoints" fill="none" stroke="#722ed1" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-                <circle v-for="(p, i) in latencyPointList" :key="`latency-${i}`" :cx="p.x" :cy="p.y" r="4.5" fill="#fff" stroke="#722ed1" stroke-width="2.5" />
+                <circle v-for="(p, i) in latencyPointList" :key="`latency-${i}`" :cx="p.x" :cy="p.y" r="4.5" fill="var(--ant-color-bg-container)" stroke="#722ed1" stroke-width="2.5" />
 
                 <text
                   v-for="(item, i) in sortedEvalHistory"
@@ -238,7 +238,7 @@
                   :y="chartHeight - 6"
                   text-anchor="middle"
                   font-size="11"
-                  fill="#bbb"
+                  :fill="getCssVar('--ant-color-text-quaternary')"
                   font-family="-apple-system, BlinkMacSystemFont, sans-serif"
                 >
                   {{ formatShortDate(item.created_at) }}
@@ -259,6 +259,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { FileOutlined, SearchOutlined, StarOutlined, HistoryOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons-vue'
 import { dayjs } from '@/utils/time'
+import { computePointList, pointsToString, areaPointsToString } from '@/utils/chart'
 import { usePageStore } from '@/store/page'
 import { useActiveProjectStore } from '@/store/activeProject'
 import { getEvaluationHistory } from '@/api/project'
@@ -317,55 +318,21 @@ const xStep = computed(() => {
   return n > 1 ? (chartWidth - 2 * chartPadding) / (n - 1) : 0
 })
 
-const recallPointList = computed(() => {
-  const points: { x: number; y: number }[] = []
-  const h = chartHeight - 2 * chartPadding
-  sortedEvalHistory.value.forEach((item, i) => {
-    points.push({
-      x: chartPadding + i * xStep.value,
-      y: chartPadding + h * (1 - item.recall_at_k),
-    })
-  })
-  return points
-})
-
-const mrrPointList = computed(() => {
-  const points: { x: number; y: number }[] = []
-  const h = chartHeight - 2 * chartPadding
-  sortedEvalHistory.value.forEach((item, i) => {
-    points.push({
-      x: chartPadding + i * xStep.value,
-      y: chartPadding + h * (1 - item.mrr),
-    })
-  })
-  return points
-})
-
-const recallPoints = computed(() =>
-  recallPointList.value.map(p => `${p.x},${p.y}`).join(' ')
+const recallPointList = computed(() =>
+  computePointList(sortedEvalHistory.value, item => item.recall_at_k, chartWidth, chartHeight, chartPadding, xStep.value)
 )
 
-const mrrPoints = computed(() =>
-  mrrPointList.value.map(p => `${p.x},${p.y}`).join(' ')
+const mrrPointList = computed(() =>
+  computePointList(sortedEvalHistory.value, item => item.mrr, chartWidth, chartHeight, chartPadding, xStep.value)
 )
 
-const recallAreaPoints = computed(() => {
-  const pts = recallPointList.value
-  if (pts.length === 0) return ''
-  const h = chartHeight - chartPadding
-  const first = pts[0]
-  const last = pts[pts.length - 1]
-  return `${first.x},${h} ${pts.map(p => `${p.x},${p.y}`).join(' ')} ${last.x},${h}`
-})
+const recallPoints = computed(() => pointsToString(recallPointList.value))
 
-const mrrAreaPoints = computed(() => {
-  const pts = mrrPointList.value
-  if (pts.length === 0) return ''
-  const h = chartHeight - chartPadding
-  const first = pts[0]
-  const last = pts[pts.length - 1]
-  return `${first.x},${h} ${pts.map(p => `${p.x},${p.y}`).join(' ')} ${last.x},${h}`
-})
+const mrrPoints = computed(() => pointsToString(mrrPointList.value))
+
+const recallAreaPoints = computed(() => areaPointsToString(recallPointList.value, chartHeight, chartPadding))
+
+const mrrAreaPoints = computed(() => areaPointsToString(mrrPointList.value, chartHeight, chartPadding))
 
 // 延迟图参数
 const maxLatency = computed(() => {
@@ -374,30 +341,17 @@ const maxLatency = computed(() => {
   return max > 0 ? max : 1
 })
 
-const latencyPointList = computed(() => {
-  const points: { x: number; y: number }[] = []
-  const h = chartHeight - 2 * chartPadding
-  sortedEvalHistory.value.forEach((item, i) => {
-    points.push({
-      x: chartPadding + i * xStep.value,
-      y: chartPadding + h * (1 - item.avg_latency_ms / maxLatency.value),
-    })
-  })
-  return points
-})
-
-const latencyPoints = computed(() =>
-  latencyPointList.value.map(p => `${p.x},${p.y}`).join(' ')
+const latencyPointList = computed(() =>
+  computePointList(sortedEvalHistory.value, item => item.avg_latency_ms / maxLatency.value, chartWidth, chartHeight, chartPadding, xStep.value)
 )
 
-const latencyAreaPoints = computed(() => {
-  const pts = latencyPointList.value
-  if (pts.length === 0) return ''
-  const h = chartHeight - chartPadding
-  const first = pts[0]
-  const last = pts[pts.length - 1]
-  return `${first.x},${h} ${pts.map(p => `${p.x},${p.y}`).join(' ')} ${last.x},${h}`
-})
+const latencyPoints = computed(() => pointsToString(latencyPointList.value))
+
+const latencyAreaPoints = computed(() => areaPointsToString(latencyPointList.value, chartHeight, chartPadding))
+
+function getCssVar(name: string): string {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+}
 
 function formatPercent(value: number) {
   return (value * 100).toFixed(2) + '%'

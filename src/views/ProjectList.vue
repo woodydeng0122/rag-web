@@ -95,7 +95,7 @@
             </a-button>
           </a-form-item>
         </a-form>
-        <p style="margin-top: 8px; font-size: 12px; color: #999">
+        <p style="margin-top: 8px; font-size: 12px; color: var(--ant-color-text-tertiary)">
           基于 top_k 截断已有检索结果，计算 recall@{top_k} 和 MRR
         </p>
       </div>
@@ -331,10 +331,16 @@ onMounted(fetchList)
 }
 .project-card--active {
   background: var(--ant-color-primary-bg);
-  border-left: 3px solid var(--ant-color-primary);
 }
-.project-card--active :deep(.ant-card-body) {
-  padding-left: 13px;
+.project-card--active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--ant-color-primary);
+  z-index: 1;
 }
 .active-tag {
   margin: 0;

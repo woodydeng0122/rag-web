@@ -5,22 +5,11 @@
   align-items: center;
   margin-bottom: 16px;
 }
-.toolbar-left {
-  display: flex;
-  align-items: center;
-}
-.toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+
 
 /* 表格卡片 */
 .table-card {
   border-radius: 10px;
-}
-.table-card :deep(.ant-card-body) {
-  padding: 0;
 }
 .table-card :deep(.ant-table-thead > tr > th) {
   font-weight: 500;

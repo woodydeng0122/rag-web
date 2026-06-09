@@ -152,14 +152,14 @@ watch(viewMode, async (mode) => {
 .embedding-label {
   font-size: 13px;
   font-weight: 600;
-  color: #595959;
+  color: var(--ant-color-text-secondary);
 }
 
 .embedding-dim {
   font-size: 11px;
-  color: #1677ff;
+  color: var(--ant-color-primary);
   font-family: ui-monospace, 'SF Mono', monospace;
-  background: #f0f5ff;
+  background: var(--ant-color-primary-bg);
   padding: 1px 6px;
   border-radius: 3px;
 }
@@ -173,7 +173,7 @@ watch(viewMode, async (mode) => {
   height: 64px;
   border-radius: 6px;
   display: block;
-  border: 1px solid #f0f0f0;
+  border: 1px solid var(--ant-color-border-secondary);
 }
 
 .heatmap-legend {
@@ -182,7 +182,7 @@ watch(viewMode, async (mode) => {
   gap: 6px;
   margin-top: 8px;
   font-size: 11px;
-  color: #8c8c8c;
+  color: var(--ant-color-text-tertiary);
   font-family: ui-monospace, 'SF Mono', monospace;
 }
 
@@ -206,13 +206,13 @@ watch(viewMode, async (mode) => {
   display: flex;
   gap: 16px;
   font-size: 12px;
-  color: #8c8c8c;
+  color: var(--ant-color-text-tertiary);
   margin-bottom: 8px;
   font-family: ui-monospace, 'SF Mono', monospace;
 }
 
 .raw-stats b {
-  color: #333;
+  color: var(--ant-color-text);
 }
 
 .raw-grid {
@@ -227,6 +227,6 @@ watch(viewMode, async (mode) => {
   padding: 2px 4px;
   border-radius: 2px;
   line-height: 1.4;
-  color: #333;
+  color: var(--ant-color-text);
 }
 </style>

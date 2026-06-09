@@ -44,8 +44,8 @@
         <div class="logo" @click="router.push('/dashboard')">
           <div class="logo-icon">
             <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
-              <rect width="32" height="32" rx="8" fill="#1677ff" />
-              <path d="M10 11h12M10 16h8M10 21h10" stroke="#fff" stroke-width="2" stroke-linecap="round" />
+              <rect width="32" height="32" rx="8" fill="var(--ant-color-primary)" />
+              <path d="M10 11h12M10 16h8M10 21h10" stroke="var(--ant-color-text-light-solid)" stroke-width="2" stroke-linecap="round" />
             </svg>
           </div>
           <span v-show="!collapsed" class="logo-text">RAG 管理端</span>
@@ -352,6 +352,15 @@ function handleRefresh() {
 }
 .side-menu :deep(.ant-menu-item:hover .anticon) {
   color: rgba(255, 255, 255, 1) !important;
+}
+.side-menu :deep(.ant-menu-item-selected) {
+  background: rgba(22, 119, 255, 0.18) !important;
+  color: var(--ant-color-text-light-solid) !important;
+  box-shadow: inset 3px 0 0 var(--ant-color-primary);
+  transition: box-shadow 0.2s cubic-bezier(0.2, 0, 0, 1), background 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+.side-menu :deep(.ant-menu-item-selected .anticon) {
+  color: var(--ant-color-text-light-solid) !important;
 }
 
 .trigger {

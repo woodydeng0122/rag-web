@@ -8,7 +8,7 @@
     <template v-else>
     <!-- 工具栏 -->
     <div class="toolbar">
-      <div class="toolbar-left">
+      <a-space>
         <a-select v-model:value="filterStatus" placeholder="状态筛选" class="filter-select" @change="onFilter" allow-clear>
           <a-select-option value="">全部状态</a-select-option>
           <a-select-option value="ready">已完成</a-select-option>
@@ -18,8 +18,8 @@
           <a-select-option value="chunking">分块中</a-select-option>
           <a-select-option value="embedding">向量化中</a-select-option>
         </a-select>
-      </div>
-      <div class="toolbar-right">
+      </a-space>
+      <a-space :size="8">
         <a-button @click="handleBatchProcess" :disabled="selectedRowKeys.length === 0 || batchProcessing" :loading="batchProcessing">
           <template #icon><play-circle-outlined /></template>
           批量处理 ({{ selectedRowKeys.length }})
@@ -29,11 +29,11 @@
           <template #icon><upload-outlined /></template>
           上传文档
         </a-button>
-      </div>
+      </a-space>
     </div>
 
     <!-- 数据表格 -->
-    <a-card :bordered="false" class="table-card">
+    <a-card :bordered="false" class="table-card" :body-style="{ padding: 0 }">
       <a-spin :spinning="loading">
         <a-table
           :columns="columns"
@@ -696,7 +696,7 @@ watch(() => pageStore.refreshTrigger, fetchList)
 .type-cell {
   font-family: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
   font-size: 12px;
-  color: #888;
+  color: var(--ant-color-text-tertiary);
   text-transform: uppercase;
 }
 

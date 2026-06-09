@@ -1,18 +1,18 @@
 <template>
   <div class="embed-model-config">
     <div class="toolbar">
-      <div class="toolbar-left">
+      <a-space>
         <h2 class="page-title">嵌入模型配置</h2>
-      </div>
-      <div class="toolbar-right">
+      </a-space>
+      <a-space :size="8">
         <a-button type="primary" @click="handleCreate">
           <template #icon><plus-outlined /></template>
           新增模型
         </a-button>
-      </div>
+      </a-space>
     </div>
 
-    <a-card :bordered="false" class="table-card">
+    <a-card :bordered="false" class="table-card" :body-style="{ padding: 0 }">
       <a-spin :spinning="store.loading">
         <a-empty v-if="!store.loading && store.models.length === 0" description="暂无模型，请新增或刷新状态" />
 
@@ -249,6 +249,6 @@ watch(() => pageStore.refreshTrigger, () => store.fetchModels(true))
 
 .model-name {
   font-family: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
-  font-size: 13px;
+  font-size: var(--ant-font-size);
 }
 </style>
