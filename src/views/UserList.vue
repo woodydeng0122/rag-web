@@ -74,7 +74,7 @@ import { PlusOutlined } from '@ant-design/icons-vue'
 import PageToolbar from '@/components/PageToolbar.vue'
 import { listUsers, createUser, updateUser, deleteUser, type UserInfo } from '@/api/user'
 import { useUserStore } from '@/store/user'
-import { formatRelativeTime } from '@/utils/time'
+import { formatTime } from '@/utils/time'
 
 const userStore = useUserStore()
 const currentUserId = computed(() => userStore.userInfo?.id || '')
@@ -146,9 +146,7 @@ async function handleDelete(record: UserInfo) {
   await fetchUsers()
 }
 
-function formatTime(t: string): string {
-  return formatRelativeTime(t)
-}
+// 删除
 
 async function fetchUsers() {
   loading.value = true

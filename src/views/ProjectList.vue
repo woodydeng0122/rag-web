@@ -22,13 +22,17 @@
               <bar-chart-outlined @click.stop="handleEvaluation(project)" title="评估统计" />
               <edit-outlined @click.stop="handleEdit(project)" />
               <delete-outlined @click.stop="handleDelete(project)" />
-              <a-tag v-if="isActive(project.id)" color="blue" class="active-tag">当前项目</a-tag>
-              <thunderbolt-outlined v-else @click.stop="handleActivate(project)" title="激活项目" />
             </template>
-            <a-card-meta :title="project.name" :description="project.description || '暂无描述'" />
-            <div style="margin-top: 12px; display: flex; align-items: center; justify-content: space-between">
+            <a-card-meta>
+              <template #title>
+                <span>{{ project.name }}</span>
+                <a-tag color="default" style="margin-left: 8px; font-size: 12px">{{ formatTime(project.created_at) }}</a-tag>
+                <a-tag v-if="isActive(project.id)" color="blue" style="margin-left: 4px">激活</a-tag>
+              </template>
+              <template #description>{{ project.description || '暂无描述' }}</template>
+            </a-card-meta>
+            <div style="margin-top: 12px">
               <a-tag color="default">{{ project.embed_model_name || '未知模型' }}</a-tag>
-              <span style="font-size: 12px; color: var(--ant-color-text-tertiary)">{{ formatTime(project.created_at) }}</span>
             </div>
           </a-card>
         </a-col>
@@ -243,7 +247,14 @@ function handleEdit(project: ProjectItem) {
 }
 
 function handleView(project: ProjectItem) {
-  goToDocuments(project)
+  if (isActive(project.id)) return
+  AModal.confirm({
+    title: '激活项目',
+    content: `确定要激活项目「${project.name}」吗？`,
+    onOk() {
+      return handleActivate(project)
+    },
+  })
 }
 
 async function handleActivate(project: ProjectItem) {
@@ -293,10 +304,6 @@ async function handleTriggerEvaluation() {
   } finally {
     evalLoading.value = false
   }
-}
-
-function goToDocuments(project: ProjectItem) {
-  router.push({ path: `/documents` })
 }
 
 function goToEvaluationHistory() {
