@@ -60,7 +60,7 @@
               <a-button v-if="record.chunk_count > 0" type="link" size="small" @click="handleViewChunks(record)">
                 {{ record.chunk_count }}
               </a-button>
-              <a-typography-text type="secondary">0</a-typography-text>
+              <a-typography-text v-else type="secondary">0</a-typography-text>
             </template>
 
             <!-- 黄金数据集 -->
@@ -86,7 +86,7 @@
             <!-- 操作 -->
             <template v-if="column.key === 'action'">
               <div class="action-cell">
-                <a-button size="small" type="primary" @click="handleProcess(record)" :loading="processingIds.includes(record.id)" :disabled="!canProcess(record.status)">
+                <a-button size="small" type="primary" @click="handleProcess(record)" :loading="processingIds.includes(record.id)" :disabled="['ready','embedding','chunking'].includes(record.status)">
                   处理
                 </a-button>
                 <a-button size="small" @click="handleViewDetail(record)">
@@ -258,13 +258,13 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { message, Modal as AModal } from 'ant-design-vue'
+import { message } from 'ant-design-vue'
 import { usePageStore } from '@/store/page'
 import { useActiveProjectStore } from '@/store/activeProject'
 import { formatTime, formatFullTime } from '@/utils/time'
-import { batchExecute } from '@/utils/batch'
-import { getStatusInfo, DOC_STATUS_MAP } from '@/utils/status'
 import { usePagination } from '@/composables/usePagination'
+import { useBatchProcess } from '@/composables/useBatchProcess'
+import { getStatusInfo, DOC_STATUS_MAP } from '@/utils/status'
 import {
   UploadOutlined,
   InboxOutlined,
@@ -308,7 +308,27 @@ const columns = [
 
 const selectedRowKeys = ref<string[]>([])
 const processingIds = ref<string[]>([])
-const batchProcessing = ref(false)
+
+const { batchProcessing, handleBatchProcess } = useBatchProcess({
+  selectedRowKeys: () => selectedRowKeys.value,
+  setSelectedRowKeys: (keys) => { selectedRowKeys.value = keys },
+  canProcess: (id) => {
+    const doc = documents.value.find(d => d.id === id)
+    return doc ? !['ready', 'embedding', 'chunking'].includes(doc.status) : false
+  },
+  action: (id) => processDocument(projectId.value, id),
+  skipLabel: '已处理',
+  onBatchComplete: (results) => {
+    for (const r of results) {
+      const doc = documents.value.find(d => d.id === r.id)
+      if (doc) {
+        doc.status = r.status
+        doc.chunk_count = r.chunk_count
+        doc.error_message = r.error_message
+      }
+    }
+  },
+})
 
 const filteredDocuments = computed(() => {
   if (!filterStatus.value) return documents.value
@@ -421,10 +441,6 @@ function fileTypeColor(fileType?: string) {
   return 'default'
 }
 
-function canProcess(status: string) {
-  return !['ready', 'embedding', 'chunking'].includes(status)
-}
-
 async function fetchList() {
   if (!projectId.value) return
   loading.value = true
@@ -490,42 +506,6 @@ function handleDelete(id: string) {
     .catch(() => {
       message.error('删除失败')
     })
-}
-
-function handleBatchProcess() {
-  const readyIds = selectedRowKeys.value.filter(id => {
-    const doc = documents.value.find(d => d.id === id)
-    return doc?.status === 'ready'
-  })
-  const processableIds = selectedRowKeys.value.filter(id => !readyIds.includes(id))
-
-  if (processableIds.length === 0) {
-    message.info('选中的文档均已处理')
-    return
-  }
-
-  const skipHint = readyIds.length > 0 ? `（跳过 ${readyIds.length} 个已处理文档）` : ''
-  AModal.confirm({
-    title: '批量处理',
-    content: `确定要处理选中的 ${processableIds.length} 个文档吗？${skipHint}`,
-    onOk() {
-      batchProcessing.value = true
-
-      void (async () => {
-        const succeeded = await batchExecute(
-          processableIds,
-          id => processDocument(projectId.value, id),
-          { label: '批量处理' },
-        )
-        selectedRowKeys.value = selectedRowKeys.value.filter(k => !succeeded.includes(k))
-        batchProcessing.value = false
-        await fetchList()
-      })()
-    },
-    onCancel() {
-      // 用户取消，不做任何操作
-    },
-  })
 }
 
 // Upload

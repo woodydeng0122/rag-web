@@ -3,7 +3,7 @@
     <div class="login-card">
       <div class="login-header">
         <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" width="36" height="36">
-          <rect width="32" height="32" rx="8" fill="#1677ff" />
+          <rect width="32" height="32" rx="8" fill="#0891B2" />
           <path d="M10 11h12M10 16h8M10 21h10" stroke="#fff" stroke-width="2" stroke-linecap="round" />
         </svg>
         <h1 class="login-title">RAG 管理端</h1>

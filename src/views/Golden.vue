@@ -23,7 +23,7 @@
       </a-button>
       <a-button :disabled="selectedRowKeys.length === 0" :loading="batchRetrieving" @click="handleBatchRetrieve">
         <template #icon><search-outlined /></template>
-        批量检索 ({{ batchRetrieving ? batchRemaining : selectedRowKeys.length }})
+        批量检索 ({{ selectedRowKeys.length }})
       </a-button>
       <a-button @click="importModalVisible = true">
         <template #icon><upload-outlined /></template>
@@ -47,14 +47,8 @@
         :pagination="paginationConfig"
         size="middle"
         :scroll="{ x: 900 }"
-        :row-class-name="(record: GoldenItem) => record.status === 'rejected' ? 'row-rejected' : ''"
       >
         <template #bodyCell="{ column, record }">
-          <!-- 状态 -->
-          <template v-if="column.key === 'status'">
-            <a-tag :color="getStatusInfo(GOLDEN_STATUS_MAP, record.status).color">{{ getStatusInfo(GOLDEN_STATUS_MAP, record.status).text }}</a-tag>
-          </template>
-
           <!-- 查询文本 -->
           <template v-if="column.key === 'query'">
             <span class="query-cell" :title="record.query">{{ record.query }}</span>
@@ -104,22 +98,6 @@
           <template v-if="column.key === 'action'">
             <div class="action-cell">
               <a-button size="small" @click="openDetailDrawer(record)">详情</a-button>
-              <a-button
-                v-if="record.status === 'pending_review'"
-                size="small"
-                type="primary"
-                @click="handleApprove(record)"
-              >
-                <template #icon><check-circle-outlined /></template>
-              </a-button>
-              <a-button
-                v-if="record.status === 'pending_review'"
-                size="small"
-                danger
-                @click="handleReject(record)"
-              >
-                <template #icon><close-circle-outlined /></template>
-              </a-button>
               <a-button size="small" @click="handleEdit(record)">编辑</a-button>
               <a-popconfirm title="确定删除此记录？" @confirm="handleDelete(record.id)">
                 <a-button size="small" danger>删除</a-button>
@@ -254,9 +232,6 @@
 >
   <template v-if="detailRecord">
     <a-descriptions :column="1" bordered size="small">
-      <a-descriptions-item label="状态">
-        <a-tag :color="getStatusInfo(GOLDEN_STATUS_MAP, detailRecord.status).color">{{ getStatusInfo(GOLDEN_STATUS_MAP, detailRecord.status).text }}</a-tag>
-      </a-descriptions-item>
       <a-descriptions-item label="查询文本">{{ detailRecord.query }}</a-descriptions-item>
       <a-descriptions-item label="关联分块">
         <div v-if="detailRecord.ground_truth_chunks?.length">
@@ -274,8 +249,6 @@
     </a-descriptions>
 
     <div class="detail-actions">
-      <a-button v-if="detailRecord.status === 'pending_review'" type="primary" @click="handleApprove(detailRecord); detailDrawerVisible = false">审批通过</a-button>
-      <a-button v-if="detailRecord.status === 'pending_review'" danger @click="handleReject(detailRecord); detailDrawerVisible = false">拒绝</a-button>
       <a-button @click="handleEdit(detailRecord); detailDrawerVisible = false">编辑</a-button>
     </div>
   </template>
@@ -356,19 +329,16 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { message, Modal as AModal } from 'ant-design-vue'
+import { message } from 'ant-design-vue'
 import { formatTime } from '@/utils/time'
-import { batchExecute } from '@/utils/batch'
 import { useCrudModal } from '@/composables/useCrudModal'
 import { usePagination } from '@/composables/usePagination'
+import { useBatchProcess } from '@/composables/useBatchProcess'
 import { usePageStore } from '@/store/page'
 import { useActiveProjectStore } from '@/store/activeProject'
-import { getStatusInfo, GOLDEN_STATUS_MAP } from '@/utils/status'
 import {
   PlusOutlined,
   DeleteOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined,
   UploadOutlined,
   SearchOutlined,
 } from '@ant-design/icons-vue'
@@ -400,7 +370,6 @@ const retrievalFilter = ref('')
 const selectedRowKeys = ref<string[]>([])
 
 const columns = [
-  { title: '状态', dataIndex: 'status', key: 'status', width: 90 },
   { title: '查询文本', dataIndex: 'query', key: 'query', ellipsis: true, width: 220 },
   { title: '关联分块', dataIndex: 'chunk_count', key: 'chunk_count', width: 100 },
   { title: '参考答案', dataIndex: 'reference_answer', key: 'reference_answer', ellipsis: true, width: 180 },
@@ -452,8 +421,27 @@ const retrievalLoading = ref(false)
 const retrievalMaxK = ref(10)
 
 // 批量检索
-const batchRetrieving = ref(false)
-const batchRemaining = ref(0)
+const { batchProcessing: batchRetrieving, handleBatchProcess: _handleBatchRetrieve } = useBatchProcess({
+  selectedRowKeys: () => selectedRowKeys.value,
+  setSelectedRowKeys: (keys) => { selectedRowKeys.value = keys },
+  canProcess: () => true,
+  action: (id) => createRetrieval(activeProjectStore.activeProjectId!, id, { max_k: 10 }),
+  label: '批量检索',
+  onBatchComplete: (results) => {
+    for (const r of results) {
+      const item = dataList.value.find(d => d.id === r.golden_id)
+      if (item) {
+        item.has_retrieval = true
+        const hitCount = r.items.filter(i => i.is_ground_truth).length
+        item.retrieval_summary = { hit_count: hitCount, gt_total: item.ground_truth_chunks.length }
+      }
+    }
+  },
+})
+
+function handleBatchRetrieve() {
+  _handleBatchRetrieve()
+}
 
 // GT 分块内容
 const gtChunks = ref<ChunkItem[]>([])
@@ -527,32 +515,6 @@ function handleReRetrieve() {
   retrievalResult.value = null
 }
 
-// 批量检索
-function handleBatchRetrieve() {
-  const ids = [...selectedRowKeys.value]
-  if (ids.length === 0) return
-
-  AModal.confirm({
-    title: '批量检索',
-    content: `确定要对选中的 ${ids.length} 条记录执行检索吗？（max_k = 10，已有结果将被覆盖）`,
-    onOk() {
-      batchRetrieving.value = true
-      batchRemaining.value = ids.length
-
-      void (async () => {
-        const succeeded = await batchExecute(
-          ids,
-          id => createRetrieval(activeProjectStore.activeProjectId!, id, { max_k: 10 }),
-          { label: '批量检索', onProgress: (r) => { batchRemaining.value = r } },
-        )
-        selectedRowKeys.value = selectedRowKeys.value.filter(k => !succeeded.includes(k))
-        batchRetrieving.value = false
-        await fetchList()
-      })()
-    },
-  })
-}
-
 function onSearch() {}
 
 async function fetchList() {
@@ -619,46 +581,19 @@ async function handleDelete(id: string) {
 }
 
 // 批量删除
+const { batchProcessing: batchDeleting, handleBatchProcess: _handleBatchDelete } = useBatchProcess({
+  selectedRowKeys: () => selectedRowKeys.value,
+  setSelectedRowKeys: (keys) => { selectedRowKeys.value = keys },
+  canProcess: () => true,
+  action: (id) => deleteGolden(activeProjectStore.activeProjectId!, id),
+  label: '批量删除',
+  onBatchComplete: (_results, batchSucceededIds) => {
+    dataList.value = dataList.value.filter(d => !batchSucceededIds.includes(d.id))
+  },
+})
+
 function handleBatchDelete() {
-  const ids = [...selectedRowKeys.value]
-  AModal.confirm({
-    title: '批量删除',
-    content: `确定要删除选中的 ${ids.length} 条记录吗？此操作不可恢复。`,
-    okType: 'danger',
-    onOk() {
-      void (async () => {
-        const succeeded = await batchExecute(
-          ids,
-          id => deleteGolden(activeProjectStore.activeProjectId!, id),
-          { label: '批量删除' },
-        )
-        selectedRowKeys.value = selectedRowKeys.value.filter(k => !succeeded.includes(k))
-        await fetchList()
-      })()
-    },
-  })
-}
-
-// 单条审批
-async function handleApprove(record: GoldenItem) {
-  try {
-    await updateGolden(activeProjectStore.activeProjectId!, record.id, { status: 'approved' })
-    message.success('审批通过')
-    await fetchList()
-  } catch {
-    message.error('审批失败')
-  }
-}
-
-// 单条拒绝
-async function handleReject(record: GoldenItem) {
-  try {
-    await updateGolden(activeProjectStore.activeProjectId!, record.id, { status: 'rejected' })
-    message.success('已拒绝')
-    await fetchList()
-  } catch {
-    message.error('操作失败')
-  }
+  _handleBatchDelete()
 }
 
 // 分块搜索
@@ -802,10 +737,6 @@ watch(importModalVisible, (val) => {
 }
 .search-input {
   width: 220px;
-}
-
-.table-card :deep(.ant-table-tbody > tr.row-rejected > td) {
-  opacity: 0.6;
 }
 
 .query-cell {

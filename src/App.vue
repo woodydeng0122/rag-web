@@ -19,10 +19,10 @@ const locale = ref(zhCN)
 const theme = {
   algorithm: antdTheme.defaultAlgorithm,
   token: {
-    colorPrimary: '#1677ff',
-    colorSuccess: '#52c41a',
-    colorWarning: '#faad14',
-    colorError: '#ff4d4f',
+    colorPrimary: '#0891B2',
+    colorSuccess: '#10B981',
+    colorWarning: '#F59E0B',
+    colorError: '#EF4444',
     borderRadius: 8,
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif',
@@ -35,10 +35,10 @@ const theme = {
       itemMarginInline: 0,
       itemMarginBlock: 2,
       itemHeight: 40,
-      itemSelectedBg: 'rgba(22, 119, 255, 0.38)',
-      itemSelectedColor: '#fff',
-      itemHoverBg: 'rgba(255, 255, 255, 0.08)',
-      itemHoverColor: '#fff',
+      itemSelectedBg: 'rgba(8, 145, 178, 0.08)',
+      itemSelectedColor: '#0891B2',
+      itemHoverBg: 'rgba(8, 145, 178, 0.04)',
+      itemHoverColor: '#0891B2',
     },
   },
 }
@@ -46,36 +46,44 @@ const theme = {
 
 <style>
 :root {
-  /* Color - Primary */
-  --ant-color-primary: #1677ff;
-  --ant-color-primary-bg: #e6f4ff;
-  --ant-color-primary-border: #91caff;
+  /* Color - Primary (Cyan/Teal) */
+  --ant-color-primary: #0891B2;
+  --ant-color-primary-bg: #ECFEFF;
+  --ant-color-primary-border: #67E8F9;
   /* Color - Success */
-  --ant-color-success: #52c41a;
-  --ant-color-success-bg: #f6ffed;
-  --ant-color-success-border: #b7eb8f;
+  --ant-color-success: #10B981;
+  --ant-color-success-bg: #ECFDF5;
+  --ant-color-success-border: #6EE7B7;
   /* Color - Warning */
-  --ant-color-warning: #faad14;
-  --ant-color-warning-bg: #fffbe6;
-  --ant-color-warning-border: #ffe58f;
+  --ant-color-warning: #F59E0B;
+  --ant-color-warning-bg: #FFFBEB;
+  --ant-color-warning-border: #FCD34D;
   /* Color - Error */
-  --ant-color-error: #ff4d4f;
-  --ant-color-error-bg: #fff2f0;
-  --ant-color-error-border: #ffccc7;
+  --ant-color-error: #EF4444;
+  --ant-color-error-bg: #FEF2F2;
+  --ant-color-error-border: #FCA5A5;
   /* Color - Text */
-  --ant-color-text: rgba(0, 0, 0, 0.88);
-  --ant-color-text-secondary: rgba(0, 0, 0, 0.65);
-  --ant-color-text-tertiary: rgba(0, 0, 0, 0.45);
-  --ant-color-text-quaternary: rgba(0, 0, 0, 0.25);
+  --ant-color-text: rgba(22, 78, 99, 0.92);
+  --ant-color-text-secondary: rgba(22, 78, 99, 0.62);
+  --ant-color-text-tertiary: rgba(22, 78, 99, 0.40);
+  --ant-color-text-quaternary: rgba(22, 78, 99, 0.22);
   --ant-color-text-light-solid: #fff;
   /* Color - BG */
   --ant-color-bg-container: #ffffff;
-  --ant-color-bg-layout: #f5f5f5;
+  --ant-color-bg-layout: #ffffff;
   /* Color - Border */
-  --ant-color-border: #d9d9d9;
-  --ant-color-border-secondary: #f0f0f0;
+  --ant-color-border: #D1E7E9;
+  --ant-color-border-secondary: #E5F2F3;
   /* Color - Fill */
-  --ant-color-fill-quaternary: rgba(0, 0, 0, 0.02);
+  --ant-color-fill-quaternary: rgba(8, 145, 178, 0.03);
+  /* Sidebar */
+  --sidebar-bg: #FAFCFC;
+  --sidebar-border: #E5F2F3;
+  --sidebar-text: rgba(22, 78, 99, 0.72);
+  --sidebar-text-hover: #0891B2;
+  --sidebar-text-active: #0891B2;
+  --sidebar-item-hover-bg: rgba(8, 145, 178, 0.06);
+  --sidebar-item-active-bg: rgba(8, 145, 178, 0.10);
   /* Font */
   --ant-font-size: 14px;
   --ant-font-size-sm: 12px;

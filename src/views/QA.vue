@@ -711,7 +711,7 @@ watch(() => activeProjectStore.activeProjectId, () => {
   width: 64px;
   height: 64px;
   border-radius: 16px;
-  background: linear-gradient(135deg, #1677ff 0%, #4096ff 100%);
+  background: linear-gradient(135deg, #0891B2 0%, #22D3EE 100%);
   display: flex;
   align-items: center;
   justify-content: center;

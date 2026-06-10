@@ -1,9 +1,9 @@
 import { message } from 'ant-design-vue'
 
-export interface BatchOptions {
+export interface BatchOptions<T = any> {
   concurrency?: number
   label?: string
-  onProgress?: (remaining: number) => void
+  onProgress?: (remaining: number, batchResults: T[], batchSucceededIds: string[]) => void
 }
 
 /**
@@ -13,10 +13,10 @@ export interface BatchOptions {
  * @param options 配置项
  * @returns 成功的 ID 列表
  */
-export async function batchExecute(
+export async function batchExecute<T = any>(
   ids: string[],
-  action: (id: string) => Promise<any>,
-  options: BatchOptions = {},
+  action: (id: string) => Promise<T>,
+  options: BatchOptions<T> = {},
 ): Promise<string[]> {
   const { concurrency = 2, onProgress } = options
   const remaining = [...ids]
@@ -27,15 +27,19 @@ export async function batchExecute(
   while (remaining.length > 0) {
     const batch = remaining.splice(0, concurrency)
     const results = await Promise.allSettled(batch.map(id => action(id)))
+    const batchResults: T[] = []
+    const batchSucceededIds: string[] = []
     for (let i = 0; i < results.length; i++) {
       if (results[i].status === 'fulfilled') {
         successCount++
         succeeded.push(batch[i])
+        batchResults.push(results[i].value)
+        batchSucceededIds.push(batch[i])
       } else {
         failCount++
       }
     }
-    onProgress?.(remaining.length)
+    onProgress?.(remaining.length, batchResults, batchSucceededIds)
   }
 
   const label = options.label ?? '操作'

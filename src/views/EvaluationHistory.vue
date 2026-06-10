@@ -12,15 +12,13 @@
 
     <a-card :bordered="false" class="table-card" :body-style="{ padding: 0 }">
       <a-spin :spinning="loading">
-        <a-empty v-if="!loading && history.length === 0" description="暂无评估记录，运行评估后历史记录将显示在此处" />
-
         <a-table
-          v-else
           :columns="columns"
           :data-source="history"
           :pagination="false"
           row-key="id"
           size="middle"
+          :locale="{ emptyText: '暂无评估记录，运行评估后历史记录将显示在此处' }"
         >
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'created_at'">

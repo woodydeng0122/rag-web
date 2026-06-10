@@ -36,8 +36,8 @@
           left: 0,
           top: 0,
           bottom: 0,
-          background: '#001529',
-          borderRight: '1px solid rgba(255, 255, 255, 0.06)',
+          background: 'var(--sidebar-bg)',
+          borderRight: '1px solid var(--sidebar-border)',
           overflow: 'hidden',
         }"
       >
@@ -300,7 +300,7 @@ function getCssVar(name: string): string {
 .app-loading__sider {
   width: 240px;
   flex-shrink: 0;
-  background: #001529;
+  background: var(--sidebar-bg);
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -356,7 +356,7 @@ function getCssVar(name: string): string {
 .logo-text {
   font-size: 15px;
   font-weight: 600;
-  color: #fff;
+  color: var(--ant-color-text);
   white-space: nowrap;
   letter-spacing: 0.02em;
 }
@@ -365,29 +365,31 @@ function getCssVar(name: string): string {
   background: transparent !important;
   border: none !important;
   padding: 8px;
-  color: rgba(255, 255, 255, 0.75) !important;
+  color: var(--sidebar-text) !important;
 }
 .side-menu :deep(.ant-menu-item) {
-  color: rgba(255, 255, 255, 0.75) !important;
+  color: var(--sidebar-text) !important;
 }
 .side-menu :deep(.ant-menu-item:hover) {
-  background: rgba(255, 255, 255, 0.08) !important;
-  color: rgba(255, 255, 255, 1) !important;
+  background: var(--sidebar-item-hover-bg) !important;
+  color: var(--sidebar-text-hover) !important;
 }
 .side-menu :deep(.ant-menu-item .anticon) {
-  color: rgba(255, 255, 255, 0.75) !important;
+  color: var(--sidebar-text) !important;
 }
 .side-menu :deep(.ant-menu-item:hover .anticon) {
-  color: rgba(255, 255, 255, 1) !important;
+  color: var(--sidebar-text-hover) !important;
 }
 .side-menu :deep(.ant-menu-item-selected) {
-  background: rgba(22, 119, 255, 0.18) !important;
-  color: var(--ant-color-text-light-solid) !important;
+  background: var(--sidebar-item-active-bg) !important;
+  color: var(--sidebar-text-active) !important;
+  font-weight: 500;
   box-shadow: inset 3px 0 0 var(--ant-color-primary);
+  border-radius: 0 8px 8px 0 !important;
   transition: box-shadow 0.2s cubic-bezier(0.2, 0, 0, 1), background 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
 .side-menu :deep(.ant-menu-item-selected .anticon) {
-  color: var(--ant-color-text-light-solid) !important;
+  color: var(--sidebar-text-active) !important;
 }
 
 .trigger {
@@ -477,6 +479,20 @@ function getCssVar(name: string): string {
 .site-content {
   padding: 24px 32px;
   flex: 1;
-  background: var(--ant-color-bg-layout);
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 19px,
+      rgba(8, 145, 178, 0.045) 19px,
+      rgba(8, 145, 178, 0.045) 20px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 19px,
+      rgba(8, 145, 178, 0.045) 19px,
+      rgba(8, 145, 178, 0.045) 20px
+    );
 }
 </style>
