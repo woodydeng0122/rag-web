@@ -384,9 +384,8 @@ function getCssVar(name: string): string {
   background: var(--sidebar-item-active-bg) !important;
   color: var(--sidebar-text-active) !important;
   font-weight: 500;
-  box-shadow: inset 3px 0 0 var(--ant-color-primary);
-  border-radius: 0 8px 8px 0 !important;
-  transition: box-shadow 0.2s cubic-bezier(0.2, 0, 0, 1), background 0.2s cubic-bezier(0.2, 0, 0, 1);
+  border-radius: 8px !important;
+  transition: background 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
 .side-menu :deep(.ant-menu-item-selected .anticon) {
   color: var(--sidebar-text-active) !important;

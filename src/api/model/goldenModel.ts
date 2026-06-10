@@ -62,6 +62,11 @@ export interface RetrievalResponse {
   latency_ms: number
   embed_latency_ms: number
   search_latency_ms: number
+  load_embeddings_latency_ms: number
+  load_project_latency_ms: number
+  load_embed_model_latency_ms: number
+  get_embedder_latency_ms: number
+  build_matrix_latency_ms: number
   embed_model_name: string
   created_at: string
   items: RetrievalItem[]

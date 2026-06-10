@@ -59,18 +59,6 @@
             <a-tag color="blue">{{ record.ground_truth_chunks?.length || 0 }} 个分块</a-tag>
           </template>
 
-          <!-- 参考答案 -->
-          <template v-if="column.key === 'reference_answer'">
-            <span class="answer-cell" :title="record.reference_answer">
-              {{ record.reference_answer ? (record.reference_answer.length > 40 ? record.reference_answer.slice(0, 40) + '...' : record.reference_answer) : '--' }}
-            </span>
-          </template>
-
-          <!-- 创建时间 -->
-          <template v-if="column.key === 'created_at'">
-            <span class="time-cell">{{ formatTime(record.created_at) }}</span>
-          </template>
-
           <!-- 检索 -->
           <template v-if="column.key === 'retrieval'">
             <template v-if="record.retrieval_summary">
@@ -94,6 +82,18 @@
             <a-button v-else size="small" type="link" @click="openRetrievalDrawer(record)">检索</a-button>
           </template>
 
+          <!-- 参考答案 -->
+          <template v-if="column.key === 'reference_answer'">
+            <span class="answer-cell" :title="record.reference_answer">
+              {{ record.reference_answer ? (record.reference_answer.length > 40 ? record.reference_answer.slice(0, 40) + '...' : record.reference_answer) : '--' }}
+            </span>
+          </template>
+
+          <!-- 创建时间 -->
+          <template v-if="column.key === 'created_at'">
+            <span class="time-cell">{{ formatTime(record.created_at) }}</span>
+          </template>
+
           <!-- 操作 -->
           <template v-if="column.key === 'action'">
             <div class="action-cell">
@@ -110,16 +110,12 @@
   </a-card>
 </template>
 
-<!-- 新增/编辑弹窗 -->
-<a-modal
+<!-- 新增/编辑 Drawer -->
+<a-drawer
   v-model:open="modalVisible"
   :title="isEdit ? '编辑黄金记录' : '新增黄金记录'"
-  :confirm-loading="submitLoading"
   width="50%"
-  ok-text="确认"
-  cancel-text="取消"
-  @ok="handleFormSubmit"
-  @cancel="modalVisible = false"
+  placement="right"
 >
   <a-form :model="formState" :label-col="{ span: 5 }" :wrapper-col="{ span: 18 }" style="padding-top: 16px">
     <a-form-item label="查询文本" required>
@@ -156,7 +152,11 @@
       <a-textarea v-model:value="formState.reference_answer" placeholder="请输入参考答案（选填）" :rows="3" :maxlength="2000" show-count />
     </a-form-item>
   </a-form>
-</a-modal>
+  <div class="drawer-footer">
+    <a-button style="margin-right: 8px" @click="modalVisible = false">取消</a-button>
+    <a-button type="primary" :loading="submitLoading" @click="handleFormSubmit">确认</a-button>
+  </div>
+</a-drawer>
 
 <!-- 上传弹窗 -->
 <a-modal
@@ -300,13 +300,18 @@
           <div class="retrieval-metrics">
             <a-tag>模型: {{ retrievalResult.embed_model_name || '--' }}</a-tag>
             <a-tag>总耗时: {{ retrievalResult.latency_ms }}ms</a-tag>
+            <a-tag>加载向量: {{ retrievalResult.load_embeddings_latency_ms }}ms</a-tag>
+            <a-tag>加载项目: {{ retrievalResult.load_project_latency_ms }}ms</a-tag>
+            <a-tag>加载模型: {{ retrievalResult.load_embed_model_latency_ms }}ms</a-tag>
+            <a-tag>获取Embedder: {{ retrievalResult.get_embedder_latency_ms }}ms</a-tag>
+            <a-tag>构建矩阵: {{ retrievalResult.build_matrix_latency_ms }}ms</a-tag>
             <a-tag>嵌入: {{ retrievalResult.embed_latency_ms }}ms</a-tag>
             <a-tag>检索: {{ retrievalResult.search_latency_ms }}ms</a-tag>
             <a-tag>max_k: {{ retrievalResult.max_k }}</a-tag>
             <a-tag color="green">命中GT: {{ retrievalResult.items.filter(i => i.is_ground_truth).length }}/{{ retrievalRecord.ground_truth_chunks?.length || 0 }}</a-tag>
           </div>
           <div class="retrieval-items">
-            <div v-for="(item, idx) in retrievalResult.items" :key="item.chunk_id" class="retrieval-item" :class="[idx % 2 === 0 ? 'retrieval-item--even' : 'retrieval-item--odd', { 'retrieval-item-hit': item.is_ground_truth }]">
+            <div v-for="(item, idx) in retrievalResult.items" :key="item.chunk_id" class="retrieval-item" :class="[idx % 2 === 0 ? 'retrieval-item--even' : 'retrieval-item--odd', { 'retrieval-item--hit': item.is_ground_truth }]">
               <div class="retrieval-item-header">
                 <span class="retrieval-item-rank">#{{ item.rank }}</span>
                 <span class="retrieval-item-score">score: {{ item.score.toFixed(4) }}</span>
@@ -372,9 +377,9 @@ const selectedRowKeys = ref<string[]>([])
 const columns = [
   { title: '查询文本', dataIndex: 'query', key: 'query', ellipsis: true, width: 220 },
   { title: '关联分块', dataIndex: 'chunk_count', key: 'chunk_count', width: 100 },
+  { title: '检索', key: 'retrieval', width: 90 },
   { title: '参考答案', dataIndex: 'reference_answer', key: 'reference_answer', ellipsis: true, width: 180 },
   { title: '创建时间', dataIndex: 'created_at', key: 'created_at', width: 120 },
-  { title: '检索', key: 'retrieval', width: 90 },
   { title: '操作', key: 'action', fixed: 'right' as const, width: 180 },
 ]
 
@@ -791,6 +796,17 @@ watch(importModalVisible, (val) => {
   color: var(--ant-color-primary);
 }
 
+.drawer-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 10px 16px;
+  background: var(--ant-color-bg-container);
+  border-top: 1px solid var(--ant-color-border);
+  text-align: right;
+}
+
 /* 上传弹窗 */
 .import-modal-content {
   padding: 8px 0;
@@ -985,9 +1001,8 @@ watch(importModalVisible, (val) => {
   background: var(--ant-color-success-bg);
   border: 1px solid var(--ant-color-success-border);
 }
-.retrieval-item-hit {
-  border-color: var(--ant-color-success-border);
-  background: var(--ant-color-success-bg);
+.retrieval-item--hit {
+  border-left: 3px solid var(--ant-color-success);
 }
 .retrieval-item-header {
   display: flex;

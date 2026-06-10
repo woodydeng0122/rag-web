@@ -446,7 +446,7 @@ async function fetchList() {
   loading.value = true
   try {
     const res = await getDocumentList(projectId.value)
-    documents.value = res || []
+    documents.value = res?.documents ?? []
   } catch {
     message.error('获取文档列表失败')
   } finally {
