@@ -19,3 +19,7 @@ export const getChunksByIds = (projectId: string, chunkIds: string[]) =>
 /** 查询分块关联的黄金记录 */
 export const getChunkGoldenRecords = (projectId: string, chunkId: string) =>
   get<GoldenItem[]>({ url: `/projects/${projectId}/chunks/${chunkId}/golden-records` })
+
+/** 统计项目下的分块总数 */
+export const getChunkCount = (projectId: string) =>
+  get<{ count: number }>({ url: `/projects/${projectId}/chunks/count` })

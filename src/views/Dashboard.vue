@@ -3,23 +3,28 @@
     <template v-if="activeProjectStore.hasActiveProject">
       <!-- 概览 -->
       <a-card title="概览" :bordered="false">
-        <a-row :gutter="[20, 20]">
-          <a-col :span="6">
+        <a-row :gutter="[20, 20]" type="flex" justify="space-between">
+          <a-col :flex="1">
             <a-statistic title="文档总数" :value="docCount" suffix="篇" :loading="loading">
               <template #prefix><file-outlined /></template>
             </a-statistic>
           </a-col>
-          <a-col :span="6">
+          <a-col :flex="1">
+            <a-statistic title="Chunk 数据量" :value="chunkCount" suffix="条" :loading="chunkLoading">
+              <template #prefix><block-outlined /></template>
+            </a-statistic>
+          </a-col>
+          <a-col :flex="1">
             <a-statistic title="黄金数据集" :value="goldenCount" suffix="条" :loading="goldenLoading">
               <template #prefix><star-outlined /></template>
             </a-statistic>
           </a-col>
-          <a-col :span="6">
+          <a-col :flex="1">
             <a-statistic title="评估历史" :value="evalCount" suffix="次" :loading="evalLoading">
               <template #prefix><history-outlined /></template>
             </a-statistic>
           </a-col>
-          <a-col :span="6">
+          <a-col :flex="1">
             <a-statistic title="今日查询" value="--" suffix="次">
               <template #prefix><search-outlined /></template>
             </a-statistic>
@@ -223,7 +228,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { FileOutlined, SearchOutlined, StarOutlined, HistoryOutlined } from '@ant-design/icons-vue'
+import { FileOutlined, SearchOutlined, StarOutlined, HistoryOutlined, BlockOutlined } from '@ant-design/icons-vue'
 import { dayjs } from '@/utils/time'
 import { computePointList, pointsToString, areaPointsToString } from '@/utils/chart'
 import { usePageStore } from '@/store/page'
@@ -231,6 +236,7 @@ import { useActiveProjectStore } from '@/store/activeProject'
 import { getEvaluationHistory } from '@/api/project'
 import { getDocumentList } from '@/api/document'
 import { getGoldenList } from '@/api/golden'
+import { getChunkCount } from '@/api/chunk'
 import type { EvaluationStatsResult } from '@/api/model/projectModel'
 import type { DocumentItem } from '@/api/model/documentModel'
 import MetricCard from '@/components/MetricCard.vue'
@@ -241,6 +247,8 @@ const pageStore = usePageStore()
 const activeProjectStore = useActiveProjectStore()
 const loading = ref(false)
 const docs = ref<DocumentItem[]>([])
+const chunkLoading = ref(false)
+const chunkCount = ref(0)
 const goldenLoading = ref(false)
 const goldenCount = ref(0)
 
@@ -368,6 +376,20 @@ async function fetchGoldenData() {
   }
 }
 
+async function fetchChunkData() {
+  const pid = activeProjectStore.activeProjectId
+  if (!pid) return
+  chunkLoading.value = true
+  try {
+    const res = await getChunkCount(pid)
+    chunkCount.value = res?.count ?? 0
+  } catch {
+    chunkCount.value = 0
+  } finally {
+    chunkLoading.value = false
+  }
+}
+
 async function fetchProjectData() {
   const pid = activeProjectStore.activeProjectId
   if (!pid) return
@@ -384,6 +406,7 @@ async function fetchProjectData() {
 
 function fetchAllData() {
   fetchProjectData()
+  fetchChunkData()
   fetchGoldenData()
   fetchEvalData()
 }
@@ -400,6 +423,7 @@ watch(() => activeProjectStore.activeProjectId, (newId) => {
   if (newId) fetchAllData()
   else {
     docs.value = []
+    chunkCount.value = 0
     goldenCount.value = 0
     evalHistory.value = []
   }
