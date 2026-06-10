@@ -32,9 +32,15 @@ export async function askStream(
   const baseURL = instance.defaults.baseURL || ''
   const url = `${baseURL}/projects/${projectId}/qa/sessions/${sessionId}/ask`
 
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  const token = localStorage.getItem('rag_access_token')
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
+
   const response = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(params),
   })
 
