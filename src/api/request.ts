@@ -9,8 +9,14 @@ const instance = axios.create({
 
 export default instance
 
-// 请求拦截
+const TOKEN_KEY = 'rag_access_token'
+
+// 请求拦截 — 附加 Bearer token
 instance.interceptors.request.use((config) => {
+  const token = localStorage.getItem(TOKEN_KEY)
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
   return config
 })
 
@@ -31,6 +37,11 @@ instance.interceptors.response.use(
     return result
   },
   (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem(TOKEN_KEY)
+      window.location.href = '/login'
+      return Promise.reject(error)
+    }
     const data = error.response?.data
     const msg = data?.message || data?.detail || error.message || '请求失败'
     message.error(msg)

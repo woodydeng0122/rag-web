@@ -110,10 +110,16 @@
             <span v-else class="no-active-project">未选择项目</span>
           </div>
           <div class="header-right">
-
             <a-button @click="handleRefresh" style="margin-right: 8px">
               <template #icon><reload-outlined /></template>
               刷新
+            </a-button>
+            <span class="header-username">
+              <user-outlined style="margin-right: 4px" />
+              {{ userStore.userInfo?.username || '' }}
+            </span>
+            <a-button type="text" size="small" @click="handleLogout" style="margin-left: 8px">
+              <template #icon><logout-outlined /></template>
             </a-button>
           </div>
         </a-layout-header>
@@ -131,6 +137,7 @@ import { ref, computed, h, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { usePageStore } from '@/store/page'
 import { useActiveProjectStore } from '@/store/activeProject'
+import { useUserStore } from '@/store/user'
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -143,6 +150,8 @@ import {
   BarChartOutlined,
   HomeOutlined,
   MessageOutlined,
+  UserOutlined,
+  LogoutOutlined,
 } from '@ant-design/icons-vue'
 import type { MenuProps } from 'ant-design-vue'
 
@@ -151,6 +160,10 @@ const route = useRoute()
 const collapsed = ref(false)
 const pageStore = usePageStore()
 const activeProjectStore = useActiveProjectStore()
+const userStore = useUserStore()
+
+// 初始化用户信息
+userStore.fetchUserInfo()
 
 const selectedKeys = ref<string[]>(['/dashboard'])
 
@@ -207,6 +220,11 @@ const menuItems = computed<MenuProps['items']>(() => [
     icon: () => h(RobotOutlined),
     label: '模型配置',
   },
+  {
+    key: '/users',
+    icon: () => h(UserOutlined),
+    label: '用户管理',
+  },
 ])
 
 interface BreadcrumbItem {
@@ -256,6 +274,11 @@ function handleMenuClick({ key }: { key: string }) {
 
 function handleRefresh() {
   pageStore.triggerRefresh()
+}
+
+function handleLogout() {
+  userStore.logout()
+  router.push('/login')
 }
 
 function getCssVar(name: string): string {
@@ -423,6 +446,12 @@ function getCssVar(name: string): string {
   color: var(--ant-color-text-quaternary);
 }
 .header-right {
+  display: flex;
+  align-items: center;
+}
+.header-username {
+  font-size: 14px;
+  color: var(--ant-color-text-secondary);
   display: flex;
   align-items: center;
 }

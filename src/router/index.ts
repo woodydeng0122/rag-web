@@ -4,6 +4,12 @@ import BasicLayout from '@/layouts/BasicLayout.vue'
 
 const routes: RouteRecordRaw[] = [
   {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/Login.vue'),
+    meta: { title: '登录', public: true },
+  },
+  {
     path: '/',
     component: BasicLayout,
     redirect: '/dashboard',
@@ -56,6 +62,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/EmbedModelConfig.vue'),
         meta: { title: '模型配置' },
       },
+      {
+        path: 'users',
+        name: 'Users',
+        component: () => import('@/views/UserList.vue'),
+        meta: { title: '用户管理' },
+      },
     ],
   },
 ]
@@ -63,4 +75,26 @@ const routes: RouteRecordRaw[] = [
 export const router = createRouter({
   history: createWebHistory(),
   routes,
+})
+
+const TOKEN_KEY = 'rag_access_token'
+
+router.beforeEach((to, _from, next) => {
+  const token = localStorage.getItem(TOKEN_KEY)
+
+  if (to.meta.public) {
+    // 已登录访问登录页，跳转首页
+    if (token && to.name === 'Login') {
+      next({ path: '/dashboard' })
+    } else {
+      next()
+    }
+  } else {
+    // 未登录访问受保护页面，跳转登录页
+    if (!token) {
+      next({ path: '/login', query: { redirect: to.fullPath } })
+    } else {
+      next()
+    }
+  }
 })
