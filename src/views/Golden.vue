@@ -21,6 +21,12 @@
         <template #icon><delete-outlined /></template>
         批量删除 ({{ selectedRowKeys.length }})
       </a-button>
+      <a-select v-model:value="batchRetrievalStrategy" placeholder="检索策略" class="strategy-select">
+        <a-select-option value="hybrid">Hybrid (向量+BM25)</a-select-option>
+        <a-select-option value="vector">Vector (pgvector)</a-select-option>
+        <a-select-option value="cosine">Cosine (内存暴力)</a-select-option>
+        <a-select-option value="bm25">BM25 (全文检索)</a-select-option>
+      </a-select>
       <a-button :disabled="selectedRowKeys.length === 0" :loading="batchRetrieving" @click="handleBatchRetrieve">
         <template #icon><search-outlined /></template>
         批量检索 ({{ selectedRowKeys.length }})
@@ -304,6 +310,15 @@
       <template #right>
         <div v-if="!retrievalResult" class="retrieval-params">
           <div class="retrieval-param-row">
+            <span class="retrieval-param-label">策略</span>
+            <a-select v-model:value="retrievalStrategy" style="width: 180px">
+              <a-select-option value="hybrid">Hybrid (向量+BM25)</a-select-option>
+              <a-select-option value="vector">Vector (pgvector)</a-select-option>
+              <a-select-option value="cosine">Cosine (内存暴力)</a-select-option>
+              <a-select-option value="bm25">BM25 (全文检索)</a-select-option>
+            </a-select>
+          </div>
+          <div class="retrieval-param-row">
             <span class="retrieval-param-label">max_k</span>
             <a-input-number v-model:value="retrievalMaxK" :min="1" :max="100" style="width: 120px" />
           </div>
@@ -376,7 +391,7 @@ import {
   getRetrieval,
 } from '@/api/golden'
 import { searchProjectChunks, getChunksByIds } from '@/api/chunk'
-import type { GoldenItem, CreateGoldenParams, ImportResult, RetrievalResponse } from '@/api/model/goldenModel'
+import type { GoldenItem, CreateGoldenParams, ImportResult, RetrievalResponse, RetrievalStrategy } from '@/api/model/goldenModel'
 import type { ChunkItem } from '@/api/model/documentModel'
 import ChunkCard from '@/components/ChunkCard.vue'
 import NoProjectPrompt from '@/components/NoProjectPrompt.vue'
@@ -443,13 +458,15 @@ const retrievalRecord = ref<GoldenItem | null>(null)
 const retrievalResult = ref<RetrievalResponse | null>(null)
 const retrievalLoading = ref(false)
 const retrievalMaxK = ref(10)
+const retrievalStrategy = ref<RetrievalStrategy>('hybrid')
+const batchRetrievalStrategy = ref<RetrievalStrategy>('hybrid')
 
 // 批量检索
 const { batchProcessing: batchRetrieving, handleBatchProcess: _handleBatchRetrieve } = useBatchProcess({
   selectedRowKeys: () => selectedRowKeys.value,
   setSelectedRowKeys: (keys) => { selectedRowKeys.value = keys },
   canProcess: () => true,
-  action: (id) => createRetrieval(activeProjectStore.activeProjectId!, id, { max_k: 10 }),
+  action: (id) => createRetrieval(activeProjectStore.activeProjectId!, id, { max_k: 10, strategy: batchRetrievalStrategy.value }),
   label: '批量检索',
   onBatchComplete: (results) => {
     for (const r of results) {
@@ -481,6 +498,7 @@ async function openRetrievalDrawer(record: GoldenItem) {
   retrievalRecord.value = record
   retrievalResult.value = null
   retrievalMaxK.value = 10
+  retrievalStrategy.value = 'hybrid'
   retrievalLoading.value = false
   retrievalDrawerVisible.value = true
 
@@ -518,6 +536,7 @@ async function handleRetrieve() {
   try {
     const res = await createRetrieval(activeProjectStore.activeProjectId, retrievalRecord.value.id, {
       max_k: retrievalMaxK.value,
+      strategy: retrievalStrategy.value,
     })
     retrievalResult.value = res
     // 更新列表中的检索状态
@@ -770,6 +789,9 @@ watch(importModalVisible, (val) => {
 }
 .search-input {
   width: 220px;
+}
+.strategy-select {
+  width: 180px;
 }
 
 .query-cell {

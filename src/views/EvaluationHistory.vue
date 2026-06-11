@@ -24,6 +24,9 @@
             <template v-if="column.key === 'created_at'">
               <span class="cell-time">{{ formatDateTime(record.created_at) }}</span>
             </template>
+            <template v-else-if="column.key === 'strategy'">
+              <a-tag :color="strategyTagColor(record.strategy)">{{ strategyLabel(record.strategy) }}</a-tag>
+            </template>
             <template v-else-if="column.key === 'recall_at_k'">
               <span class="cell-metric" :class="getMetricClass(record.recall_at_k)">
                 {{ record.recall_at_k.toFixed(4) }}
@@ -129,6 +132,7 @@ const history = ref<EvaluationStatsResult[]>([])
 
 const columns = [
   { title: '时间', dataIndex: 'created_at', key: 'created_at', width: 150 },
+  { title: '策略', dataIndex: 'strategy', key: 'strategy', width: 100 },
   { title: 'top_k', dataIndex: 'top_k', key: 'top_k', width: 70, align: 'center' as const },
   { title: 'Recall@k', dataIndex: 'recall_at_k', key: 'recall_at_k', width: 100, align: 'right' as const },
   { title: 'MRR', dataIndex: 'mrr', key: 'mrr', width: 90, align: 'right' as const },
@@ -152,6 +156,28 @@ function getMetricClass(value: number) {
   if (value >= 0.8) return 'metric-good'
   if (value >= 0.5) return 'metric-mid'
   return 'metric-low'
+}
+
+const STRATEGY_LABELS: Record<string, string> = {
+  hybrid: 'Hybrid',
+  vector: 'Vector',
+  cosine: 'Cosine',
+  bm25: 'BM25',
+}
+
+const STRATEGY_COLORS: Record<string, string> = {
+  hybrid: 'purple',
+  vector: 'blue',
+  cosine: 'cyan',
+  bm25: 'orange',
+}
+
+function strategyLabel(strategy: string) {
+  return STRATEGY_LABELS[strategy] || strategy
+}
+
+function strategyTagColor(strategy: string) {
+  return STRATEGY_COLORS[strategy] || 'default'
 }
 
 async function fetchHistory() {

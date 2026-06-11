@@ -31,6 +31,7 @@ export interface EvaluationStatsResult {
   avg_latency_ms: number
   avg_embed_latency_ms: number
   avg_search_latency_ms: number
+  strategy: string
   embed_model_name: string
   remark: string
   created_at: string

@@ -60,6 +60,7 @@ export interface RetrievalResponse {
   golden_id: string
   max_k: number
   latency_ms: number
+  strategy: string
   embed_latency_ms: number
   search_latency_ms: number
   load_embeddings_latency_ms: number
@@ -72,7 +73,11 @@ export interface RetrievalResponse {
   items: RetrievalItem[]
 }
 
+/** 检索策略 */
+export type RetrievalStrategy = 'cosine' | 'vector' | 'bm25' | 'hybrid'
+
 /** 触发检索请求参数 */
 export interface CreateRetrievalParams {
   max_k: number
+  strategy?: RetrievalStrategy
 }
