@@ -21,13 +21,7 @@
         <template #icon><delete-outlined /></template>
         批量删除 ({{ selectedRowKeys.length }})
       </a-button>
-      <a-select v-model:value="batchRetrievalStrategy" placeholder="检索策略" class="strategy-select">
-        <a-select-option value="hybrid">Hybrid (向量+BM25)</a-select-option>
-        <a-select-option value="vector">Vector (pgvector)</a-select-option>
-        <a-select-option value="cosine">Cosine (内存暴力)</a-select-option>
-        <a-select-option value="bm25">BM25 (全文检索)</a-select-option>
-      </a-select>
-      <a-button :disabled="selectedRowKeys.length === 0" :loading="batchRetrieving" @click="handleBatchRetrieve">
+      <a-button :disabled="selectedRowKeys.length === 0" :loading="batchRetrieving" @click="batchRetrieveModalVisible = true">
         <template #icon><search-outlined /></template>
         批量检索 ({{ selectedRowKeys.length }})
       </a-button>
@@ -229,6 +223,33 @@
   </div>
 </a-modal>
 
+<!-- 批量检索弹窗 -->
+<a-modal
+  v-model:open="batchRetrieveModalVisible"
+  title="批量检索"
+  ok-text="开始检索"
+  cancel-text="取消"
+  :confirm-loading="batchRetrieving"
+  @ok="handleBatchRetrieve"
+>
+  <a-form :label-col="{ span: 6 }" :wrapper-col="{ span: 16 }" style="margin-top: 16px">
+    <a-form-item label="检索策略" required>
+      <a-select v-model:value="batchRetrievalStrategy" placeholder="选择检索策略">
+        <a-select-option value="hybrid">Hybrid (向量+BM25)</a-select-option>
+        <a-select-option value="vector">Vector (pgvector)</a-select-option>
+        <a-select-option value="cosine">Cosine (内存暴力)</a-select-option>
+        <a-select-option value="bm25">BM25 (全文检索)</a-select-option>
+      </a-select>
+    </a-form-item>
+    <a-form-item label="max_k" required>
+      <a-input-number v-model:value="batchRetrievalMaxK" :min="1" :max="100" style="width: 100%" />
+    </a-form-item>
+    <a-form-item label="选中数量">
+      <span>{{ selectedRowKeys.length }} 条黄金记录</span>
+    </a-form-item>
+  </a-form>
+</a-modal>
+
 <!-- 详情 Drawer -->
 <a-drawer
   v-model:open="detailDrawerVisible"
@@ -330,6 +351,7 @@
         </div>
         <template v-if="retrievalResult">
           <div class="retrieval-metrics">
+            <a-tag color="purple">策略: {{ strategyLabel(retrievalResult.strategy) }}</a-tag>
             <a-tag>模型: {{ retrievalResult.embed_model_name || '--' }}</a-tag>
             <a-tag>总耗时: {{ retrievalResult.latency_ms }}ms</a-tag>
             <a-tag>加载向量: {{ retrievalResult.load_embeddings_latency_ms }}ms</a-tag>
@@ -372,6 +394,7 @@ import { formatTime } from '@/utils/time'
 import { useCrudModal } from '@/composables/useCrudModal'
 import { usePagination } from '@/composables/usePagination'
 import { useBatchProcess } from '@/composables/useBatchProcess'
+import { batchExecute } from '@/utils/batch'
 import { usePageStore } from '@/store/page'
 import { useActiveProjectStore } from '@/store/activeProject'
 import {
@@ -460,28 +483,38 @@ const retrievalLoading = ref(false)
 const retrievalMaxK = ref(10)
 const retrievalStrategy = ref<RetrievalStrategy>('hybrid')
 const batchRetrievalStrategy = ref<RetrievalStrategy>('hybrid')
+const batchRetrievalMaxK = ref(10)
+const batchRetrieveModalVisible = ref(false)
 
 // 批量检索
-const { batchProcessing: batchRetrieving, handleBatchProcess: _handleBatchRetrieve } = useBatchProcess({
-  selectedRowKeys: () => selectedRowKeys.value,
-  setSelectedRowKeys: (keys) => { selectedRowKeys.value = keys },
-  canProcess: () => true,
-  action: (id) => createRetrieval(activeProjectStore.activeProjectId!, id, { max_k: 10, strategy: batchRetrievalStrategy.value }),
-  label: '批量检索',
-  onBatchComplete: (results) => {
-    for (const r of results) {
-      const item = dataList.value.find(d => d.id === r.golden_id)
-      if (item) {
-        item.has_retrieval = true
-        const hitCount = r.items.filter(i => i.is_ground_truth).length
-        item.retrieval_summary = { hit_count: hitCount, gt_total: item.ground_truth_chunks.length }
-      }
-    }
-  },
-})
+const batchRetrieving = ref(false)
 
-function handleBatchRetrieve() {
-  _handleBatchRetrieve()
+async function handleBatchRetrieve() {
+  batchRetrieveModalVisible.value = false
+  const ids = [...selectedRowKeys.value]
+  if (ids.length === 0) return
+
+  batchRetrieving.value = true
+  const succeeded = await batchExecute(
+    ids,
+    (id) => createRetrieval(activeProjectStore.activeProjectId!, id, { max_k: batchRetrievalMaxK.value, strategy: batchRetrievalStrategy.value }),
+    {
+      label: '批量检索',
+      onProgress: (_remaining, batchResults, batchSucceededIds) => {
+        for (const r of batchResults) {
+          const item = dataList.value.find(d => d.id === r.golden_id)
+          if (item) {
+            item.has_retrieval = true
+            const hitCount = r.items.filter(i => i.is_ground_truth).length
+            item.retrieval_summary = { hit_count: hitCount, gt_total: item.ground_truth_chunks.length }
+          }
+        }
+        selectedRowKeys.value = selectedRowKeys.value.filter(k => !batchSucceededIds.includes(k))
+      },
+    },
+  )
+  selectedRowKeys.value = selectedRowKeys.value.filter(k => !succeeded.includes(k))
+  batchRetrieving.value = false
 }
 
 // GT 分块内容
@@ -556,6 +589,17 @@ async function handleRetrieve() {
 
 function handleReRetrieve() {
   retrievalResult.value = null
+}
+
+const STRATEGY_LABELS: Record<string, string> = {
+  hybrid: 'Hybrid',
+  vector: 'Vector',
+  cosine: 'Cosine',
+  bm25: 'BM25',
+}
+
+function strategyLabel(strategy: string) {
+  return STRATEGY_LABELS[strategy] || strategy
 }
 
 function onSearch() {}
@@ -789,9 +833,6 @@ watch(importModalVisible, (val) => {
 }
 .search-input {
   width: 220px;
-}
-.strategy-select {
-  width: 180px;
 }
 
 .query-cell {
