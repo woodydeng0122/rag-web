@@ -87,7 +87,7 @@
               <!-- 消息列表 -->
               <template v-for="msg in displayMessages" :key="msg.id">
                 <!-- 用户问题：右对齐 -->
-                <div class="qa-message-row qa-message-row--user">
+                <div v-if="msg.role === 'user'" class="qa-message-row qa-message-row--user">
                   <div class="qa-bubble qa-bubble--user">
                     {{ msg.content }}
                   </div>
@@ -120,43 +120,32 @@
                           <clock-circle-outlined />
                           {{ (msg.latency_ms / 1000).toFixed(1) }}s
                         </span>
-                        <span v-if="msg.chunks?.length" class="qa-meta-item">
+                        <span v-if="msg.chunks?.length" class="qa-meta-item qa-meta-item--clickable" @click="msg.sourcesExpanded = !msg.sourcesExpanded">
                           <file-search-outlined />
                           {{ msg.chunks.length }} 个引用
+                          <up-outlined v-if="msg.sourcesExpanded" />
+                          <down-outlined v-else />
                         </span>
                       </div>
 
                       <!-- 引用来源 -->
-                      <div v-if="msg.chunks?.length" class="qa-sources">
+                      <div v-if="msg.chunks?.length && msg.sourcesExpanded" class="qa-sources-list">
                         <div
-                          class="qa-sources-header"
-                          @click="msg.sourcesExpanded = !msg.sourcesExpanded"
+                          v-for="(chunk, idx) in msg.chunks"
+                          :key="chunk.chunk_id"
+                          class="qa-source-item"
                         >
-                          <span>
-                            <link-outlined />
-                            引用来源
-                          </span>
-                          <up-outlined v-if="msg.sourcesExpanded" />
-                          <down-outlined v-else />
-                        </div>
-                        <div v-show="msg.sourcesExpanded" class="qa-sources-list">
-                          <div
-                            v-for="(chunk, idx) in msg.chunks"
-                            :key="chunk.chunk_id"
-                            class="qa-source-item"
-                          >
-                            <div class="qa-source-header">
-                              <a-tag color="blue" size="small">#{{ idx + 1 }}</a-tag>
-                              <span class="qa-source-file">
-                                <file-text-outlined />
-                                {{ chunk.source_file }}
-                              </span>
-                              <span class="qa-source-score">
-                                相关度 {{ (chunk.score * 100).toFixed(1) }}%
-                              </span>
-                            </div>
-                            <div class="qa-source-content">{{ chunk.content }}</div>
+                          <div class="qa-source-header">
+                            <a-tag color="blue" size="small">#{{ idx + 1 }}</a-tag>
+                            <span class="qa-source-file">
+                              <file-text-outlined />
+                              {{ chunk.source_file }}
+                            </span>
+                            <span class="qa-source-score">
+                              相关度 {{ (chunk.score * 100).toFixed(1) }}%
+                            </span>
                           </div>
+                          <div class="qa-source-content">{{ chunk.content }}</div>
                         </div>
                       </div>
                     </template>
@@ -211,7 +200,6 @@ import {
   SendOutlined,
   ClockCircleOutlined,
   FileSearchOutlined,
-  LinkOutlined,
   UpOutlined,
   DownOutlined,
   FileTextOutlined,
@@ -841,34 +829,21 @@ watch(() => activeProjectStore.activeProjectId, () => {
   font-size: 12px;
   color: var(--ant-color-text-tertiary);
 }
-
-/* 引用来源 */
-.qa-sources {
-  margin-top: 12px;
-}
-.qa-sources-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 0;
-  font-size: 13px;
-  color: var(--ant-color-text-secondary);
+.qa-meta-item--clickable {
   cursor: pointer;
   user-select: none;
   transition: color 0.2s;
 }
-.qa-sources-header:hover {
+.qa-meta-item--clickable:hover {
   color: var(--ant-color-primary);
 }
-.qa-sources-header > span {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
+
+/* 引用来源 */
 .qa-sources-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  margin-top: 8px;
 }
 .qa-source-item {
   background: var(--ant-color-bg-container);

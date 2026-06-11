@@ -55,10 +55,30 @@
             <template v-else-if="column.key === 'embed_model_name'">
               <a-tag>{{ record.embed_model_name }}</a-tag>
             </template>
+            <template v-else-if="column.key === 'remark'">
+              <template v-if="editingId === record.id">
+                <a-input
+                  v-model:value="editingRemark"
+                  size="small"
+                  style="width: 100%"
+                  @pressEnter="saveRemark(record)"
+                />
+              </template>
+              <span v-else>{{ record.remark || '--' }}</span>
+            </template>
             <template v-else-if="column.key === 'action'">
-              <a-popconfirm title="确定删除此评估记录？" ok-text="确定" cancel-text="取消" @confirm="handleDelete(record)">
-                <a-button size="small" danger>删除</a-button>
-              </a-popconfirm>
+              <a-space :size="4">
+                <template v-if="editingId === record.id">
+                  <a-button size="small" type="link" @click="saveRemark(record)">确定</a-button>
+                  <a-button size="small" type="link" @click="cancelEdit">取消</a-button>
+                </template>
+                <template v-else>
+                  <a-button size="small" type="link" @click="startEdit(record)">编辑</a-button>
+                  <a-popconfirm title="确定删除此评估记录？" ok-text="确定" cancel-text="取消" @confirm="handleDelete(record)">
+                    <a-button size="small" danger type="link">删除</a-button>
+                  </a-popconfirm>
+                </template>
+              </a-space>
             </template>
           </template>
         </a-table>
@@ -78,6 +98,9 @@
         <a-form-item label="top_k" required>
           <a-input-number v-model:value="evalTopK" :min="1" :max="100" style="width: 100%" />
           <span class="form-hint">检索返回的最大文档数</span>
+        </a-form-item>
+        <a-form-item label="备注">
+          <a-textarea v-model:value="evalRemark" :rows="2" :maxlength="500" placeholder="可选，记录本次评估的背景信息" />
         </a-form-item>
       </a-form>
     </a-modal>
@@ -116,7 +139,8 @@ const columns = [
   { title: '已检索', dataIndex: 'golden_retrieved', key: 'golden_retrieved', width: 70, align: 'center' as const },
   { title: '延迟(ms)', dataIndex: 'avg_latency_ms', key: 'avg_latency_ms', width: 90, align: 'right' as const },
   { title: '嵌入模型', dataIndex: 'embed_model_name', key: 'embed_model_name', width: 180 },
-  { title: '操作', key: 'action', width: 80 },
+  { title: '备注', dataIndex: 'remark', key: 'remark', width: 160 },
+  { title: '操作', key: 'action', width: 120 },
 ]
 
 function formatDateTime(dateStr: string) {
@@ -145,16 +169,18 @@ async function fetchHistory() {
 const evalModalVisible = ref(false)
 const evalLoading = ref(false)
 const evalTopK = ref(10)
+const evalRemark = ref('')
 
 function showEvalModal() {
   evalTopK.value = 10
+  evalRemark.value = ''
   evalModalVisible.value = true
 }
 
 async function handleEval() {
   evalLoading.value = true
   try {
-    await triggerEvaluation(projectId, evalTopK.value)
+    await triggerEvaluation(projectId, evalTopK.value, evalRemark.value)
     message.success('评估已触发')
     evalModalVisible.value = false
     await fetchHistory()
@@ -162,6 +188,30 @@ async function handleEval() {
     message.error('触发评估失败')
   } finally {
     evalLoading.value = false
+  }
+}
+
+// 备注编辑
+const editingId = ref('')
+const editingRemark = ref('')
+
+function startEdit(record: EvaluationStatsResult) {
+  editingId.value = record.id
+  editingRemark.value = record.remark
+}
+
+function cancelEdit() {
+  editingId.value = ''
+  editingRemark.value = ''
+}
+
+async function saveRemark(record: EvaluationStatsResult) {
+  try {
+    await updateEvaluationRemark(projectId, record.id, editingRemark.value)
+    record.remark = editingRemark.value
+    editingId.value = ''
+  } catch {
+    message.error('更新备注失败')
   }
 }
 

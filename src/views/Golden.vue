@@ -266,7 +266,10 @@
       <template #left>
         <div class="retrieval-query-section">
           <div class="retrieval-query-label">数据集 ID</div>
-          <div class="retrieval-id-text">{{ retrievalRecord.id }}</div>
+          <div class="retrieval-id-text" @click="copyId(retrievalRecord.id)" title="点击复制">
+            <span class="retrieval-id-value">{{ retrievalRecord.id }}</span>
+            <copy-outlined class="retrieval-id-copy-icon" />
+          </div>
         </div>
         <div class="retrieval-query-section">
           <div class="retrieval-query-label">查询文本</div>
@@ -361,6 +364,7 @@ import {
   DeleteOutlined,
   UploadOutlined,
   SearchOutlined,
+  CopyOutlined,
 } from '@ant-design/icons-vue'
 import {
   getGoldenList,
@@ -536,6 +540,15 @@ function handleReRetrieve() {
 }
 
 function onSearch() {}
+
+async function copyId(id: string) {
+  try {
+    await navigator.clipboard.writeText(id)
+    message.success('已复制')
+  } catch {
+    message.error('复制失败')
+  }
+}
 
 async function fetchList() {
   if (!activeProjectStore.activeProjectId) return
@@ -917,6 +930,9 @@ watch(importModalVisible, (val) => {
   border-radius: 6px;
 }
 .retrieval-id-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-family: var(--ant-font-family-code, monospace);
   font-size: 12px;
   color: var(--ant-color-text-secondary);
@@ -924,6 +940,24 @@ watch(importModalVisible, (val) => {
   background: var(--ant-color-fill-quaternary);
   border-radius: 4px;
   word-break: break-all;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.retrieval-id-text:hover {
+  background: var(--ant-color-fill-tertiary);
+}
+.retrieval-id-value {
+  flex: 1;
+  min-width: 0;
+}
+.retrieval-id-copy-icon {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--ant-color-text-quaternary);
+  transition: color 0.2s;
+}
+.retrieval-id-text:hover .retrieval-id-copy-icon {
+  color: var(--ant-color-primary);
 }
 .retrieval-answer-text {
   font-size: 13px;
