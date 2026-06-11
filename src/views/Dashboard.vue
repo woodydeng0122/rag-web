@@ -85,19 +85,21 @@
         <!-- 趋势折线图 -->
         <div v-if="sortedEvalHistory.length >= 2" style="margin-top: 24px">
           <a-divider />
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px">
-            <span style="font-size: 14px; font-weight: 500; color: var(--ant-color-text)">指标趋势</span>
-            <a-space :size="16">
-              <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ant-color-text-tertiary)">
-                <span style="width: 16px; height: 3px; border-radius: 2px; background: var(--ant-color-primary); display: inline-block" /> Recall@k
-              </span>
-              <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ant-color-text-tertiary)">
-                <span style="width: 16px; height: 3px; border-radius: 2px; background: var(--ant-color-success); display: inline-block" /> MRR
-              </span>
-            </a-space>
-          </div>
-          <div style="max-width: 680px; margin: 0 auto">
-            <svg :viewBox="`0 0 ${chartWidth} ${chartHeight}`" style="width: 100%; height: auto">
+          <div style="display: flex; gap: 24px; align-items: flex-start">
+            <!-- 指标趋势 -->
+            <div style="flex: 1; min-width: 0">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px">
+                <span style="font-size: 14px; font-weight: 500; color: var(--ant-color-text)">指标趋势</span>
+                <a-space :size="16">
+                  <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ant-color-text-tertiary)">
+                    <span style="width: 16px; height: 3px; border-radius: 2px; background: var(--ant-color-primary); display: inline-block" /> Recall@k
+                  </span>
+                  <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ant-color-text-tertiary)">
+                    <span style="width: 16px; height: 3px; border-radius: 2px; background: var(--ant-color-success); display: inline-block" /> MRR
+                  </span>
+                </a-space>
+              </div>
+              <svg :viewBox="`0 0 ${chartWidth} ${chartHeight}`" style="width: 100%; height: auto">
               <defs>
                 <linearGradient id="recallGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" :stop-color="getCssVar('--ant-color-primary')" stop-opacity="0.15" />
@@ -155,17 +157,16 @@
                 {{ formatShortDate(item.created_at) }}
               </text>
             </svg>
-          </div>
-
-          <!-- 延迟趋势图 -->
-          <div style="margin-top: 24px">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px">
-              <span style="font-size: 14px; font-weight: 500; color: var(--ant-color-text)">延迟趋势</span>
-              <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ant-color-text-tertiary)">
-                <span style="width: 16px; height: 3px; border-radius: 2px; background: #722ed1; display: inline-block" /> Avg Latency
-              </span>
             </div>
-            <div style="max-width: 680px; margin: 0 auto">
+
+            <!-- 延迟趋势 -->
+            <div style="flex: 1; min-width: 0">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px">
+                <span style="font-size: 14px; font-weight: 500; color: var(--ant-color-text)">延迟趋势</span>
+                <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ant-color-text-tertiary)">
+                  <span style="width: 16px; height: 3px; border-radius: 2px; background: #722ed1; display: inline-block" /> Avg Latency
+                </span>
+              </div>
               <svg :viewBox="`0 0 ${chartWidth} ${chartHeight}`" style="width: 100%; height: auto">
                 <defs>
                   <linearGradient id="latencyGradient" x1="0" y1="0" x2="0" y2="1">
