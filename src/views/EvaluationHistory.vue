@@ -92,7 +92,7 @@ import {
   PlusOutlined,
 } from '@ant-design/icons-vue'
 import { dayjs } from '@/utils/time'
-import { getEvaluationHistory, triggerEvaluation, deleteEvaluation } from '@/api/project'
+import { getEvaluationHistory, triggerEvaluation, deleteEvaluation, updateEvaluationRemark } from '@/api/project'
 import type { EvaluationStatsResult } from '@/api/model/projectModel'
 import PageToolbar from '@/components/PageToolbar.vue'
 import { usePageStore } from '@/store/page'

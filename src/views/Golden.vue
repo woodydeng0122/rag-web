@@ -265,20 +265,34 @@
     <SplitPanelLayout left-title="查询 & Ground Truth" right-title="检索结果">
       <template #left>
         <div class="retrieval-query-section">
+          <div class="retrieval-query-label">数据集 ID</div>
+          <div class="retrieval-id-text">{{ retrievalRecord.id }}</div>
+        </div>
+        <div class="retrieval-query-section">
           <div class="retrieval-query-label">查询文本</div>
           <div class="retrieval-query-text">{{ retrievalRecord.query }}</div>
+        </div>
+        <div v-if="retrievalRecord.reference_answer" class="retrieval-query-section">
+          <div class="retrieval-query-label">参考答案</div>
+          <div class="retrieval-answer-text">{{ retrievalRecord.reference_answer }}</div>
+        </div>
+        <div v-if="retrievalRecord.metadata && Object.keys(retrievalRecord.metadata).length" class="retrieval-query-section">
+          <div class="retrieval-query-label">元数据</div>
+          <pre class="retrieval-metadata-text">{{ JSON.stringify(retrievalRecord.metadata, null, 2) }}</pre>
         </div>
         <div class="retrieval-gt-section">
           <div class="retrieval-gt-label">Ground Truth ({{ retrievalRecord.ground_truth_chunks?.length || 0 }} 个分块)</div>
           <a-spin :spinning="gtChunksLoading">
             <div class="retrieval-gt-list">
-              <div v-for="(chunk, idx) in gtChunks" :key="chunk.id" class="retrieval-gt-item" :class="idx % 2 === 0 ? 'retrieval-gt-item--even' : 'retrieval-gt-item--odd'">
-                <div class="retrieval-gt-item-header">
-                  <span class="retrieval-gt-index">#{{ chunk.index + 1 }}</span>
-                  <span v-if="chunk.heading" class="retrieval-gt-item-heading">{{ chunk.heading }}</span>
-                </div>
-                <MarkdownRenderer :content="chunk.content" :file-type="chunk.file_type" />
-              </div>
+              <ChunkCard
+                v-for="(chunk, idx) in gtChunks"
+                :key="chunk.id"
+                :content="chunk.content"
+                :file-type="chunk.file_type"
+                :heading="chunk.heading"
+                :label="`#${chunk.index + 1}`"
+                :even="idx % 2 === 0"
+              />
               <a-empty v-if="!gtChunksLoading && gtChunks.length === 0" description="无关联分块" :image="null" />
             </div>
           </a-spin>
@@ -311,17 +325,18 @@
             <a-tag color="green">命中GT: {{ retrievalResult.items.filter(i => i.is_ground_truth).length }}/{{ retrievalRecord.ground_truth_chunks?.length || 0 }}</a-tag>
           </div>
           <div class="retrieval-items">
-            <div v-for="(item, idx) in retrievalResult.items" :key="item.chunk_id" class="retrieval-item" :class="[idx % 2 === 0 ? 'retrieval-item--even' : 'retrieval-item--odd', { 'retrieval-item--hit': item.is_ground_truth }]">
-              <div class="retrieval-item-header">
-                <span class="retrieval-item-rank">#{{ item.rank }}</span>
-                <span class="retrieval-item-score">score: {{ item.score.toFixed(4) }}</span>
-                <a-tag v-if="item.is_ground_truth" color="success" size="small">GT命中</a-tag>
-                <a-tag v-else color="default" size="small">未命中</a-tag>
-              </div>
-              <div v-if="item.heading" class="retrieval-item-heading">{{ item.heading }}</div>
-              <MarkdownRenderer :content="item.content" :file-type="item.file_type" />
-              <div v-if="item.source_file" class="retrieval-item-source">{{ item.source_file }}</div>
-            </div>
+            <ChunkCard
+              v-for="(item, idx) in retrievalResult.items"
+              :key="item.chunk_id"
+              :content="item.content"
+              :file-type="item.file_type"
+              :heading="item.heading"
+              :source-file="item.source_file"
+              :score="item.score"
+              :label="`#${item.rank}`"
+              :is-ground-truth="item.is_ground_truth"
+              :even="idx % 2 === 0"
+            />
           </div>
         </template>
       </template>
@@ -359,7 +374,7 @@ import {
 import { searchProjectChunks, getChunksByIds } from '@/api/chunk'
 import type { GoldenItem, CreateGoldenParams, ImportResult, RetrievalResponse } from '@/api/model/goldenModel'
 import type { ChunkItem } from '@/api/model/documentModel'
-import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
+import ChunkCard from '@/components/ChunkCard.vue'
 import NoProjectPrompt from '@/components/NoProjectPrompt.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
 import SplitPanelLayout from '@/components/SplitPanelLayout.vue'
@@ -901,6 +916,37 @@ watch(importModalVisible, (val) => {
   background: var(--ant-color-fill-quaternary);
   border-radius: 6px;
 }
+.retrieval-id-text {
+  font-family: var(--ant-font-family-code, monospace);
+  font-size: 12px;
+  color: var(--ant-color-text-secondary);
+  padding: 4px 8px;
+  background: var(--ant-color-fill-quaternary);
+  border-radius: 4px;
+  word-break: break-all;
+}
+.retrieval-answer-text {
+  font-size: 13px;
+  padding: 8px 12px;
+  background: var(--ant-color-fill-quaternary);
+  border-radius: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.retrieval-metadata-text {
+  margin: 0;
+  font-size: 12px;
+  font-family: var(--ant-font-family-code, monospace);
+  padding: 8px 12px;
+  background: var(--ant-color-fill-quaternary);
+  border-radius: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
 .retrieval-gt-section {
   flex: 1;
   min-height: 0;
@@ -918,36 +964,6 @@ watch(importModalVisible, (val) => {
   display: flex;
   flex-direction: column;
   gap: 6px;
-}
-.retrieval-gt-item {
-  padding: 10px 12px;
-  border-radius: 6px;
-  flex-shrink: 0;
-}
-.retrieval-gt-item--even {
-  background: var(--ant-color-error-bg);
-  border: 1px solid var(--ant-color-error-border);
-}
-.retrieval-gt-item--odd {
-  background: var(--ant-color-success-bg);
-  border: 1px solid var(--ant-color-success-border);
-}
-.retrieval-gt-item-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-.retrieval-gt-index {
-  font-weight: 600;
-  color: var(--ant-color-success);
-  font-size: 12px;
-  flex-shrink: 0;
-}
-.retrieval-gt-item-heading {
-  font-weight: 500;
-  font-size: 12px;
-  color: var(--ant-color-primary);
 }
 .retrieval-params {
   display: flex;
@@ -986,49 +1002,6 @@ watch(importModalVisible, (val) => {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-}
-.retrieval-item {
-  border-radius: 6px;
-  padding: 10px 12px;
-  transition: border-color 0.2s;
-  flex-shrink: 0;
-}
-.retrieval-item--even {
-  background: var(--ant-color-error-bg);
-  border: 1px solid var(--ant-color-error-border);
-}
-.retrieval-item--odd {
-  background: var(--ant-color-success-bg);
-  border: 1px solid var(--ant-color-success-border);
-}
-.retrieval-item--hit {
-  border-left: 3px solid var(--ant-color-success);
-}
-.retrieval-item-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-.retrieval-item-rank {
-  font-weight: 600;
-  color: var(--ant-color-primary);
-  font-size: 13px;
-}
-.retrieval-item-score {
-  font-size: 12px;
-  color: var(--ant-color-text-tertiary);
-}
-.retrieval-item-heading {
-  font-weight: 500;
-  font-size: 12px;
-  color: var(--ant-color-primary);
-  margin-bottom: 4px;
-}
-.retrieval-item-source {
-  font-size: 11px;
-  color: var(--ant-color-text-quaternary);
-  margin-top: 4px;
 }
 .retrieval-actions {
   margin-top: 16px;

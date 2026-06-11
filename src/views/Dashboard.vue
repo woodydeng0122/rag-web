@@ -25,7 +25,7 @@
             </a-statistic>
           </a-col>
           <a-col :flex="1">
-            <a-statistic title="今日查询" value="--" suffix="次">
+            <a-statistic title="今日查询" :value="todayQueryCount" suffix="次" :loading="todayQueryLoading">
               <template #prefix><search-outlined /></template>
             </a-statistic>
           </a-col>
@@ -237,6 +237,7 @@ import { getEvaluationHistory } from '@/api/project'
 import { getDocumentList } from '@/api/document'
 import { getGoldenList } from '@/api/golden'
 import { getChunkCount } from '@/api/chunk'
+import { getTodayQueries } from '@/api/qa'
 import type { EvaluationStatsResult } from '@/api/model/projectModel'
 import type { DocumentItem } from '@/api/model/documentModel'
 import MetricCard from '@/components/MetricCard.vue'
@@ -251,6 +252,8 @@ const chunkLoading = ref(false)
 const chunkCount = ref(0)
 const goldenLoading = ref(false)
 const goldenCount = ref(0)
+const todayQueryLoading = ref(false)
+const todayQueryCount = ref(0)
 
 // 评估指标数据
 const evalLoading = ref(false)
@@ -376,6 +379,20 @@ async function fetchGoldenData() {
   }
 }
 
+async function fetchTodayQueryData() {
+  const pid = activeProjectStore.activeProjectId
+  if (!pid) return
+  todayQueryLoading.value = true
+  try {
+    const res = await getTodayQueries(pid)
+    todayQueryCount.value = res?.count ?? 0
+  } catch {
+    todayQueryCount.value = 0
+  } finally {
+    todayQueryLoading.value = false
+  }
+}
+
 async function fetchChunkData() {
   const pid = activeProjectStore.activeProjectId
   if (!pid) return
@@ -409,6 +426,7 @@ function fetchAllData() {
   fetchChunkData()
   fetchGoldenData()
   fetchEvalData()
+  fetchTodayQueryData()
 }
 
 onMounted(() => {
@@ -426,6 +444,7 @@ watch(() => activeProjectStore.activeProjectId, (newId) => {
     chunkCount.value = 0
     goldenCount.value = 0
     evalHistory.value = []
+    todayQueryCount.value = 0
   }
 })
 </script>

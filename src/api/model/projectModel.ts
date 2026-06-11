@@ -32,5 +32,6 @@ export interface EvaluationStatsResult {
   avg_embed_latency_ms: number
   avg_search_latency_ms: number
   embed_model_name: string
+  remark: string
   created_at: string
 }

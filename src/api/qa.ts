@@ -2,6 +2,10 @@ import { get, post, del } from './request'
 import instance from './request'
 import type { QASession, QAMessage, CreateSessionParams, AskStreamParams, SSEEvent } from './model/qaModel'
 
+/** 获取项目今日查询次数 */
+export const getTodayQueries = (projectId: string) =>
+  get<{ count: number }>({ url: `/projects/${projectId}/qa/today-queries` })
+
 /** 创建会话 */
 export const createSession = (projectId: string, params?: CreateSessionParams) =>
   post<QASession>({ url: `/projects/${projectId}/qa/sessions`, data: params || {} })

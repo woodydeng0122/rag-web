@@ -204,9 +204,15 @@
         <template #right>
           <a-spin :spinning="chunksLoading">
             <div class="chunk-list" ref="chunkListRef" @scroll="onChunkListScroll">
-              <div v-for="chunk in chunks" :key="chunk.index" class="chunk-item" :class="chunk.index % 2 === 0 ? 'chunk-item--even' : 'chunk-item--odd'" @click="handleChunkClick(chunk)">
-                <MarkdownRenderer :content="chunk.content" :file-type="chunk.file_type" />
-              </div>
+              <ChunkCard
+                v-for="chunk in chunks"
+                :key="chunk.index"
+                :content="chunk.content"
+                :file-type="chunk.file_type"
+                :even="chunk.index % 2 === 0"
+                clickable
+                @click="handleChunkClick(chunk)"
+              />
             </div>
             <a-empty v-if="!chunksLoading && chunks.length === 0" description="暂无分块" />
           </a-spin>
@@ -281,6 +287,7 @@ import { getChunkGoldenRecords } from '@/api/chunk'
 import type { DocumentItem, ChunkItem, UploadDocumentParams } from '@/api/model/documentModel'
 import type { GoldenItem } from '@/api/model/goldenModel'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
+import ChunkCard from '@/components/ChunkCard.vue'
 import EmbeddingViewer from '@/components/EmbeddingViewer.vue'
 import NoProjectPrompt from '@/components/NoProjectPrompt.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
@@ -673,23 +680,6 @@ watch(() => pageStore.refreshTrigger, fetchList)
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-.chunk-item {
-  border-radius: 6px;
-  flex-shrink: 0;
-  cursor: pointer;
-  transition: box-shadow 0.2s, transform 0.15s;
-  padding: 12px;
-}
-.chunk-item:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transform: translateY(-1px);
-}
-.chunk-item--even {
-  background: var(--ant-color-error-bg);
-}
-.chunk-item--odd {
-  background: var(--ant-color-success-bg);
 }
 
 /* 黄金记录列表 */
