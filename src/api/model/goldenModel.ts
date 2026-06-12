@@ -17,6 +17,8 @@ export interface GoldenItem {
   metadata: Record<string, any>
   has_retrieval: boolean
   retrieval_summary: RetrievalSummary | null
+  has_rerank: boolean
+  rerank_summary: RetrievalSummary | null
 }
 
 export interface CreateGoldenParams {
@@ -81,4 +83,33 @@ export type RetrievalStrategy = 'cosine' | 'vector' | 'bm25' | 'hybrid'
 export interface CreateRetrievalParams {
   max_k: number
   strategy?: RetrievalStrategy
+}
+
+/** 重排结果项 */
+export interface RerankItem {
+  chunk_id: string
+  original_rank: number
+  rerank_score: number
+  rerank_rank: number
+  content: string
+  heading: string
+  source_file: string
+  file_type: string
+  is_ground_truth: boolean
+}
+
+/** 重排结果 */
+export interface RerankResponse {
+  id: string
+  golden_id: string
+  top_k: number
+  latency_ms: number
+  model_name: string
+  created_at: string
+  items: RerankItem[]
+}
+
+/** 触发重排请求参数 */
+export interface CreateRerankParams {
+  top_k: number
 }

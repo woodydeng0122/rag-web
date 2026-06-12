@@ -25,6 +25,10 @@
         <template #icon><search-outlined /></template>
         批量检索 ({{ selectedRowKeys.length }})
       </a-button>
+      <a-button :disabled="selectedRowKeys.length === 0" :loading="batchReranking" @click="handleOpenBatchRerank">
+        <template #icon><sort-ascending-outlined /></template>
+        批量重排 ({{ selectedRowKeys.length }})
+      </a-button>
       <a-button @click="importModalVisible = true">
         <template #icon><upload-outlined /></template>
         上传
@@ -80,6 +84,30 @@
               </a-tag>
             </template>
             <a-button v-else size="small" type="link" @click="openRetrievalDrawer(record)">检索</a-button>
+          </template>
+
+          <!-- 重排 -->
+          <template v-if="column.key === 'rerank'">
+            <template v-if="record.rerank_summary">
+              <a-tag
+                v-if="record.rerank_summary.hit_count > 0"
+                color="success"
+                style="cursor: pointer"
+                @click="openRerankDrawer(record)"
+              >
+                命中({{ record.rerank_summary.hit_count }}/{{ record.rerank_summary.gt_total }}) #{{ record.rerank_summary.hit_ranks.join(', #') }}
+              </a-tag>
+              <a-tag
+                v-else
+                color="error"
+                style="cursor: pointer"
+                @click="openRerankDrawer(record)"
+              >
+                未命中
+              </a-tag>
+            </template>
+            <a-button v-else-if="record.has_retrieval" size="small" type="link" @click="openRerankDrawer(record)">重排</a-button>
+            <span v-else>--</span>
           </template>
 
           <!-- 参考答案 -->
@@ -250,6 +278,26 @@
   </a-form>
 </a-modal>
 
+<!-- 批量重排弹窗 -->
+<a-modal
+  v-model:open="batchRerankModalVisible"
+  title="批量重排"
+  ok-text="开始重排"
+  cancel-text="取消"
+  :confirm-loading="batchReranking"
+  @ok="handleBatchRerank"
+>
+  <a-form :label-col="{ span: 6 }" :wrapper-col="{ span: 16 }" style="margin-top: 16px">
+    <a-form-item label="top_k" required>
+      <a-input-number v-model:value="batchRerankTopK" :min="1" :max="100" style="width: 100%" />
+    </a-form-item>
+    <a-form-item label="选中数量">
+      <span>{{ selectedRowKeys.length }} 条黄金记录</span>
+    </a-form-item>
+    <a-alert v-if="batchRerankWarning" type="warning" :message="batchRerankWarning" show-icon style="margin-top: 8px" />
+  </a-form>
+</a-modal>
+
 <!-- 详情 Drawer -->
 <a-drawer
   v-model:open="detailDrawerVisible"
@@ -384,6 +432,88 @@
   </template>
 </a-drawer>
 
+<!-- 重排 Drawer -->
+<a-drawer
+  v-model:open="rerankDrawerVisible"
+  title="重排验证"
+  width="80%"
+  placement="right"
+>
+  <template v-if="rerankRecord">
+    <SplitPanelLayout left-title="查询 & Ground Truth" right-title="重排结果">
+      <template #left>
+        <div class="retrieval-query-section">
+          <div class="retrieval-query-label">数据集 ID</div>
+          <div class="retrieval-id-text" @click="copyId(rerankRecord.id)" title="点击复制">
+            <span class="retrieval-id-value">{{ rerankRecord.id }}</span>
+            <copy-outlined class="retrieval-id-copy-icon" />
+          </div>
+        </div>
+        <div class="retrieval-query-section">
+          <div class="retrieval-query-label">查询文本</div>
+          <div class="retrieval-query-text">{{ rerankRecord.query }}</div>
+        </div>
+        <div v-if="rerankRecord.reference_answer" class="retrieval-query-section">
+          <div class="retrieval-query-label">参考答案</div>
+          <div class="retrieval-answer-text">{{ rerankRecord.reference_answer }}</div>
+        </div>
+        <div class="retrieval-gt-section">
+          <div class="retrieval-gt-label">Ground Truth ({{ rerankRecord.ground_truth_chunks?.length || 0 }} 个分块)</div>
+          <a-spin :spinning="rerankGtChunksLoading">
+            <div class="retrieval-gt-list">
+              <ChunkCard
+                v-for="(chunk, idx) in rerankGtChunks"
+                :key="chunk.id"
+                :content="chunk.content"
+                :file-type="chunk.file_type"
+                :heading="chunk.heading"
+                :label="`#${chunk.index + 1}`"
+                :even="idx % 2 === 0"
+              />
+              <a-empty v-if="!rerankGtChunksLoading && rerankGtChunks.length === 0" description="无关联分块" :image="null" />
+            </div>
+          </a-spin>
+        </div>
+      </template>
+      <template #right>
+        <div v-if="!rerankResult" class="retrieval-params">
+          <div class="retrieval-param-row">
+            <span class="retrieval-param-label">top_k</span>
+            <a-input-number v-model:value="rerankTopK" :min="1" :max="100" style="width: 120px" />
+          </div>
+          <a-button type="primary" :loading="rerankLoading" @click="handleRerank">确认重排</a-button>
+        </div>
+        <div v-if="rerankLoading" class="retrieval-loading">
+          <a-spin />
+          <span>正在重排...</span>
+        </div>
+        <template v-if="rerankResult">
+          <div class="retrieval-metrics">
+            <a-tag color="purple">模型: {{ rerankResult.model_name || '--' }}</a-tag>
+            <a-tag>总耗时: {{ rerankResult.latency_ms }}ms</a-tag>
+            <a-tag>top_k: {{ rerankResult.top_k }}</a-tag>
+            <a-tag color="green">命中GT: {{ rerankResult.items.filter(i => i.is_ground_truth).length }}/{{ rerankRecord.ground_truth_chunks?.length || 0 }}</a-tag>
+          </div>
+          <div class="retrieval-items">
+            <ChunkCard
+              v-for="(item, idx) in rerankResult.items"
+              :key="item.chunk_id"
+              :content="item.content"
+              :file-type="item.file_type"
+              :heading="item.heading"
+              :source-file="item.source_file"
+              :score="item.rerank_score"
+              :label="`#${item.rerank_rank}`"
+              :is-ground-truth="item.is_ground_truth"
+              :even="idx % 2 === 0"
+            />
+          </div>
+        </template>
+      </template>
+    </SplitPanelLayout>
+  </template>
+</a-drawer>
+
   </div>
 </template>
 
@@ -402,6 +532,7 @@ import {
   DeleteOutlined,
   UploadOutlined,
   SearchOutlined,
+  SortAscendingOutlined,
   CopyOutlined,
 } from '@ant-design/icons-vue'
 import {
@@ -412,9 +543,11 @@ import {
   importGolden,
   createRetrieval,
   getRetrieval,
+  createRerank,
+  getRerank,
 } from '@/api/golden'
 import { searchProjectChunks, getChunksByIds } from '@/api/chunk'
-import type { GoldenItem, CreateGoldenParams, ImportResult, RetrievalResponse, RetrievalStrategy } from '@/api/model/goldenModel'
+import type { GoldenItem, CreateGoldenParams, ImportResult, RetrievalResponse, RetrievalStrategy, RerankResponse } from '@/api/model/goldenModel'
 import type { ChunkItem } from '@/api/model/documentModel'
 import ChunkCard from '@/components/ChunkCard.vue'
 import NoProjectPrompt from '@/components/NoProjectPrompt.vue'
@@ -435,6 +568,7 @@ const columns = [
   { title: '查询文本', dataIndex: 'query', key: 'query', ellipsis: true, width: 220 },
   { title: '关联分块', dataIndex: 'chunk_count', key: 'chunk_count', width: 100 },
   { title: '检索', key: 'retrieval', width: 160 },
+  { title: '重排', key: 'rerank', width: 160 },
   { title: '参考答案', dataIndex: 'reference_answer', key: 'reference_answer', ellipsis: true, width: 180 },
   { title: '创建时间', dataIndex: 'created_at', key: 'created_at', width: 120 },
   { title: '操作', key: 'action', fixed: 'right' as const, width: 180 },
@@ -488,6 +622,21 @@ const batchRetrieveModalVisible = ref(false)
 
 // 批量检索
 const batchRetrieving = ref(false)
+
+// 重排 Drawer
+const rerankDrawerVisible = ref(false)
+const rerankRecord = ref<GoldenItem | null>(null)
+const rerankResult = ref<RerankResponse | null>(null)
+const rerankLoading = ref(false)
+const rerankTopK = ref(10)
+const rerankGtChunks = ref<ChunkItem[]>([])
+const rerankGtChunksLoading = ref(false)
+
+// 批量重排
+const batchReranking = ref(false)
+const batchRerankModalVisible = ref(false)
+const batchRerankTopK = ref(10)
+const batchRerankWarning = ref('')
 
 async function handleBatchRetrieve() {
   batchRetrieveModalVisible.value = false
@@ -589,6 +738,114 @@ async function handleRetrieve() {
 
 function handleReRetrieve() {
   retrievalResult.value = null
+}
+
+// 重排相关
+async function openRerankDrawer(record: GoldenItem) {
+  rerankRecord.value = record
+  rerankResult.value = null
+  rerankTopK.value = 10
+  rerankLoading.value = false
+  rerankDrawerVisible.value = true
+
+  // 拉取 GT 分块内容
+  rerankGtChunks.value = []
+  if (record.ground_truth_chunks?.length && activeProjectStore.activeProjectId) {
+    rerankGtChunksLoading.value = true
+    try {
+      const res = await getChunksByIds(activeProjectStore.activeProjectId, record.ground_truth_chunks)
+      rerankGtChunks.value = res?.chunks || []
+    } catch {
+      rerankGtChunks.value = []
+    } finally {
+      rerankGtChunksLoading.value = false
+    }
+  }
+
+  // 如果已有重排结果，自动加载
+  if (record.has_rerank) {
+    rerankLoading.value = true
+    try {
+      const res = await getRerank(activeProjectStore.activeProjectId!, record.id)
+      rerankResult.value = res
+    } catch {
+      rerankResult.value = null
+    } finally {
+      rerankLoading.value = false
+    }
+  }
+}
+
+async function handleRerank() {
+  if (!rerankRecord.value || !activeProjectStore.activeProjectId) return
+  rerankLoading.value = true
+  try {
+    const res = await createRerank(activeProjectStore.activeProjectId, rerankRecord.value.id, {
+      top_k: rerankTopK.value,
+    })
+    rerankResult.value = res
+    // 更新列表中的重排状态
+    const item = dataList.value.find(d => d.id === rerankRecord.value!.id)
+    if (item) {
+      item.has_rerank = true
+      const hitItems = res.items.filter(i => i.is_ground_truth)
+      item.rerank_summary = { hit_count: hitItems.length, gt_total: item.ground_truth_chunks.length, hit_ranks: hitItems.map(i => i.rerank_rank) }
+    }
+    message.success('重排完成')
+  } catch {
+    message.error('重排失败')
+  } finally {
+    rerankLoading.value = false
+  }
+}
+
+function handleOpenBatchRerank() {
+  // 校验选中记录都有粗排结果
+  const noRetrievalIds = selectedRowKeys.value.filter(id => {
+    const item = dataList.value.find(d => d.id === id)
+    return !item?.has_retrieval
+  })
+  if (noRetrievalIds.length > 0) {
+    batchRerankWarning.value = `${noRetrievalIds.length} 条记录无粗排结果，将被跳过`
+  } else {
+    batchRerankWarning.value = ''
+  }
+  batchRerankModalVisible.value = true
+}
+
+async function handleBatchRerank() {
+  batchRerankModalVisible.value = false
+  // 只对有粗排结果的记录执行重排
+  const ids = selectedRowKeys.value.filter(id => {
+    const item = dataList.value.find(d => d.id === id)
+    return item?.has_retrieval
+  })
+  if (ids.length === 0) {
+    message.warning('选中的记录均无粗排结果，无法重排')
+    return
+  }
+
+  batchReranking.value = true
+  const succeeded = await batchExecute(
+    ids,
+    (id) => createRerank(activeProjectStore.activeProjectId!, id, { top_k: batchRerankTopK.value }),
+    {
+      label: '批量重排',
+      onProgress: (_remaining, batchResults, batchSucceededIds) => {
+        for (const r of batchResults) {
+          const item = dataList.value.find(d => d.id === r.golden_id)
+          if (item) {
+            item.has_rerank = true
+            const hitItems = r.items.filter(i => i.is_ground_truth)
+            item.rerank_summary = { hit_count: hitItems.length, gt_total: item.ground_truth_chunks.length, hit_ranks: hitItems.map(i => i.rerank_rank) }
+          }
+        }
+        selectedRowKeys.value = selectedRowKeys.value.filter(k => !batchSucceededIds.includes(k))
+      },
+    },
+  )
+  selectedRowKeys.value = selectedRowKeys.value.filter(k => !succeeded.includes(k))
+  batchReranking.value = false
 }
 
 const STRATEGY_LABELS: Record<string, string> = {

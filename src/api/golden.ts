@@ -1,6 +1,6 @@
 import { get, post, patch, del } from './request'
 import instance from './request'
-import type { GoldenItem, CreateGoldenParams, UpdateGoldenParams, ImportResult, RetrievalResponse, CreateRetrievalParams } from './model/goldenModel'
+import type { GoldenItem, CreateGoldenParams, UpdateGoldenParams, ImportResult, RetrievalResponse, CreateRetrievalParams, RerankResponse, CreateRerankParams } from './model/goldenModel'
 
 /** 获取项目下的黄金数据集列表 */
 export const getGoldenList = (projectId: string, params?: { status?: string; retrieval_status?: string }) =>
@@ -38,3 +38,11 @@ export const createRetrieval = (projectId: string, recordId: string, params: Cre
 /** 获取检索结果 */
 export const getRetrieval = (projectId: string, recordId: string) =>
   get<RetrievalResponse>({ url: `/projects/${projectId}/golden/${recordId}/retrieval` })
+
+/** 触发重排 */
+export const createRerank = (projectId: string, recordId: string, params: CreateRerankParams) =>
+  post<RerankResponse>({ url: `/projects/${projectId}/golden/${recordId}/rerank`, data: params, timeout: 60000 })
+
+/** 获取重排结果 */
+export const getRerank = (projectId: string, recordId: string) =>
+  get<RerankResponse>({ url: `/projects/${projectId}/golden/${recordId}/rerank` })
