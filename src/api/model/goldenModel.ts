@@ -3,6 +3,7 @@
 export interface RetrievalSummary {
   hit_count: number
   gt_total: number
+  hit_ranks: number[]
 }
 
 export interface GoldenItem {

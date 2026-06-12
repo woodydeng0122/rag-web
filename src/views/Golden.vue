@@ -68,7 +68,7 @@
                 style="cursor: pointer"
                 @click="openRetrievalDrawer(record)"
               >
-                命中({{ record.retrieval_summary.hit_count }}/{{ record.retrieval_summary.gt_total }})
+                命中({{ record.retrieval_summary.hit_count }}/{{ record.retrieval_summary.gt_total }}) #{{ record.retrieval_summary.hit_ranks.join(', #') }}
               </a-tag>
               <a-tag
                 v-else
@@ -434,7 +434,7 @@ const selectedRowKeys = ref<string[]>([])
 const columns = [
   { title: '查询文本', dataIndex: 'query', key: 'query', ellipsis: true, width: 220 },
   { title: '关联分块', dataIndex: 'chunk_count', key: 'chunk_count', width: 100 },
-  { title: '检索', key: 'retrieval', width: 90 },
+  { title: '检索', key: 'retrieval', width: 160 },
   { title: '参考答案', dataIndex: 'reference_answer', key: 'reference_answer', ellipsis: true, width: 180 },
   { title: '创建时间', dataIndex: 'created_at', key: 'created_at', width: 120 },
   { title: '操作', key: 'action', fixed: 'right' as const, width: 180 },
@@ -505,8 +505,8 @@ async function handleBatchRetrieve() {
           const item = dataList.value.find(d => d.id === r.golden_id)
           if (item) {
             item.has_retrieval = true
-            const hitCount = r.items.filter(i => i.is_ground_truth).length
-            item.retrieval_summary = { hit_count: hitCount, gt_total: item.ground_truth_chunks.length }
+            const hitItems = r.items.filter(i => i.is_ground_truth)
+            item.retrieval_summary = { hit_count: hitItems.length, gt_total: item.ground_truth_chunks.length, hit_ranks: hitItems.map(i => i.rank) }
           }
         }
         selectedRowKeys.value = selectedRowKeys.value.filter(k => !batchSucceededIds.includes(k))
@@ -576,8 +576,8 @@ async function handleRetrieve() {
     const item = dataList.value.find(d => d.id === retrievalRecord.value!.id)
     if (item) {
       item.has_retrieval = true
-      const hitCount = res.items.filter(i => i.is_ground_truth).length
-      item.retrieval_summary = { hit_count: hitCount, gt_total: item.ground_truth_chunks.length }
+      const hitItems = res.items.filter(i => i.is_ground_truth)
+      item.retrieval_summary = { hit_count: hitItems.length, gt_total: item.ground_truth_chunks.length, hit_ranks: hitItems.map(i => i.rank) }
     }
     message.success('检索完成')
   } catch {

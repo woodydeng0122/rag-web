@@ -36,3 +36,16 @@ export interface EvaluationStatsResult {
   remark: string
   created_at: string
 }
+
+export type RetrievalStrategy = 'cosine' | 'vector' | 'bm25' | 'hybrid'
+
+export interface TriggerEvaluationParams {
+  top_k?: number
+  strategy?: RetrievalStrategy
+  remark?: string
+}
+
+export interface UpdateEvaluationParams {
+  strategy?: RetrievalStrategy
+  remark?: string
+}

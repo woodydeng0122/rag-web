@@ -29,7 +29,7 @@
             </template>
             <template v-else-if="column.key === 'recall_at_k'">
               <span class="cell-metric" :class="getMetricClass(record.recall_at_k)">
-                {{ record.recall_at_k.toFixed(4) }}
+                {{ (record.recall_at_k * 100).toFixed(2) }}%
               </span>
             </template>
             <template v-else-if="column.key === 'mrr'">
@@ -39,7 +39,7 @@
             </template>
             <template v-else-if="column.key === 'hit_rate'">
               <span class="cell-metric" :class="getMetricClass(record.hit_rate)">
-                {{ record.hit_rate.toFixed(4) }}
+                {{ (record.hit_rate * 100).toFixed(2) }}%
               </span>
             </template>
             <template v-else-if="column.key === 'full_hit_count'">
@@ -59,28 +59,14 @@
               <a-tag>{{ record.embed_model_name }}</a-tag>
             </template>
             <template v-else-if="column.key === 'remark'">
-              <template v-if="editingId === record.id">
-                <a-input
-                  v-model:value="editingRemark"
-                  size="small"
-                  style="width: 100%"
-                  @pressEnter="saveRemark(record)"
-                />
-              </template>
-              <span v-else>{{ record.remark || '--' }}</span>
+              <span>{{ record.remark || '--' }}</span>
             </template>
             <template v-else-if="column.key === 'action'">
               <a-space :size="4">
-                <template v-if="editingId === record.id">
-                  <a-button size="small" type="link" @click="saveRemark(record)">确定</a-button>
-                  <a-button size="small" type="link" @click="cancelEdit">取消</a-button>
-                </template>
-                <template v-else>
-                  <a-button size="small" type="link" @click="startEdit(record)">编辑</a-button>
-                  <a-popconfirm title="确定删除此评估记录？" ok-text="确定" cancel-text="取消" @confirm="handleDelete(record)">
-                    <a-button size="small" danger type="link">删除</a-button>
-                  </a-popconfirm>
-                </template>
+                <a-button size="small" type="link" @click="showEditModal(record)">编辑</a-button>
+                <a-popconfirm title="确定删除此评估记录？" ok-text="确定" cancel-text="取消" @confirm="handleDelete(record)">
+                  <a-button size="small" danger type="link">删除</a-button>
+                </a-popconfirm>
               </a-space>
             </template>
           </template>
@@ -98,12 +84,38 @@
       @ok="handleEval"
     >
       <a-form :label-col="{ span: 6 }" :wrapper-col="{ span: 16 }" style="margin-top: 16px">
+        <a-form-item label="检索策略" required>
+          <a-select v-model:value="evalStrategy" style="width: 100%">
+            <a-select-option v-for="s in strategyOptions" :key="s.value" :value="s.value">{{ s.label }}</a-select-option>
+          </a-select>
+        </a-form-item>
         <a-form-item label="top_k" required>
           <a-input-number v-model:value="evalTopK" :min="1" :max="100" style="width: 100%" />
           <span class="form-hint">检索返回的最大文档数</span>
         </a-form-item>
         <a-form-item label="备注">
           <a-textarea v-model:value="evalRemark" :rows="2" :maxlength="500" placeholder="可选，记录本次评估的背景信息" />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <!-- 编辑评估弹窗 -->
+    <a-modal
+      v-model:open="editModalVisible"
+      title="编辑评估"
+      :confirm-loading="editLoading"
+      ok-text="保存"
+      cancel-text="取消"
+      @ok="handleEdit"
+    >
+      <a-form :label-col="{ span: 6 }" :wrapper-col="{ span: 16 }" style="margin-top: 16px">
+        <a-form-item label="检索策略" required>
+          <a-select v-model:value="editStrategy" style="width: 100%">
+            <a-select-option v-for="s in strategyOptions" :key="s.value" :value="s.value">{{ s.label }}</a-select-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item label="备注">
+          <a-textarea v-model:value="editRemark" :rows="2" :maxlength="500" placeholder="可选，记录本次评估的背景信息" />
         </a-form-item>
       </a-form>
     </a-modal>
@@ -118,8 +130,8 @@ import {
   PlusOutlined,
 } from '@ant-design/icons-vue'
 import { dayjs } from '@/utils/time'
-import { getEvaluationHistory, triggerEvaluation, deleteEvaluation, updateEvaluationRemark } from '@/api/project'
-import type { EvaluationStatsResult } from '@/api/model/projectModel'
+import { getEvaluationHistory, triggerEvaluation, deleteEvaluation, updateEvaluation } from '@/api/project'
+import type { EvaluationStatsResult, RetrievalStrategy } from '@/api/model/projectModel'
 import PageToolbar from '@/components/PageToolbar.vue'
 import { usePageStore } from '@/store/page'
 
@@ -172,6 +184,13 @@ const STRATEGY_COLORS: Record<string, string> = {
   bm25: 'orange',
 }
 
+const strategyOptions = [
+  { value: 'hybrid', label: 'Hybrid' },
+  { value: 'vector', label: 'Vector' },
+  { value: 'cosine', label: 'Cosine' },
+  { value: 'bm25', label: 'BM25' },
+]
+
 function strategyLabel(strategy: string) {
   return STRATEGY_LABELS[strategy] || strategy
 }
@@ -192,12 +211,15 @@ async function fetchHistory() {
   }
 }
 
+// ---- 新增评估 ----
 const evalModalVisible = ref(false)
 const evalLoading = ref(false)
+const evalStrategy = ref<RetrievalStrategy>('hybrid')
 const evalTopK = ref(10)
 const evalRemark = ref('')
 
 function showEvalModal() {
+  evalStrategy.value = 'hybrid'
   evalTopK.value = 10
   evalRemark.value = ''
   evalModalVisible.value = true
@@ -206,7 +228,11 @@ function showEvalModal() {
 async function handleEval() {
   evalLoading.value = true
   try {
-    await triggerEvaluation(projectId, evalTopK.value, evalRemark.value)
+    await triggerEvaluation(projectId, {
+      strategy: evalStrategy.value,
+      top_k: evalTopK.value,
+      remark: evalRemark.value,
+    })
     message.success('评估已触发')
     evalModalVisible.value = false
     await fetchHistory()
@@ -217,27 +243,34 @@ async function handleEval() {
   }
 }
 
-// 备注编辑
-const editingId = ref('')
-const editingRemark = ref('')
+// ---- 编辑评估 ----
+const editModalVisible = ref(false)
+const editLoading = ref(false)
+const editId = ref('')
+const editStrategy = ref<RetrievalStrategy>('hybrid')
+const editRemark = ref('')
 
-function startEdit(record: EvaluationStatsResult) {
-  editingId.value = record.id
-  editingRemark.value = record.remark
+function showEditModal(record: EvaluationStatsResult) {
+  editId.value = record.id
+  editStrategy.value = record.strategy as RetrievalStrategy
+  editRemark.value = record.remark
+  editModalVisible.value = true
 }
 
-function cancelEdit() {
-  editingId.value = ''
-  editingRemark.value = ''
-}
-
-async function saveRemark(record: EvaluationStatsResult) {
+async function handleEdit() {
+  editLoading.value = true
   try {
-    await updateEvaluationRemark(projectId, record.id, editingRemark.value)
-    record.remark = editingRemark.value
-    editingId.value = ''
+    await updateEvaluation(projectId, editId.value, {
+      strategy: editStrategy.value,
+      remark: editRemark.value,
+    })
+    message.success('更新成功')
+    editModalVisible.value = false
+    await fetchHistory()
   } catch {
-    message.error('更新备注失败')
+    message.error('更新失败')
+  } finally {
+    editLoading.value = false
   }
 }
 
