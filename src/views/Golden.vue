@@ -491,6 +491,9 @@
           <div class="retrieval-metrics">
             <a-tag color="purple">模型: {{ rerankResult.model_name || '--' }}</a-tag>
             <a-tag>总耗时: {{ rerankResult.latency_ms }}ms</a-tag>
+            <a-tag>加载粗排: {{ rerankResult.load_retrieval_latency_ms }}ms</a-tag>
+            <a-tag>加载分块: {{ rerankResult.load_chunks_latency_ms }}ms</a-tag>
+            <a-tag>推理: {{ rerankResult.predict_latency_ms }}ms</a-tag>
             <a-tag>top_k: {{ rerankResult.top_k }}</a-tag>
             <a-tag color="green">命中GT: {{ rerankResult.items.filter(i => i.is_ground_truth).length }}/{{ rerankRecord.ground_truth_chunks?.length || 0 }}</a-tag>
           </div>

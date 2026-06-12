@@ -3,6 +3,7 @@
 export interface EmbedModelItem {
   id: string
   name: string
+  model_type: 'embed' | 'reranker'
   dimension: number
   description: string
   status: string  // online / offline

@@ -105,6 +105,9 @@ export interface RerankResponse {
   top_k: number
   latency_ms: number
   model_name: string
+  load_retrieval_latency_ms: number
+  load_chunks_latency_ms: number
+  predict_latency_ms: number
   created_at: string
   items: RerankItem[]
 }

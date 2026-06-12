@@ -25,8 +25,14 @@
             <template v-if="column.key === 'name'">
               <span class="model-name">{{ record.name }}</span>
             </template>
+            <template v-if="column.key === 'model_type'">
+              <a-tag :color="record.model_type === 'reranker' ? 'green' : 'blue'">
+                {{ record.model_type === 'reranker' ? '重排' : '嵌入' }}
+              </a-tag>
+            </template>
             <template v-if="column.key === 'dimension'">
-              <a-tag color="blue">{{ record.dimension }}</a-tag>
+              <a-tag v-if="record.model_type === 'embed'" color="blue">{{ record.dimension }}</a-tag>
+              <span v-else>-</span>
             </template>
             <template v-if="column.key === 'status'">
               <a-tag :color="getStatusInfo(EMBED_MODEL_STATUS_MAP, record.status).color">
@@ -95,8 +101,14 @@
           <a-descriptions-item label="模型名称">
             <span class="model-name">{{ detailModel.name }}</span>
           </a-descriptions-item>
+          <a-descriptions-item label="模型类型">
+            <a-tag :color="detailModel.model_type === 'reranker' ? 'green' : 'blue'">
+              {{ detailModel.model_type === 'reranker' ? '重排' : '嵌入' }}
+            </a-tag>
+          </a-descriptions-item>
           <a-descriptions-item label="向量维度">
-            <a-tag color="blue">{{ detailModel.dimension }}</a-tag>
+            <a-tag v-if="detailModel.model_type === 'embed'" color="blue">{{ detailModel.dimension }}</a-tag>
+            <span v-else>-</span>
           </a-descriptions-item>
           <a-descriptions-item label="状态">
             <a-tag :color="getStatusInfo(EMBED_MODEL_STATUS_MAP, detailModel.status).color">
@@ -185,6 +197,7 @@ const META_LABELS: Record<string, string> = {
 
 const columns = [
   { title: '模型名称', dataIndex: 'name', key: 'name', ellipsis: true },
+  { title: '类型', dataIndex: 'model_type', key: 'model_type', width: 80 },
   { title: '维度', dataIndex: 'dimension', key: 'dimension', width: 80 },
   { title: '状态', dataIndex: 'status', key: 'status', width: 80 },
   { title: '备注', dataIndex: 'description', key: 'description', ellipsis: true },

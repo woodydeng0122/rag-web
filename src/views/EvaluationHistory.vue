@@ -24,6 +24,11 @@
             <template v-if="column.key === 'created_at'">
               <span class="cell-time">{{ formatDateTime(record.created_at) }}</span>
             </template>
+            <template v-else-if="column.key === 'category'">
+              <a-tag :color="record.category === 'rerank' ? 'purple' : 'blue'">
+                {{ record.category === 'rerank' ? '重排' : '粗排' }}
+              </a-tag>
+            </template>
             <template v-else-if="column.key === 'strategy'">
               <a-tag :color="strategyTagColor(record.strategy)">{{ strategyLabel(record.strategy) }}</a-tag>
             </template>
@@ -35,6 +40,11 @@
             <template v-else-if="column.key === 'mrr'">
               <span class="cell-metric" :class="getMetricClass(record.mrr)">
                 {{ record.mrr.toFixed(4) }}
+              </span>
+            </template>
+            <template v-else-if="column.key === 'ndcg'">
+              <span class="cell-metric" :class="getMetricClass(record.ndcg)">
+                {{ record.ndcg.toFixed(4) }}
               </span>
             </template>
             <template v-else-if="column.key === 'hit_rate'">
@@ -84,7 +94,13 @@
       @ok="handleEval"
     >
       <a-form :label-col="{ span: 6 }" :wrapper-col="{ span: 16 }" style="margin-top: 16px">
-        <a-form-item label="检索策略" required>
+        <a-form-item label="评估类别" required>
+          <a-select v-model:value="evalCategory" style="width: 100%">
+            <a-select-option value="recall">粗排 (Recall)</a-select-option>
+            <a-select-option value="rerank">重排 (Rerank)</a-select-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item v-if="evalCategory === 'recall'" label="检索策略" required>
           <a-select v-model:value="evalStrategy" style="width: 100%">
             <a-select-option v-for="s in strategyOptions" :key="s.value" :value="s.value">{{ s.label }}</a-select-option>
           </a-select>
@@ -131,7 +147,7 @@ import {
 } from '@ant-design/icons-vue'
 import { dayjs } from '@/utils/time'
 import { getEvaluationHistory, triggerEvaluation, deleteEvaluation, updateEvaluation } from '@/api/project'
-import type { EvaluationStatsResult, RetrievalStrategy } from '@/api/model/projectModel'
+import type { EvaluationStatsResult, RetrievalStrategy, EvaluationCategory } from '@/api/model/projectModel'
 import PageToolbar from '@/components/PageToolbar.vue'
 import { usePageStore } from '@/store/page'
 
@@ -144,10 +160,12 @@ const history = ref<EvaluationStatsResult[]>([])
 
 const columns = [
   { title: '时间', dataIndex: 'created_at', key: 'created_at', width: 150 },
+  { title: '类别', dataIndex: 'category', key: 'category', width: 80 },
   { title: '策略', dataIndex: 'strategy', key: 'strategy', width: 100 },
   { title: 'top_k', dataIndex: 'top_k', key: 'top_k', width: 70, align: 'center' as const },
   { title: 'Recall@k', dataIndex: 'recall_at_k', key: 'recall_at_k', width: 100, align: 'right' as const },
   { title: 'MRR', dataIndex: 'mrr', key: 'mrr', width: 90, align: 'right' as const },
+  { title: 'NDCG', dataIndex: 'ndcg', key: 'ndcg', width: 90, align: 'right' as const },
   { title: '命中率', dataIndex: 'hit_rate', key: 'hit_rate', width: 90, align: 'right' as const },
   { title: '完全命中', dataIndex: 'full_hit_count', key: 'full_hit_count', width: 80, align: 'center' as const },
   { title: '零命中', dataIndex: 'zero_hit_count', key: 'zero_hit_count', width: 70, align: 'center' as const },
@@ -213,13 +231,15 @@ async function fetchHistory() {
 
 // ---- 新增评估 ----
 const evalModalVisible = ref(false)
-const evalLoading = ref(false)
-const evalStrategy = ref<RetrievalStrategy>('hybrid')
 const evalTopK = ref(10)
+const evalStrategy = ref<RetrievalStrategy>('hybrid')
+const evalCategory = ref<EvaluationCategory>('recall')
 const evalRemark = ref('')
+const evalLoading = ref(false)
 
 function showEvalModal() {
   evalStrategy.value = 'hybrid'
+  evalCategory.value = 'recall'
   evalTopK.value = 10
   evalRemark.value = ''
   evalModalVisible.value = true
@@ -229,8 +249,9 @@ async function handleEval() {
   evalLoading.value = true
   try {
     await triggerEvaluation(projectId, {
-      strategy: evalStrategy.value,
       top_k: evalTopK.value,
+      strategy: evalCategory.value === 'rerank' ? undefined : evalStrategy.value,
+      category: evalCategory.value,
       remark: evalRemark.value,
     })
     message.success('评估已触发')

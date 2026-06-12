@@ -32,7 +32,12 @@
               <template #description>{{ project.description || '暂无描述' }}</template>
             </a-card-meta>
             <div style="margin-top: 12px">
-              <a-tag color="default">{{ project.embed_model_name || '未知模型' }}</a-tag>
+              <a-tooltip :title="project.embed_model_name || ''">
+                <a-tag color="blue">Embedding</a-tag>
+              </a-tooltip>
+              <a-tooltip v-if="project.rerank_model_name" :title="project.rerank_model_name">
+                <a-tag color="green">Rerank</a-tag>
+              </a-tooltip>
             </div>
           </a-card>
         </a-col>
@@ -65,8 +70,22 @@
             :loading="embedModelStore.loading"
             :disabled="isEdit"
           >
-            <a-select-option v-for="m in embedModelStore.onlineModels" :key="m.id" :value="m.id">
+            <a-select-option v-for="m in embedModelStore.onlineEmbedModels" :key="m.id" :value="m.id">
               {{ m.name }} ({{ m.dimension }}维)
+            </a-select-option>
+          </a-select>
+          <span v-if="isEdit" class="form-hint">创建后不可修改</span>
+        </a-form-item>
+        <a-form-item label="重排模型">
+          <a-select
+            v-model:value="formState.rerank_model_id"
+            placeholder="可选，不选则不走重排"
+            :loading="embedModelStore.loading"
+            :disabled="isEdit"
+            allow-clear
+          >
+            <a-select-option v-for="m in embedModelStore.onlineRerankerModels" :key="m.id" :value="m.id">
+              {{ m.name }}
             </a-select-option>
           </a-select>
           <span v-if="isEdit" class="form-hint">创建后不可修改</span>
@@ -200,7 +219,7 @@ const loading = ref(false)
 const projectList = ref<ProjectItem[]>([])
 
 const { modalVisible, submitLoading, isEdit, editingId, formState, openCreate, openEdit, handleSubmit } = useCrudModal({
-  defaultForm: () => ({ name: '', description: '', embed_model_id: '' }),
+  defaultForm: () => ({ name: '', description: '', embed_model_id: '', rerank_model_id: '' }),
   createApi: createProject,
   updateApi: updateProject,
   afterSubmit: fetchList,
@@ -243,7 +262,7 @@ function handleCreate() {
 }
 
 function handleEdit(project: ProjectItem) {
-  openEdit(project.id, { name: project.name, description: project.description, embed_model_id: project.embed_model_id })
+  openEdit(project.id, { name: project.name, description: project.description, embed_model_id: project.embed_model_id, rerank_model_id: project.rerank_model_id || '' })
 }
 
 function handleView(project: ProjectItem) {

@@ -13,6 +13,8 @@ export const useEmbedModelStore = defineStore('embedModel', () => {
   const CACHE_TTL = 5 * 60 * 1000
 
   const onlineModels = computed(() => models.value.filter(m => m.status === 'online'))
+  const onlineEmbedModels = computed(() => models.value.filter(m => m.status === 'online' && m.model_type === 'embed'))
+  const onlineRerankerModels = computed(() => models.value.filter(m => m.status === 'online' && m.model_type === 'reranker'))
 
   const isCacheValid = computed(() =>
     models.value.length > 0 && (Date.now() - lastFetchTime.value) < CACHE_TTL
@@ -60,6 +62,8 @@ export const useEmbedModelStore = defineStore('embedModel', () => {
     models,
     loading,
     onlineModels,
+    onlineEmbedModels,
+    onlineRerankerModels,
     fetchModels,
     refreshStatus,
     invalidateCache,
