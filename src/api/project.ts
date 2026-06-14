@@ -7,11 +7,16 @@ enum Api {
   Get = '/projects',
   Update = '/projects',
   Delete = '/projects',
+  Original = '/projects/original',
 }
 
 /** 获取项目列表 */
 export const getProjectList = () =>
   get<ProjectItem[]>({ url: Api.List })
+
+/** 获取可继承项目列表（原创项目） */
+export const getOriginalProjects = () =>
+  get<ProjectItem[]>({ url: Api.Original })
 
 /** 获取项目详情 */
 export const getProject = (id: string) =>

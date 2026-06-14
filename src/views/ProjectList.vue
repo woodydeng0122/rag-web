@@ -38,6 +38,9 @@
               <a-tooltip v-if="project.rerank_model_name" :title="project.rerank_model_name">
                 <a-tag color="green">Rerank</a-tag>
               </a-tooltip>
+              <a-tag v-if="project.inherited_from_project_name" color="orange" style="margin-left: 4px">
+                继承自: {{ project.inherited_from_project_name }}
+              </a-tag>
             </div>
           </a-card>
         </a-col>
@@ -62,6 +65,18 @@
       <a-form :model="formState" :label-col="{ span: 5 }" :wrapper-col="{ span: 18 }" style="padding-top: 16px">
         <a-form-item label="项目名称" required>
           <a-input v-model:value="formState.name" placeholder="请输入项目名称" :maxlength="255" show-count />
+        </a-form-item>
+        <a-form-item v-if="!isEdit" label="继承自">
+          <a-select
+            v-model:value="formState.inherit_from_project_id"
+            placeholder="可选，不选则创建空项目"
+            :loading="originalProjectsLoading"
+            allow-clear
+          >
+            <a-select-option v-for="p in originalProjects" :key="p.id" :value="p.id">
+              {{ p.name }}
+            </a-select-option>
+          </a-select>
         </a-form-item>
         <a-form-item label="嵌入模型" required>
           <a-select
