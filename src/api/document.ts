@@ -36,9 +36,17 @@ export const uploadDocument = (params: UploadDocumentParams) => {
   })
 }
 
-/** 处理单个文档 */
+/** 处理单个文档（分块+嵌入） */
 export const processDocument = (_projectId: string, documentId: string) =>
   post<ProcessDocumentResult>({ url: `${Api.Documents}/${documentId}/process` })
+
+/** 仅分块单个文档 */
+export const chunkDocument = (_projectId: string, documentId: string) =>
+  post<ProcessDocumentResult>({ url: `${Api.Documents}/${documentId}/chunk` })
+
+/** 仅向量化单个文档 */
+export const embedDocument = (_projectId: string, documentId: string) =>
+  post<ProcessDocumentResult>({ url: `${Api.Documents}/${documentId}/embed` })
 
 /** 删除文档 */
 export const deleteDocument = (_projectId: string, documentId: string) =>
@@ -56,6 +64,14 @@ export const getSourceContent = (_projectId: string, documentId: string) =>
 export const getChunkEmbedding = (_projectId: string, chunkId: string) =>
   get<EmbeddingResult>({ url: `${Api.Chunks}/${chunkId}/embedding` })
 
-/** 批量处理文档 */
+/** 批量处理文档（分块+嵌入） */
 export const batchProcessDocuments = (_projectId: string, documentIds: string[]) =>
   post<BatchProcessResult>({ url: `${Api.Documents}/batch-process`, data: { document_ids: documentIds } })
+
+/** 批量分块文档 */
+export const batchChunkDocuments = (_projectId: string, documentIds: string[]) =>
+  post<BatchProcessResult>({ url: `${Api.Documents}/batch-chunk`, data: { document_ids: documentIds } })
+
+/** 批量向量化文档 */
+export const batchEmbedDocuments = (_projectId: string, documentIds: string[]) =>
+  post<BatchProcessResult>({ url: `${Api.Documents}/batch-embed`, data: { document_ids: documentIds } })

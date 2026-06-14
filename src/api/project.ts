@@ -22,9 +22,9 @@ export const getOriginalProjects = () =>
 export const getProject = (id: string) =>
   get<ProjectItem>({ url: `${Api.Get}/${id}` })
 
-/** 创建项目 */
+/** 创建项目（继承时可能耗时较长，超时设为 60 秒） */
 export const createProject = (params: CreateProjectParams) =>
-  post<ProjectItem>({ url: Api.Create, data: params })
+  post<ProjectItem>({ url: Api.Create, data: params, timeout: 60000 })
 
 /** 更新项目 */
 export const updateProject = (id: string, params: CreateProjectParams) =>

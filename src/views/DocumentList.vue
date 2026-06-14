@@ -18,9 +18,13 @@
         </a-select>
       </template>
       <template #actions>
-        <a-button @click="handleBatchProcess" :disabled="selectedRowKeys.length === 0 || batchProcessing" :loading="batchProcessing">
+        <a-button @click="handleBatchChunk" :disabled="selectedRowKeys.length === 0 || batchChunkProcessing" :loading="batchChunkProcessing">
           <template #icon><play-circle-outlined /></template>
-          批量处理 ({{ selectedRowKeys.length }})
+          批量分块 ({{ selectedRowKeys.length }})
+        </a-button>
+        <a-button @click="handleBatchEmbed" :disabled="selectedRowKeys.length === 0 || batchEmbedProcessing" :loading="batchEmbedProcessing">
+          <template #icon><play-circle-outlined /></template>
+          批量向量化 ({{ selectedRowKeys.length }})
         </a-button>
         <a-button type="primary" @click="handleUploadClick">
           <template #icon><upload-outlined /></template>
@@ -86,8 +90,11 @@
             <!-- 操作 -->
             <template v-if="column.key === 'action'">
               <div class="action-cell">
-                <a-button size="small" type="primary" @click="handleProcess(record)" :loading="processingIds.includes(record.id)" :disabled="['ready','embedding','chunking'].includes(record.status)">
-                  处理
+                <a-button size="small" @click="handleChunk(record)" :loading="processingIds.includes(record.id)" :disabled="!canChunk(record.status)">
+                  分块
+                </a-button>
+                <a-button size="small" type="primary" @click="handleEmbed(record)" :loading="processingIds.includes(record.id)" :disabled="!canEmbed(record.status)">
+                  向量化
                 </a-button>
                 <a-button size="small" @click="handleViewDetail(record)">
                   详情
@@ -282,7 +289,7 @@ import {
   FileOutlined,
   FileZipOutlined,
 } from '@ant-design/icons-vue'
-import { getDocumentList, uploadDocument, processDocument, deleteDocument, getChunkList, getSourceContent } from '@/api/document'
+import { getDocumentList, uploadDocument, chunkDocument, embedDocument, deleteDocument, getChunkList, getSourceContent, batchChunkDocuments, batchEmbedDocuments } from '@/api/document'
 import { getChunkGoldenRecords } from '@/api/chunk'
 import type { DocumentItem, ChunkItem, UploadDocumentParams } from '@/api/model/documentModel'
 import type { GoldenItem } from '@/api/model/goldenModel'
@@ -310,21 +317,42 @@ const columns = [
   { title: '黄金数据集', dataIndex: 'golden_record_count', key: 'golden_record_count', width: 110 },
   { title: '状态', dataIndex: 'status', key: 'status', width: 100 },
   { title: '上传时间', dataIndex: 'created_at', key: 'created_at', width: 130 },
-  { title: '操作', key: 'action', fixed: 'right' as const, width: 180 },
+  { title: '操作', key: 'action', fixed: 'right' as const, width: 240 },
 ]
 
 const selectedRowKeys = ref<string[]>([])
 const processingIds = ref<string[]>([])
 
-const { batchProcessing, handleBatchProcess } = useBatchProcess({
+const { batchProcessing: batchChunkProcessing, handleBatchProcess: handleBatchChunk } = useBatchProcess({
   selectedRowKeys: () => selectedRowKeys.value,
   setSelectedRowKeys: (keys) => { selectedRowKeys.value = keys },
   canProcess: (id) => {
     const doc = documents.value.find(d => d.id === id)
-    return doc ? !['ready', 'embedding', 'chunking'].includes(doc.status) : false
+    return doc ? canChunk(doc.status) : false
   },
-  action: (id) => processDocument(projectId.value, id),
-  skipLabel: '已处理',
+  action: (id) => chunkDocument(projectId.value, id),
+  skipLabel: '已分块',
+  onBatchComplete: (results) => {
+    for (const r of results) {
+      const doc = documents.value.find(d => d.id === r.id)
+      if (doc) {
+        doc.status = r.status
+        doc.chunk_count = r.chunk_count
+        doc.error_message = r.error_message
+      }
+    }
+  },
+})
+
+const { batchProcessing: batchEmbedProcessing, handleBatchProcess: handleBatchEmbed } = useBatchProcess({
+  selectedRowKeys: () => selectedRowKeys.value,
+  setSelectedRowKeys: (keys) => { selectedRowKeys.value = keys },
+  canProcess: (id) => {
+    const doc = documents.value.find(d => d.id === id)
+    return doc ? canEmbed(doc.status) : false
+  },
+  action: (id) => embedDocument(projectId.value, id),
+  skipLabel: '未分块/已向量化',
   onBatchComplete: (results) => {
     for (const r of results) {
       const doc = documents.value.find(d => d.id === r.id)
@@ -487,18 +515,47 @@ function handleViewDetail(record: DocumentItem) {
   drawerVisible.value = true
 }
 
-async function handleProcess(record: DocumentItem) {
-  if (record.status === 'ready') {
-    message.info('文档已处理，无需重复操作')
+function canChunk(status: string): boolean {
+  return ['uploaded', 'error'].includes(status)
+}
+
+function canEmbed(status: string): boolean {
+  return ['chunked'].includes(status)
+}
+
+async function handleChunk(record: DocumentItem) {
+  if (!canChunk(record.status)) {
+    message.info('文档已分块，无需重复操作')
     return
   }
   processingIds.value.push(record.id)
   try {
-    await processDocument(projectId.value, record.id)
-    message.success('处理成功')
+    await chunkDocument(projectId.value, record.id)
+    message.success('分块成功')
     await fetchList()
   } catch {
-    message.error('处理失败')
+    message.error('分块失败')
+  } finally {
+    processingIds.value = processingIds.value.filter(id => id !== record.id)
+  }
+}
+
+async function handleEmbed(record: DocumentItem) {
+  if (!canEmbed(record.status)) {
+    if (['uploaded', 'chunking'].includes(record.status)) {
+      message.info('文档尚未分块，请先执行分块')
+    } else {
+      message.info('文档已向量化，无需重复操作')
+    }
+    return
+  }
+  processingIds.value.push(record.id)
+  try {
+    await embedDocument(projectId.value, record.id)
+    message.success('向量化成功')
+    await fetchList()
+  } catch {
+    message.error('向量化失败')
   } finally {
     processingIds.value = processingIds.value.filter(id => id !== record.id)
   }

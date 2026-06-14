@@ -38,9 +38,17 @@
               <a-tooltip v-if="project.rerank_model_name" :title="project.rerank_model_name">
                 <a-tag color="green">Rerank</a-tag>
               </a-tooltip>
-              <a-tag v-if="project.inherited_from_project_name" color="orange" style="margin-left: 4px">
-                继承自: {{ project.inherited_from_project_name }}
-              </a-tag>
+            </div>
+            <div style="margin-top:4px">
+              <div v-if="project.inherited_from_project_name" color="orange">
+                <a-tag color="orange">继承自：{{ project.inherited_from_project_name }}</a-tag>
+                <a-tag color="cyan">doc</a-tag>
+                <a-tag color="cyan">chunk</a-tag>
+                <a-tag color="cyan">golden</a-tag>
+              </div>
+              <div v-else color="red">
+                <a-tag color="red">可被继承</a-tag>
+              </div>
             </div>
           </a-card>
         </a-col>
@@ -222,7 +230,7 @@ import { useActiveProjectStore } from '@/store/activeProject'
 import { useEmbedModelStore } from '@/store/embedModel'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ThunderboltOutlined, BarChartOutlined } from '@ant-design/icons-vue'
 import PageToolbar from '@/components/PageToolbar.vue'
-import { getProjectList, createProject, updateProject, deleteProject, triggerEvaluation } from '@/api/project'
+import { getProjectList, createProject, updateProject, deleteProject, triggerEvaluation, getOriginalProjects } from '@/api/project'
 import type { ProjectItem, EvaluationStatsResult } from '@/api/model/projectModel'
 
 const router = useRouter()
@@ -234,11 +242,15 @@ const loading = ref(false)
 const projectList = ref<ProjectItem[]>([])
 
 const { modalVisible, submitLoading, isEdit, editingId, formState, openCreate, openEdit, handleSubmit } = useCrudModal({
-  defaultForm: () => ({ name: '', description: '', embed_model_id: '', rerank_model_id: '' }),
+  defaultForm: () => ({ name: '', description: '', embed_model_id: '', rerank_model_id: '', inherit_from_project_id: '' }),
   createApi: createProject,
   updateApi: updateProject,
   afterSubmit: fetchList,
 })
+
+// 可继承项目列表
+const originalProjects = ref<ProjectItem[]>([])
+const originalProjectsLoading = ref(false)
 
 // 评估统计
 const evalDrawerVisible = ref(false)
@@ -274,6 +286,19 @@ async function fetchList() {
 function handleCreate() {
   openCreate()
   embedModelStore.fetchModels()
+  fetchOriginalProjects()
+}
+
+async function fetchOriginalProjects() {
+  originalProjectsLoading.value = true
+  try {
+    const res = await getOriginalProjects()
+    originalProjects.value = res || []
+  } catch {
+    originalProjects.value = []
+  } finally {
+    originalProjectsLoading.value = false
+  }
 }
 
 function handleEdit(project: ProjectItem) {
