@@ -39,17 +39,6 @@
                 <a-tag color="green">Rerank</a-tag>
               </a-tooltip>
             </div>
-            <div style="margin-top:4px">
-              <div v-if="project.inherited_from_project_name" color="orange">
-                <a-tag color="orange">继承自：{{ project.inherited_from_project_name }}</a-tag>
-                <a-tag color="cyan">doc</a-tag>
-                <a-tag color="cyan">chunk</a-tag>
-                <a-tag color="cyan">golden</a-tag>
-              </div>
-              <div v-else color="red">
-                <a-tag color="red">可被继承</a-tag>
-              </div>
-            </div>
           </a-card>
         </a-col>
 
@@ -73,18 +62,6 @@
       <a-form :model="formState" :label-col="{ span: 5 }" :wrapper-col="{ span: 18 }" style="padding-top: 16px">
         <a-form-item label="项目名称" required>
           <a-input v-model:value="formState.name" placeholder="请输入项目名称" :maxlength="255" show-count />
-        </a-form-item>
-        <a-form-item v-if="!isEdit" label="继承自">
-          <a-select
-            v-model:value="formState.inherit_from_project_id"
-            placeholder="可选，不选则创建空项目"
-            :loading="originalProjectsLoading"
-            allow-clear
-          >
-            <a-select-option v-for="p in originalProjects" :key="p.id" :value="p.id">
-              {{ p.name }}
-            </a-select-option>
-          </a-select>
         </a-form-item>
         <a-form-item label="嵌入模型" required>
           <a-select
@@ -230,7 +207,7 @@ import { useActiveProjectStore } from '@/store/activeProject'
 import { useEmbedModelStore } from '@/store/embedModel'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ThunderboltOutlined, BarChartOutlined } from '@ant-design/icons-vue'
 import PageToolbar from '@/components/PageToolbar.vue'
-import { getProjectList, createProject, updateProject, deleteProject, triggerEvaluation, getOriginalProjects } from '@/api/project'
+import { getProjectList, createProject, updateProject, deleteProject, triggerEvaluation } from '@/api/project'
 import type { ProjectItem, EvaluationStatsResult } from '@/api/model/projectModel'
 
 const router = useRouter()
@@ -247,10 +224,6 @@ const { modalVisible, submitLoading, isEdit, editingId, formState, openCreate, o
   updateApi: updateProject,
   afterSubmit: fetchList,
 })
-
-// 可继承项目列表
-const originalProjects = ref<ProjectItem[]>([])
-const originalProjectsLoading = ref(false)
 
 // 评估统计
 const evalDrawerVisible = ref(false)
@@ -286,19 +259,6 @@ async function fetchList() {
 function handleCreate() {
   openCreate()
   embedModelStore.fetchModels()
-  fetchOriginalProjects()
-}
-
-async function fetchOriginalProjects() {
-  originalProjectsLoading.value = true
-  try {
-    const res = await getOriginalProjects()
-    originalProjects.value = res || []
-  } catch {
-    originalProjects.value = []
-  } finally {
-    originalProjectsLoading.value = false
-  }
 }
 
 function handleEdit(project: ProjectItem) {

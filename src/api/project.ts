@@ -14,17 +14,13 @@ enum Api {
 export const getProjectList = () =>
   get<ProjectItem[]>({ url: Api.List })
 
-/** 获取可继承项目列表（原创项目） */
-export const getOriginalProjects = () =>
-  get<ProjectItem[]>({ url: Api.Original })
-
 /** 获取项目详情 */
 export const getProject = (id: string) =>
   get<ProjectItem>({ url: `${Api.Get}/${id}` })
 
-/** 创建项目（继承时可能耗时较长，超时设为 60 秒） */
+/** 创建项目 */
 export const createProject = (params: CreateProjectParams) =>
-  post<ProjectItem>({ url: Api.Create, data: params, timeout: 60000 })
+  post<ProjectItem>({ url: Api.Create, data: params })
 
 /** 更新项目 */
 export const updateProject = (id: string, params: CreateProjectParams) =>

@@ -5,7 +5,6 @@ export interface CreateProjectParams {
   description?: string
   embed_model_id: string
   rerank_model_id?: string
-  inherit_from_project_id?: string
 }
 
 export interface ProjectItem {
@@ -17,8 +16,6 @@ export interface ProjectItem {
   embed_dimension: number
   rerank_model_id: string
   rerank_model_name: string
-  inherited_from_project_id: string
-  inherited_from_project_name: string
   created_at: string
   updated_at: string
 }
