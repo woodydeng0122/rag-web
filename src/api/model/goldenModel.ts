@@ -6,11 +6,17 @@ export interface RetrievalSummary {
   hit_ranks: number[]
 }
 
+/** 黄金记录关联分块引用 — 通过 storage_key + chunk_index 定位 */
+export interface GroundTruthRef {
+  storage_key: string
+  chunk_index: number
+}
+
 export interface GoldenItem {
   id: string
   project_id: string
   query: string
-  ground_truth_chunks: string[]
+  ground_truth_refs: GroundTruthRef[]
   reference_answer: string
   status: string
   created_at: string
@@ -23,13 +29,13 @@ export interface GoldenItem {
 
 export interface CreateGoldenParams {
   query: string
-  ground_truth_chunks: string[]
+  ground_truth_refs: GroundTruthRef[]
   reference_answer?: string
 }
 
 export interface UpdateGoldenParams {
   query?: string
-  ground_truth_chunks?: string[]
+  ground_truth_refs?: GroundTruthRef[]
   reference_answer?: string
   status?: string
 }
@@ -47,7 +53,8 @@ export interface ImportResult {
 
 /** 检索结果项 */
 export interface RetrievalItem {
-  chunk_id: string
+  storage_key: string
+  chunk_index: number
   score: number
   rank: number
   content: string
@@ -87,7 +94,8 @@ export interface CreateRetrievalParams {
 
 /** 重排结果项 */
 export interface RerankItem {
-  chunk_id: string
+  storage_key: string
+  chunk_index: number
   original_rank: number
   rerank_score: number
   rerank_rank: number

@@ -1,6 +1,6 @@
-import { get } from './request'
+import { get, post } from './request'
 import type { ChunkItem } from './model/documentModel'
-import type { GoldenItem } from './model/goldenModel'
+import type { GoldenItem, GroundTruthRef } from './model/goldenModel'
 
 export interface ChunkSearchResult {
   document_id: string
@@ -19,6 +19,10 @@ export const getChunksByIds = (projectId: string, chunkIds: string[]) =>
 /** 查询分块关联的黄金记录 */
 export const getChunkGoldenRecords = (projectId: string, chunkId: string) =>
   get<GoldenItem[]>({ url: `/projects/${projectId}/chunks/${chunkId}/golden-records` })
+
+/** 按 storage_key + chunk_index 批量查询分块内容 */
+export const getChunksByRefs = (projectId: string, refs: GroundTruthRef[]) =>
+  post<ChunkSearchResult>({ url: `/projects/${projectId}/chunks/by-refs`, data: { refs } })
 
 /** 统计项目下的分块总数 */
 export const getChunkCount = (projectId: string) =>

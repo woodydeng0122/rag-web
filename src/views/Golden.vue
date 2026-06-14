@@ -60,7 +60,7 @@
 
           <!-- 关联分块 -->
           <template v-if="column.key === 'chunk_count'">
-            <a-tag color="blue">{{ record.ground_truth_chunks?.length || 0 }} 个分块</a-tag>
+            <a-tag color="blue">{{ record.ground_truth_refs?.length || 0 }} 个分块</a-tag>
           </template>
 
           <!-- 检索 -->
@@ -161,9 +161,10 @@
         />
         <a-spin :spinning="chunksLoading">
           <div class="chunk-list">
-            <a-checkbox-group v-model:value="formState.ground_truth_chunks" style="width: 100%">
+            <a-checkbox-group v-model:value="selectedRefKeys" style="width: 100%">
               <div v-for="chunk in chunkOptions" :key="chunk.id" class="chunk-option">
-                <a-checkbox :value="chunk.id">
+                <a-checkbox :value="`${chunk.source_file}::${chunk.index}`">
+                  <span class="chunk-doc" v-if="chunk.source_file">{{ chunk.source_file.split('/').pop() }}#{{ chunk.index }} — </span>
                   <span class="chunk-heading" v-if="chunk.heading">{{ chunk.heading }} — </span>
                   <span class="chunk-content">{{ chunk.content }}</span>
                 </a-checkbox>
@@ -174,7 +175,7 @@
           </div>
         </a-spin>
       </div>
-      <div v-if="formState.ground_truth_chunks.length > 0" class="selected-info">已选 {{ formState.ground_truth_chunks.length }} 个分块</div>
+      <div v-if="selectedRefKeys.length > 0" class="selected-info">已选 {{ selectedRefKeys.length }} 个分块</div>
     </a-form-item>
     <a-form-item label="参考答案">
       <a-textarea v-model:value="formState.reference_answer" placeholder="请输入参考答案（选填）" :rows="3" :maxlength="2000" show-count />
@@ -309,8 +310,8 @@
     <a-descriptions :column="1" bordered size="small">
       <a-descriptions-item label="查询文本">{{ detailRecord.query }}</a-descriptions-item>
       <a-descriptions-item label="关联分块">
-        <div v-if="detailRecord.ground_truth_chunks?.length">
-          <a-tag v-for="chunkId in detailRecord.ground_truth_chunks" :key="chunkId" style="margin-bottom: 4px">{{ chunkId }}</a-tag>
+        <div v-if="detailRecord.ground_truth_refs?.length">
+          <a-tag v-for="ref in detailRecord.ground_truth_refs" :key="`${ref.storage_key}::${ref.chunk_index}`" style="margin-bottom: 4px">{{ ref.storage_key.split('/').pop() }}#{{ ref.chunk_index }}</a-tag>
         </div>
         <span v-else>--</span>
       </a-descriptions-item>
@@ -359,12 +360,12 @@
           <pre class="retrieval-metadata-text">{{ JSON.stringify(retrievalRecord.metadata, null, 2) }}</pre>
         </div>
         <div class="retrieval-gt-section">
-          <div class="retrieval-gt-label">Ground Truth ({{ retrievalRecord.ground_truth_chunks?.length || 0 }} 个分块)</div>
+          <div class="retrieval-gt-label">Ground Truth ({{ retrievalRecord.ground_truth_refs?.length || 0 }} 个分块)</div>
           <a-spin :spinning="gtChunksLoading">
             <div class="retrieval-gt-list">
               <ChunkCard
                 v-for="(chunk, idx) in gtChunks"
-                :key="chunk.id"
+                :key="`${chunk.source_file}::${chunk.index}`"
                 :content="chunk.content"
                 :file-type="chunk.file_type"
                 :heading="chunk.heading"
@@ -410,12 +411,12 @@
             <a-tag>嵌入: {{ retrievalResult.embed_latency_ms }}ms</a-tag>
             <a-tag>检索: {{ retrievalResult.search_latency_ms }}ms</a-tag>
             <a-tag>max_k: {{ retrievalResult.max_k }}</a-tag>
-            <a-tag color="green">命中GT: {{ retrievalResult.items.filter(i => i.is_ground_truth).length }}/{{ retrievalRecord.ground_truth_chunks?.length || 0 }}</a-tag>
+            <a-tag color="green">命中GT: {{ retrievalResult.items.filter(i => i.is_ground_truth).length }}/{{ retrievalRecord.ground_truth_refs?.length || 0 }}</a-tag>
           </div>
           <div class="retrieval-items">
             <ChunkCard
               v-for="(item, idx) in retrievalResult.items"
-              :key="item.chunk_id"
+              :key="`${item.storage_key}::${item.chunk_index}`"
               :content="item.content"
               :file-type="item.file_type"
               :heading="item.heading"
@@ -458,12 +459,12 @@
           <div class="retrieval-answer-text">{{ rerankRecord.reference_answer }}</div>
         </div>
         <div class="retrieval-gt-section">
-          <div class="retrieval-gt-label">Ground Truth ({{ rerankRecord.ground_truth_chunks?.length || 0 }} 个分块)</div>
+          <div class="retrieval-gt-label">Ground Truth ({{ rerankRecord.ground_truth_refs?.length || 0 }} 个分块)</div>
           <a-spin :spinning="rerankGtChunksLoading">
             <div class="retrieval-gt-list">
               <ChunkCard
                 v-for="(chunk, idx) in rerankGtChunks"
-                :key="chunk.id"
+                :key="`${chunk.source_file}::${chunk.index}`"
                 :content="chunk.content"
                 :file-type="chunk.file_type"
                 :heading="chunk.heading"
@@ -495,12 +496,12 @@
             <a-tag>加载分块: {{ rerankResult.load_chunks_latency_ms }}ms</a-tag>
             <a-tag>推理: {{ rerankResult.predict_latency_ms }}ms</a-tag>
             <a-tag>top_k: {{ rerankResult.top_k }}</a-tag>
-            <a-tag color="green">命中GT: {{ rerankResult.items.filter(i => i.is_ground_truth).length }}/{{ rerankRecord.ground_truth_chunks?.length || 0 }}</a-tag>
+            <a-tag color="green">命中GT: {{ rerankResult.items.filter(i => i.is_ground_truth).length }}/{{ rerankRecord.ground_truth_refs?.length || 0 }}</a-tag>
           </div>
           <div class="retrieval-items">
             <ChunkCard
               v-for="(item, idx) in rerankResult.items"
-              :key="item.chunk_id"
+              :key="`${item.storage_key}::${item.chunk_index}`"
               :content="item.content"
               :file-type="item.file_type"
               :heading="item.heading"
@@ -549,8 +550,8 @@ import {
   createRerank,
   getRerank,
 } from '@/api/golden'
-import { searchProjectChunks, getChunksByIds } from '@/api/chunk'
-import type { GoldenItem, CreateGoldenParams, ImportResult, RetrievalResponse, RetrievalStrategy, RerankResponse } from '@/api/model/goldenModel'
+import { searchProjectChunks, getChunksByRefs } from '@/api/chunk'
+import type { GoldenItem, CreateGoldenParams, ImportResult, RetrievalResponse, RetrievalStrategy, RerankResponse, GroundTruthRef } from '@/api/model/goldenModel'
 import type { ChunkItem } from '@/api/model/documentModel'
 import ChunkCard from '@/components/ChunkCard.vue'
 import NoProjectPrompt from '@/components/NoProjectPrompt.vue'
@@ -588,13 +589,14 @@ const filteredList = computed(() => {
 
 // 弹窗
 const { modalVisible, submitLoading, isEdit, editingId, formState, openCreate, openEdit, handleSubmit } = useCrudModal({
-  defaultForm: () => ({ query: '', ground_truth_chunks: [] as string[], reference_answer: '' }),
+  defaultForm: () => ({ query: '', ground_truth_refs: [] as GroundTruthRef[], reference_answer: '' }),
   createApi: (form) => createGolden(activeProjectStore.activeProjectId!, form as any),
   updateApi: (id, form) => updateGolden(activeProjectStore.activeProjectId!, id, form as any),
   afterSubmit: fetchList,
 })
 
-// 分块选择器
+// 分块选择器 — 使用复合键 "storage_key::chunk_index" 作为 checkbox value
+const selectedRefKeys = ref<string[]>([])
 const chunkSearchQuery = ref('')
 const chunkOptions = ref<ChunkItem[]>([])
 const chunksLoading = ref(false)
@@ -658,7 +660,7 @@ async function handleBatchRetrieve() {
           if (item) {
             item.has_retrieval = true
             const hitItems = r.items.filter(i => i.is_ground_truth)
-            item.retrieval_summary = { hit_count: hitItems.length, gt_total: item.ground_truth_chunks.length, hit_ranks: hitItems.map(i => i.rank) }
+            item.retrieval_summary = { hit_count: hitItems.length, gt_total: item.ground_truth_refs.length, hit_ranks: hitItems.map(i => i.rank) }
           }
         }
         selectedRowKeys.value = selectedRowKeys.value.filter(k => !batchSucceededIds.includes(k))
@@ -689,10 +691,10 @@ async function openRetrievalDrawer(record: GoldenItem) {
 
   // 拉取 GT 分块内容
   gtChunks.value = []
-  if (record.ground_truth_chunks?.length && activeProjectStore.activeProjectId) {
+  if (record.ground_truth_refs?.length && activeProjectStore.activeProjectId) {
     gtChunksLoading.value = true
     try {
-      const res = await getChunksByIds(activeProjectStore.activeProjectId, record.ground_truth_chunks)
+      const res = await getChunksByRefs(activeProjectStore.activeProjectId, record.ground_truth_refs)
       gtChunks.value = res?.chunks || []
     } catch {
       gtChunks.value = []
@@ -729,7 +731,7 @@ async function handleRetrieve() {
     if (item) {
       item.has_retrieval = true
       const hitItems = res.items.filter(i => i.is_ground_truth)
-      item.retrieval_summary = { hit_count: hitItems.length, gt_total: item.ground_truth_chunks.length, hit_ranks: hitItems.map(i => i.rank) }
+      item.retrieval_summary = { hit_count: hitItems.length, gt_total: item.ground_truth_refs.length, hit_ranks: hitItems.map(i => i.rank) }
     }
     message.success('检索完成')
   } catch {
@@ -753,10 +755,10 @@ async function openRerankDrawer(record: GoldenItem) {
 
   // 拉取 GT 分块内容
   rerankGtChunks.value = []
-  if (record.ground_truth_chunks?.length && activeProjectStore.activeProjectId) {
+  if (record.ground_truth_refs?.length && activeProjectStore.activeProjectId) {
     rerankGtChunksLoading.value = true
     try {
-      const res = await getChunksByIds(activeProjectStore.activeProjectId, record.ground_truth_chunks)
+      const res = await getChunksByRefs(activeProjectStore.activeProjectId, record.ground_truth_refs)
       rerankGtChunks.value = res?.chunks || []
     } catch {
       rerankGtChunks.value = []
@@ -792,7 +794,7 @@ async function handleRerank() {
     if (item) {
       item.has_rerank = true
       const hitItems = res.items.filter(i => i.is_ground_truth)
-      item.rerank_summary = { hit_count: hitItems.length, gt_total: item.ground_truth_chunks.length, hit_ranks: hitItems.map(i => i.rerank_rank) }
+      item.rerank_summary = { hit_count: hitItems.length, gt_total: item.ground_truth_refs.length, hit_ranks: hitItems.map(i => i.rerank_rank) }
     }
     message.success('重排完成')
   } catch {
@@ -840,7 +842,7 @@ async function handleBatchRerank() {
           if (item) {
             item.has_rerank = true
             const hitItems = r.items.filter(i => i.is_ground_truth)
-            item.rerank_summary = { hit_count: hitItems.length, gt_total: item.ground_truth_chunks.length, hit_ranks: hitItems.map(i => i.rerank_rank) }
+            item.rerank_summary = { hit_count: hitItems.length, gt_total: item.ground_truth_refs.length, hit_ranks: hitItems.map(i => i.rerank_rank) }
           }
         }
         selectedRowKeys.value = selectedRowKeys.value.filter(k => !batchSucceededIds.includes(k))
@@ -897,6 +899,7 @@ function onSelectChange(keys: any[]) {
 // 新增
 function handleCreate() {
   openCreate()
+  selectedRefKeys.value = []
   chunkSearchQuery.value = ''
   chunkOptions.value = []
   chunkOffset.value = 0
@@ -907,9 +910,10 @@ function handleCreate() {
 function handleEdit(record: GoldenItem) {
   openEdit(record.id, {
     query: record.query,
-    ground_truth_chunks: [...record.ground_truth_chunks],
+    ground_truth_refs: [...record.ground_truth_refs],
     reference_answer: record.reference_answer,
   })
+  selectedRefKeys.value = record.ground_truth_refs.map(r => `${r.storage_key}::${r.chunk_index}`)
   chunkSearchQuery.value = ''
   chunkOptions.value = []
   chunkOffset.value = 0
@@ -918,9 +922,14 @@ function handleEdit(record: GoldenItem) {
 
 // 提交
 async function handleFormSubmit() {
+  // 将复合键转换为 GroundTruthRef[]
+  formState.ground_truth_refs = selectedRefKeys.value.map(key => {
+    const [storage_key, indexStr] = key.split('::')
+    return { storage_key, chunk_index: parseInt(indexStr, 10) }
+  })
   await handleSubmit((form) => {
     if (!form.query.trim()) return '请输入查询文本'
-    if (form.ground_truth_chunks.length === 0) return '请选择至少一个关联分块'
+    if (form.ground_truth_refs.length === 0) return '请选择至少一个关联分块'
     return null
   })
 }
@@ -1040,13 +1049,13 @@ function downloadTemplate(format: 'jsonl' | 'csv') {
   if (format === 'jsonl') {
     const example1 = {
       query: '什么是 RAG？',
-      ground_truth_chunks: ['chunk_id_1', 'chunk_id_2'],
+      ground_truth_refs: [{ storage_key: 'docs/example.md', chunk_index: 0 }, { storage_key: 'docs/example.md', chunk_index: 2 }],
       reference_answer: 'RAG 是检索增强生成技术，结合了信息检索和文本生成。',
       metadata: { type: 'factual', difficulty: 'easy' },
     }
     const example2 = {
       query: '如何评估检索系统的质量？',
-      ground_truth_chunks: ['chunk_id_3'],
+      ground_truth_refs: [{ storage_key: 'docs/evaluation.md', chunk_index: 1 }],
       reference_answer: '可以使用 Recall@K、MRR 等指标评估检索质量。',
       metadata: { type: 'procedural', difficulty: 'medium' },
     }
@@ -1054,9 +1063,9 @@ function downloadTemplate(format: 'jsonl' | 'csv') {
     filename = 'golden_template.jsonl'
     mimeType = 'application/jsonl'
   } else {
-    content = 'query,ground_truth_chunks,reference_answer,metadata\n'
-    content += '什么是 RAG？,chunk_id_1;chunk_id_2,RAG 是检索增强生成技术。,"{""type"":""factual"",""difficulty"":""easy""}"\n'
-    content += '如何评估检索系统的质量？,chunk_id_3,可以使用 Recall@K、MRR 等指标评估检索质量。,"{""type"":""procedural"",""difficulty"":""medium""}"\n'
+    content = 'query,ground_truth_refs,reference_answer,metadata\n'
+    content += '什么是 RAG？,docs/example.md:0;docs/example.md:2,RAG 是检索增强生成技术。,"{""type"":""factual"",""difficulty"":""easy""}"\n'
+    content += '如何评估检索系统的质量？,docs/evaluation.md:1,可以使用 Recall@K、MRR 等指标评估检索质量。,"{""type"":""procedural"",""difficulty"":""medium""}"\n'
     filename = 'golden_template.csv'
     mimeType = 'text/csv'
   }
@@ -1121,6 +1130,11 @@ watch(importModalVisible, (val) => {
 }
 .chunk-option:last-child {
   border-bottom: none;
+}
+.chunk-doc {
+  font-weight: 500;
+  color: var(--ant-color-text-tertiary);
+  font-size: 11px;
 }
 .chunk-heading {
   font-weight: 500;
