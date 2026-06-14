@@ -414,18 +414,19 @@
             <a-tag color="green">命中GT: {{ retrievalResult.items.filter(i => i.is_ground_truth).length }}/{{ retrievalRecord.ground_truth_refs?.length || 0 }}</a-tag>
           </div>
           <div class="retrieval-items">
-            <ChunkCard
-              v-for="(item, idx) in retrievalResult.items"
-              :key="`${item.storage_key}::${item.chunk_index}`"
-              :content="item.content"
-              :file-type="item.file_type"
-              :heading="item.heading"
-              :source-file="item.source_file"
-              :score="item.score"
-              :label="`#${item.rank}`"
-              :is-ground-truth="item.is_ground_truth"
-              :even="idx % 2 === 0"
-            />
+            <div v-for="(item, idx) in retrievalResult.items" :key="`${item.storage_key}::${item.chunk_index}`" class="retrieval-item-wrap">
+              <a-tag v-if="item.is_ground_truth" color="success" size="small" class="retrieval-gt-tag">GT命中</a-tag>
+              <a-tag v-else color="default" size="small" class="retrieval-gt-tag">未命中</a-tag>
+              <ChunkCard
+                :content="item.content"
+                :file-type="item.file_type"
+                :heading="item.heading"
+                :source-file="item.source_file"
+                :score="item.score"
+                :label="`#${item.rank}`"
+                :even="idx % 2 === 0"
+              />
+            </div>
           </div>
         </template>
       </template>
@@ -499,18 +500,19 @@
             <a-tag color="green">命中GT: {{ rerankResult.items.filter(i => i.is_ground_truth).length }}/{{ rerankRecord.ground_truth_refs?.length || 0 }}</a-tag>
           </div>
           <div class="retrieval-items">
-            <ChunkCard
-              v-for="(item, idx) in rerankResult.items"
-              :key="`${item.storage_key}::${item.chunk_index}`"
-              :content="item.content"
-              :file-type="item.file_type"
-              :heading="item.heading"
-              :source-file="item.source_file"
-              :score="item.rerank_score"
-              :label="`#${item.rerank_rank}`"
-              :is-ground-truth="item.is_ground_truth"
-              :even="idx % 2 === 0"
-            />
+            <div v-for="(item, idx) in rerankResult.items" :key="`${item.storage_key}::${item.chunk_index}`" class="retrieval-item-wrap">
+              <a-tag v-if="item.is_ground_truth" color="success" size="small" class="retrieval-gt-tag">GT命中</a-tag>
+              <a-tag v-else color="default" size="small" class="retrieval-gt-tag">未命中</a-tag>
+              <ChunkCard
+                :content="item.content"
+                :file-type="item.file_type"
+                :heading="item.heading"
+                :source-file="item.source_file"
+                :score="item.rerank_score"
+                :label="`#${item.rerank_rank}`"
+                :even="idx % 2 === 0"
+              />
+            </div>
           </div>
         </template>
       </template>
@@ -1373,6 +1375,15 @@ watch(importModalVisible, (val) => {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+}
+.retrieval-item-wrap {
+  position: relative;
+}
+.retrieval-gt-tag {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 1;
 }
 .retrieval-actions {
   margin-top: 16px;

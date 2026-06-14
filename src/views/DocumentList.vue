@@ -90,10 +90,10 @@
             <!-- 操作 -->
             <template v-if="column.key === 'action'">
               <div class="action-cell">
-                <a-button size="small" @click="handleChunk(record)" :loading="processingIds.includes(record.id)" :disabled="!canChunk(record.status)">
+                <a-button size="small" @click="handleChunk(record)" :loading="chunkingIds.includes(record.id)" :disabled="!canChunk(record.status)">
                   分块
                 </a-button>
-                <a-button size="small" type="primary" @click="handleEmbed(record)" :loading="processingIds.includes(record.id)" :disabled="!canEmbed(record.status)">
+                <a-button size="small" type="primary" @click="handleEmbed(record)" :loading="embeddingIds.includes(record.id)" :disabled="!canEmbed(record.status)">
                   向量化
                 </a-button>
                 <a-button size="small" @click="handleViewDetail(record)">
@@ -321,7 +321,8 @@ const columns = [
 ]
 
 const selectedRowKeys = ref<string[]>([])
-const processingIds = ref<string[]>([])
+const chunkingIds = ref<string[]>([])
+const embeddingIds = ref<string[]>([])
 
 const { batchProcessing: batchChunkProcessing, handleBatchProcess: handleBatchChunk } = useBatchProcess({
   selectedRowKeys: () => selectedRowKeys.value,
@@ -528,7 +529,7 @@ async function handleChunk(record: DocumentItem) {
     message.info('文档已分块，无需重复操作')
     return
   }
-  processingIds.value.push(record.id)
+  chunkingIds.value.push(record.id)
   try {
     await chunkDocument(projectId.value, record.id)
     message.success('分块成功')
@@ -536,7 +537,7 @@ async function handleChunk(record: DocumentItem) {
   } catch {
     message.error('分块失败')
   } finally {
-    processingIds.value = processingIds.value.filter(id => id !== record.id)
+    chunkingIds.value = chunkingIds.value.filter(id => id !== record.id)
   }
 }
 
@@ -549,7 +550,7 @@ async function handleEmbed(record: DocumentItem) {
     }
     return
   }
-  processingIds.value.push(record.id)
+  embeddingIds.value.push(record.id)
   try {
     await embedDocument(projectId.value, record.id)
     message.success('向量化成功')
@@ -557,7 +558,7 @@ async function handleEmbed(record: DocumentItem) {
   } catch {
     message.error('向量化失败')
   } finally {
-    processingIds.value = processingIds.value.filter(id => id !== record.id)
+    embeddingIds.value = embeddingIds.value.filter(id => id !== record.id)
   }
 }
 
@@ -728,12 +729,16 @@ watch(() => pageStore.refreshTrigger, fetchList)
 /* 源文档内容 */
 .source-content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 0;
 }
 
 /* 分块列表 */
 .chunk-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 12px;

@@ -5,15 +5,12 @@
       'chunk-card--even': even,
       'chunk-card--odd': !even,
       'chunk-card--clickable': clickable,
-      'chunk-card--hit': isGroundTruth === true,
     }"
     @click="$emit('click')"
   >
-    <div v-if="label || score != null || isGroundTruth != null" class="chunk-card__header">
+    <div v-if="label || score != null" class="chunk-card__header">
       <span v-if="label" class="chunk-card__label">{{ label }}</span>
       <span v-if="score != null" class="chunk-card__score">score: {{ score.toFixed(4) }}</span>
-      <a-tag v-if="isGroundTruth === true" color="success" size="small">GT命中</a-tag>
-      <a-tag v-else-if="isGroundTruth === false" color="default" size="small">未命中</a-tag>
     </div>
     <div v-if="heading" class="chunk-card__heading">{{ heading }}</div>
     <MarkdownRenderer :content="content" :file-type="fileType || ''" />
@@ -31,7 +28,6 @@ withDefaults(defineProps<{
   sourceFile?: string
   score?: number
   label?: string
-  isGroundTruth?: boolean
   even?: boolean
   clickable?: boolean
 }>(), {
@@ -65,9 +61,6 @@ defineEmits<{
 .chunk-card--clickable:hover {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transform: translateY(-1px);
-}
-.chunk-card--hit {
-  border-left: 3px solid var(--ant-color-success);
 }
 .chunk-card__header {
   display: flex;

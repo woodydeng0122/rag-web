@@ -4,7 +4,7 @@ import { message } from 'ant-design-vue'
 
 const instance = axios.create({
   baseURL: 'http://localhost:8000/api',
-  timeout: 15000,
+  timeout: 60000,
 })
 
 export default instance
