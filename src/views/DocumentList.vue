@@ -18,13 +18,13 @@
         </a-select>
       </template>
       <template #actions>
-        <a-button @click="handleBatchChunk" :disabled="selectedRowKeys.length === 0 || batchChunkProcessing" :loading="batchChunkProcessing">
+        <a-button @click="handleBatchChunk" :disabled="chunkableCount === 0 || batchChunkProcessing" :loading="batchChunkProcessing">
           <template #icon><play-circle-outlined /></template>
-          批量分块 ({{ selectedRowKeys.length }})
+          批量分块 ({{ chunkableCount }})
         </a-button>
-        <a-button @click="handleBatchEmbed" :disabled="selectedRowKeys.length === 0 || batchEmbedProcessing" :loading="batchEmbedProcessing">
+        <a-button @click="handleBatchEmbed" :disabled="embeddableCount === 0 || batchEmbedProcessing" :loading="batchEmbedProcessing">
           <template #icon><play-circle-outlined /></template>
-          批量向量化 ({{ selectedRowKeys.length }})
+          批量向量化 ({{ embeddableCount }})
         </a-button>
         <a-button @click="handleInheritClick">
           <template #icon><copy-outlined /></template>
@@ -351,9 +351,22 @@ const selectedRowKeys = ref<string[]>([])
 const chunkingIds = ref<string[]>([])
 const embeddingIds = ref<string[]>([])
 
+const chunkableCount = computed(() =>
+  selectedRowKeys.value.filter(id => {
+    const doc = documents.value.find(d => d.id === id)
+    return doc ? canChunk(doc.status) : false
+  }).length
+)
+
+const embeddableCount = computed(() =>
+  selectedRowKeys.value.filter(id => {
+    const doc = documents.value.find(d => d.id === id)
+    return doc ? canEmbed(doc.status) : false
+  }).length
+)
+
 const { batchProcessing: batchChunkProcessing, handleBatchProcess: handleBatchChunk } = useBatchProcess({
   selectedRowKeys: () => selectedRowKeys.value,
-  setSelectedRowKeys: (keys) => { selectedRowKeys.value = keys },
   canProcess: (id) => {
     const doc = documents.value.find(d => d.id === id)
     return doc ? canChunk(doc.status) : false
@@ -374,7 +387,6 @@ const { batchProcessing: batchChunkProcessing, handleBatchProcess: handleBatchCh
 
 const { batchProcessing: batchEmbedProcessing, handleBatchProcess: handleBatchEmbed } = useBatchProcess({
   selectedRowKeys: () => selectedRowKeys.value,
-  setSelectedRowKeys: (keys) => { selectedRowKeys.value = keys },
   canProcess: (id) => {
     const doc = documents.value.find(d => d.id === id)
     return doc ? canEmbed(doc.status) : false

@@ -5,8 +5,6 @@ import { batchExecute } from '@/utils/batch'
 export interface BatchProcessOptions<T = any> {
   /** 选中的 ID 列表 */
   selectedRowKeys: () => string[]
-  /** 更新选中 ID 列表 */
-  setSelectedRowKeys: (keys: string[]) => void
   /** 判断某个 ID 是否可处理，返回 false 的会被跳过 */
   canProcess: (id: string) => boolean
   /** 对单个 ID 执行的异步操作 */
@@ -25,7 +23,6 @@ export function useBatchProcess<T = any>(options: BatchProcessOptions<T>) {
   function handleBatchProcess() {
     const {
       selectedRowKeys: getKeys,
-      setSelectedRowKeys,
       canProcess,
       action,
       label = '批量处理',
@@ -48,23 +45,18 @@ export function useBatchProcess<T = any>(options: BatchProcessOptions<T>) {
       content: `确定要处理选中的 ${processableIds.length} 项吗？${skipHint}`,
       onOk() {
         batchProcessing.value = true
-        const totalProcessable = processableIds.length
 
         void (async () => {
-          const succeeded = await batchExecute(
+          await batchExecute(
             processableIds,
             action,
             {
               label,
-              onProgress: (remaining, batchResults, batchSucceededIds) => {
-                const completedCount = totalProcessable - remaining
-                const completedIds = processableIds.slice(0, completedCount)
-                setSelectedRowKeys(getKeys().filter(k => !completedIds.includes(k)))
+              onProgress: (_remaining, batchResults, batchSucceededIds) => {
                 onBatchComplete?.(batchResults, batchSucceededIds)
               },
             },
           )
-          setSelectedRowKeys(getKeys().filter(k => !succeeded.includes(k)))
           batchProcessing.value = false
         })()
       },
