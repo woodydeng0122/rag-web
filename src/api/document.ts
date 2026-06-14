@@ -7,6 +7,7 @@ import type {
   ChunkListResult,
   SourceContentResult,
   EmbeddingResult,
+  InheritResult,
 } from './model/documentModel'
 
 enum Api {
@@ -75,3 +76,7 @@ export const batchChunkDocuments = (_projectId: string, documentIds: string[]) =
 /** 批量向量化文档 */
 export const batchEmbedDocuments = (_projectId: string, documentIds: string[]) =>
   post<BatchProcessResult>({ url: `${Api.Documents}/batch-embed`, data: { document_ids: documentIds } })
+
+/** 继承文档 */
+export const inheritDocuments = (projectId: string, sourceProjectId: string) =>
+  post<InheritResult>({ url: `${Api.List}/${projectId}/documents/inherit`, data: { source_project_id: sourceProjectId } })

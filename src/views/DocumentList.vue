@@ -26,6 +26,10 @@
           <template #icon><play-circle-outlined /></template>
           批量向量化 ({{ selectedRowKeys.length }})
         </a-button>
+        <a-button @click="handleInheritClick">
+          <template #icon><copy-outlined /></template>
+          继承文档
+        </a-button>
         <a-button type="primary" @click="handleUploadClick">
           <template #icon><upload-outlined /></template>
           上传文档
@@ -164,6 +168,27 @@
       </a-form>
     </a-modal>
 
+    <!-- 继承文档弹窗 -->
+    <a-modal
+      v-model:open="inheritVisible"
+      title="继承文档"
+      :confirm-loading="inheritLoading"
+      ok-text="确认继承"
+      cancel-text="取消"
+      @ok="handleInheritSubmit"
+    >
+      <a-form :label-col="{ span: 6 }" :wrapper-col="{ span: 18 }" style="margin-top: 16px">
+        <a-form-item label="源项目" required>
+          <a-select v-model:value="inheritSourceProjectId" placeholder="选择要继承文档的项目" :loading="projectsLoading">
+            <a-select-option v-for="p in projectList" :key="p.id" :value="p.id">{{ p.name }}</a-select-option>
+          </a-select>
+        </a-form-item>
+        <a-typography-text type="secondary" style="display: block; margin-top: 8px; padding-left: 25%">
+          将继承源项目的全部文档，已存在的文档会自动跳过。继承后需重新执行分块和向量化。
+        </a-typography-text>
+      </a-form>
+    </a-modal>
+
     <!-- 文档详情 Drawer -->
     <a-drawer
       v-model:open="drawerVisible"
@@ -282,6 +307,7 @@ import {
   UploadOutlined,
   InboxOutlined,
   PlayCircleOutlined,
+  CopyOutlined,
   FilePdfOutlined,
   FileTextOutlined,
   FileMarkdownOutlined,
@@ -289,8 +315,9 @@ import {
   FileOutlined,
   FileZipOutlined,
 } from '@ant-design/icons-vue'
-import { getDocumentList, uploadDocument, chunkDocument, embedDocument, deleteDocument, getChunkList, getSourceContent, batchChunkDocuments, batchEmbedDocuments } from '@/api/document'
+import { getDocumentList, uploadDocument, chunkDocument, embedDocument, deleteDocument, getChunkList, getSourceContent, batchChunkDocuments, batchEmbedDocuments, inheritDocuments } from '@/api/document'
 import { getChunkGoldenRecords } from '@/api/chunk'
+import { getProjectList } from '@/api/project'
 import type { DocumentItem, ChunkItem, UploadDocumentParams } from '@/api/model/documentModel'
 import type { GoldenItem } from '@/api/model/goldenModel'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
@@ -461,6 +488,13 @@ const uploadFile = ref<File | null>(null)
 const uploadFileName = ref('')
 const uploadForm = ref({ splitter_strategy: 'section_heading', chunk_size: 500, chunk_overlap: 50, splitter_min_chars: 200, splitter_max_chars: 2000 })
 
+// Inherit
+const inheritVisible = ref(false)
+const inheritLoading = ref(false)
+const inheritSourceProjectId = ref('')
+const projectsLoading = ref(false)
+const projectList = ref<{ id: string; name: string }[]>([])
+
 function fileIcon(fileType?: string) {
   const t = (fileType || '').toLowerCase()
   if (t === 'pdf') return FilePdfOutlined
@@ -626,6 +660,44 @@ async function handleUploadSubmit() {
     message.error('上传失败')
   } finally {
     uploadLoading.value = false
+  }
+}
+
+// Inherit
+async function handleInheritClick() {
+  inheritSourceProjectId.value = ''
+  inheritVisible.value = true
+  projectsLoading.value = true
+  try {
+    const res = await getProjectList()
+    projectList.value = (res || []).filter((p: any) => p.id !== projectId.value)
+  } catch {
+    message.error('获取项目列表失败')
+  } finally {
+    projectsLoading.value = false
+  }
+}
+
+async function handleInheritSubmit() {
+  if (!inheritSourceProjectId.value) {
+    message.warning('请选择源项目')
+    return
+  }
+  inheritLoading.value = true
+  try {
+    const res = await inheritDocuments(projectId.value, inheritSourceProjectId.value)
+    const { inherited_count, skipped_count } = res
+    if (inherited_count === 0 && skipped_count === 0) {
+      message.info('源项目无文档可继承')
+    } else {
+      message.success(`继承完成：成功 ${inherited_count} 个，跳过 ${skipped_count} 个`)
+    }
+    inheritVisible.value = false
+    await fetchList()
+  } catch {
+    message.error('继承文档失败')
+  } finally {
+    inheritLoading.value = false
   }
 }
 

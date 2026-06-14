@@ -93,3 +93,18 @@ export interface EmbeddingResult {
   vector: number[]
   dimension: number
 }
+
+export interface InheritDocumentItem {
+  id: string
+  filename: string
+  file_type: string
+  file_size: number
+  storage_key: string
+  status: string
+}
+
+export interface InheritResult {
+  inherited_count: number
+  skipped_count: number
+  documents: InheritDocumentItem[]
+}
