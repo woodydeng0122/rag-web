@@ -25,7 +25,7 @@
         <template #icon><search-outlined /></template>
         批量检索 ({{ selectedRowKeys.length }})
       </a-button>
-      <a-button :disabled="selectedRowKeys.length === 0" :loading="batchReranking" @click="handleOpenBatchRerank">
+      <a-button :disabled="selectedRowKeys.length === 0 || !activeProjectStore.activeProject?.rerank_model_id" :loading="batchReranking" @click="handleOpenBatchRerank">
         <template #icon><sort-ascending-outlined /></template>
         批量重排 ({{ selectedRowKeys.length }})
       </a-button>

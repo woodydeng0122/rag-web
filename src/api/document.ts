@@ -8,6 +8,7 @@ import type {
   SourceContentResult,
   EmbeddingResult,
   InheritResult,
+  SplitterConfig,
 } from './model/documentModel'
 
 enum Api {
@@ -41,9 +42,12 @@ export const uploadDocument = (params: UploadDocumentParams) => {
 export const processDocument = (_projectId: string, documentId: string) =>
   post<ProcessDocumentResult>({ url: `${Api.Documents}/${documentId}/process` })
 
-/** 仅分块单个文档 */
-export const chunkDocument = (_projectId: string, documentId: string) =>
-  post<ProcessDocumentResult>({ url: `${Api.Documents}/${documentId}/chunk` })
+/** 仅分块单个文档，支持可选的策略覆盖 */
+export const chunkDocument = (_projectId: string, documentId: string, splitterConfig?: SplitterConfig) =>
+  post<ProcessDocumentResult>({
+    url: `${Api.Documents}/${documentId}/chunk`,
+    data: { splitter_config: splitterConfig || null },
+  })
 
 /** 仅向量化单个文档 */
 export const embedDocument = (_projectId: string, documentId: string) =>
@@ -69,9 +73,15 @@ export const getChunkEmbedding = (_projectId: string, chunkId: string) =>
 export const batchProcessDocuments = (_projectId: string, documentIds: string[]) =>
   post<BatchProcessResult>({ url: `${Api.Documents}/batch-process`, data: { document_ids: documentIds } })
 
-/** 批量分块文档 */
-export const batchChunkDocuments = (_projectId: string, documentIds: string[]) =>
-  post<BatchProcessResult>({ url: `${Api.Documents}/batch-chunk`, data: { document_ids: documentIds } })
+/** 批量分块文档，支持可选的策略覆盖 */
+export const batchChunkDocuments = (_projectId: string, documentIds: string[], splitterConfig?: SplitterConfig) =>
+  post<BatchProcessResult>({
+    url: `${Api.Documents}/batch-chunk`,
+    data: {
+      document_ids: documentIds,
+      ...(splitterConfig ? { splitter_config: splitterConfig } : {}),
+    },
+  })
 
 /** 批量向量化文档 */
 export const batchEmbedDocuments = (_projectId: string, documentIds: string[]) =>

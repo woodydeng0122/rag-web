@@ -18,7 +18,7 @@
         </a-select>
       </template>
       <template #actions>
-        <a-button @click="handleBatchChunk" :disabled="chunkableCount === 0 || batchChunkProcessing" :loading="batchChunkProcessing">
+        <a-button @click="handleBatchChunkClick" :disabled="chunkableCount === 0 || batchChunkProcessing" :loading="batchChunkProcessing">
           <template #icon><play-circle-outlined /></template>
           批量分块 ({{ chunkableCount }})
         </a-button>
@@ -73,7 +73,7 @@
 
             <!-- 分块策略 -->
             <template v-if="column.key === 'splitter_strategy'">
-              <a-tag>{{ strategyLabel(record.splitter_config?.strategy) }}</a-tag>
+              <a-tag :color="strategyColor(record.splitter_config?.strategy)">{{ strategyLabel(record.splitter_config?.strategy) }}</a-tag>
             </template>
 
             <!-- 黄金数据集 -->
@@ -203,6 +203,56 @@
         <a-typography-text type="secondary" style="display: block; margin-top: 8px; padding-left: 25%">
           将继承源项目的全部文档，已存在的文档会自动跳过。继承后需重新执行分块和向量化。
         </a-typography-text>
+      </a-form>
+    </a-modal>
+
+    <!-- 分块策略选择弹窗 -->
+    <a-modal
+      v-model:open="chunkStrategyVisible"
+      :title="chunkStrategyMode === 'single' ? '分块策略' : '批量分块策略'"
+      ok-text="开始分块"
+      cancel-text="取消"
+      @ok="handleChunkStrategySubmit"
+    >
+      <a-form :label-col="{ span: 6 }" :wrapper-col="{ span: 18 }" style="margin-top: 16px">
+        <a-form-item label="分块策略">
+          <a-select v-model:value="chunkStrategyForm.strategy">
+            <a-select-option value="section_heading">按章节标题</a-select-option>
+            <a-select-option value="heading_aware">多级标题感知</a-select-option>
+            <a-select-option value="fixed">固定大小</a-select-option>
+            <a-select-option value="recursive">递归字符</a-select-option>
+            <a-select-option value="semantic">语义分块</a-select-option>
+          </a-select>
+        </a-form-item>
+        <template v-if="chunkStrategyForm.strategy === 'fixed' || chunkStrategyForm.strategy === 'recursive'">
+          <a-form-item label="分块大小">
+            <a-input-number v-model:value="chunkStrategyForm.chunk_size" :min="100" :max="8000" :step="100" />
+            <span class="form-hint">单个分块最大字符数</span>
+          </a-form-item>
+          <a-form-item label="重叠大小">
+            <a-input-number v-model:value="chunkStrategyForm.chunk_overlap" :min="0" :max="500" :step="10" />
+            <span class="form-hint">相邻分块重叠字符数</span>
+          </a-form-item>
+        </template>
+        <template v-else-if="chunkStrategyForm.strategy === 'semantic'">
+          <a-form-item label="最大字符数">
+            <a-input-number v-model:value="chunkStrategyForm.max_chars" :min="200" :max="8000" :step="100" />
+            <span class="form-hint">单个分块最大字符数</span>
+          </a-form-item>
+          <a-typography-text type="secondary" style="display: block; margin-top: 8px; padding-left: 25%">
+            语义分块会根据句子间的语义相似度自动切分，相似度低于阈值时切分
+          </a-typography-text>
+        </template>
+        <template v-else>
+          <a-form-item label="最小字符数">
+            <a-input-number v-model:value="chunkStrategyForm.min_chars" :min="50" :max="4000" :step="50" />
+            <span class="form-hint">分块最小字符数</span>
+          </a-form-item>
+          <a-form-item label="最大字符数">
+            <a-input-number v-model:value="chunkStrategyForm.max_chars" :min="200" :max="8000" :step="100" />
+            <span class="form-hint">分块最大字符数</span>
+          </a-form-item>
+        </template>
       </a-form>
     </a-modal>
 
@@ -389,7 +439,7 @@ const { batchProcessing: batchChunkProcessing, handleBatchProcess: handleBatchCh
     const doc = documents.value.find(d => d.id === id)
     return doc ? canChunk(doc.status) : false
   },
-  action: (id) => chunkDocument(projectId.value, id),
+  action: (id) => chunkDocument(projectId.value, id, chunkStrategyForm.value),
   skipLabel: '已分块',
   onBatchComplete: (results) => {
     for (const r of results) {
@@ -518,6 +568,76 @@ const uploadFile = ref<File | null>(null)
 const uploadFileName = ref('')
 const uploadForm = ref({ splitter_strategy: 'section_heading', chunk_size: 500, chunk_overlap: 50, splitter_min_chars: 200, splitter_max_chars: 2000 })
 
+// Chunk strategy dialog
+const chunkStrategyVisible = ref(false)
+const chunkStrategyForm = ref({ strategy: 'section_heading', chunk_size: 500, chunk_overlap: 50, min_chars: 200, max_chars: 2000 })
+const chunkStrategyMode = ref<'single' | 'batch'>('single')
+const chunkStrategyTargetId = ref('')
+
+function openChunkStrategyDialog(mode: 'single' | 'batch', targetId?: string) {
+  chunkStrategyMode.value = mode
+  chunkStrategyTargetId.value = targetId || ''
+  chunkStrategyForm.value = { strategy: 'section_heading', chunk_size: 500, chunk_overlap: 50, min_chars: 200, max_chars: 2000 }
+  chunkStrategyVisible.value = true
+}
+
+function buildSplitterConfig(form: typeof chunkStrategyForm.value) {
+  return {
+    strategy: form.strategy,
+    chunk_size: form.chunk_size,
+    chunk_overlap: form.chunk_overlap,
+    min_chars: form.min_chars,
+    max_chars: form.max_chars,
+  }
+}
+
+async function handleChunkStrategySubmit() {
+  const config = buildSplitterConfig(chunkStrategyForm.value)
+  chunkStrategyVisible.value = false
+
+  if (chunkStrategyMode.value === 'single') {
+    const id = chunkStrategyTargetId.value
+    chunkingIds.value.push(id)
+    try {
+      await chunkDocument(projectId.value, id, config)
+      message.success('分块成功')
+      await fetchList()
+    } catch {
+      message.error('分块失败')
+    } finally {
+      chunkingIds.value = chunkingIds.value.filter(i => i !== id)
+    }
+  } else {
+    // batch
+    const processableIds = selectedRowKeys.value.filter(id => {
+      const doc = documents.value.find(d => d.id === id)
+      return doc ? canChunk(doc.status) : false
+    })
+    if (processableIds.length === 0) {
+      message.info('选中的项均已分块')
+      return
+    }
+    batchChunkProcessing.value = true
+    try {
+      const res = await batchChunkDocuments(projectId.value, processableIds, config)
+      for (const r of res.results) {
+        const doc = documents.value.find(d => d.id === r.id)
+        if (doc) {
+          doc.status = r.status
+          doc.chunk_count = r.chunk_count
+          doc.error_message = r.error_message
+        }
+      }
+      message.success(`批量分块完成：成功 ${res.success} 个，失败 ${res.failed} 个`)
+      await fetchList()
+    } catch {
+      message.error('批量分块失败')
+    } finally {
+      batchChunkProcessing.value = false
+    }
+  }
+}
+
 // Inherit
 const inheritVisible = ref(false)
 const inheritLoading = ref(false)
@@ -584,6 +704,18 @@ function canChunk(status: string): boolean {
   return ['uploaded', 'error'].includes(status)
 }
 
+function handleBatchChunkClick() {
+  const processableIds = selectedRowKeys.value.filter(id => {
+    const doc = documents.value.find(d => d.id === id)
+    return doc ? canChunk(doc.status) : false
+  })
+  if (processableIds.length === 0) {
+    message.info('选中的项均已分块')
+    return
+  }
+  openChunkStrategyDialog('batch')
+}
+
 const STRATEGY_LABELS: Record<string, string> = {
   section_heading: '章节标题',
   heading_aware: '多级标题感知',
@@ -592,8 +724,20 @@ const STRATEGY_LABELS: Record<string, string> = {
   semantic: '语义分块',
 }
 
+const STRATEGY_COLORS: Record<string, string> = {
+  section_heading: 'blue',
+  heading_aware: 'purple',
+  fixed: 'orange',
+  recursive: 'cyan',
+  semantic: 'green',
+}
+
 function strategyLabel(strategy?: string): string {
   return STRATEGY_LABELS[strategy || 'section_heading'] || strategy || '-'
+}
+
+function strategyColor(strategy?: string): string {
+  return STRATEGY_COLORS[strategy || 'section_heading'] || 'default'
 }
 
 function canEmbed(status: string): boolean {
@@ -605,16 +749,7 @@ async function handleChunk(record: DocumentItem) {
     message.info('文档已分块，无需重复操作')
     return
   }
-  chunkingIds.value.push(record.id)
-  try {
-    await chunkDocument(projectId.value, record.id)
-    message.success('分块成功')
-    await fetchList()
-  } catch {
-    message.error('分块失败')
-  } finally {
-    chunkingIds.value = chunkingIds.value.filter(id => id !== record.id)
-  }
+  openChunkStrategyDialog('single', record.id)
 }
 
 async function handleEmbed(record: DocumentItem) {

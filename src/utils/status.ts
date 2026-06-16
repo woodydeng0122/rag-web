@@ -6,11 +6,12 @@ export interface StatusOption {
 export type StatusMap = Record<string, StatusOption>
 
 export const DOC_STATUS_MAP: StatusMap = {
+  uploaded: { color: 'cyan', text: '已上传' },
+  processing: { color: 'blue', text: '处理中' },
+  chunking: { color: 'orange', text: '分块中' },
+  chunked: { color: 'gold', text: '已分块' },
+  embedding: { color: 'purple', text: '向量化中' },
   ready: { color: 'success', text: '已完成' },
-  processing: { color: 'processing', text: '处理中' },
-  uploaded: { color: 'default', text: '已上传' },
-  chunking: { color: 'processing', text: '分块中' },
-  embedding: { color: 'processing', text: '向量化中' },
   error: { color: 'error', text: '失败' },
 }
 
