@@ -19,7 +19,7 @@ enum Api {
 }
 
 /** 获取项目下的文档列表 */
-export const getDocumentList = (projectId: string, params?: { limit?: number; offset?: number }) =>
+export const getDocumentList = (projectId: string, params?: { limit?: number; offset?: number; status?: string }) =>
   get<DocumentListResult>({ url: `${Api.List}/${projectId}/documents`, params })
 
 /** 上传文档 */

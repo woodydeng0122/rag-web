@@ -1,5 +1,10 @@
 /** 黄金数据集相关接口类型定义 */
 
+export interface GoldenListResult {
+  total: number
+  records: GoldenItem[]
+}
+
 export interface RetrievalSummary {
   hit_count: number
   gt_total: number

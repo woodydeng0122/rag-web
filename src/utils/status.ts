@@ -7,7 +7,6 @@ export type StatusMap = Record<string, StatusOption>
 
 export const DOC_STATUS_MAP: StatusMap = {
   uploaded: { color: 'cyan', text: '已上传' },
-  processing: { color: 'blue', text: '处理中' },
   chunking: { color: 'orange', text: '分块中' },
   chunked: { color: 'gold', text: '已分块' },
   embedding: { color: 'purple', text: '向量化中' },

@@ -9,12 +9,12 @@
       <template #left>
         <a-select v-model:value="filterStatus" placeholder="状态筛选" class="filter-select" @change="onFilter" allow-clear>
           <a-select-option value="">全部状态</a-select-option>
-          <a-select-option value="ready">已完成</a-select-option>
-          <a-select-option value="processing">处理中</a-select-option>
-          <a-select-option value="error">失败</a-select-option>
           <a-select-option value="uploaded">已上传</a-select-option>
           <a-select-option value="chunking">分块中</a-select-option>
+          <a-select-option value="chunked">已分块</a-select-option>
           <a-select-option value="embedding">向量化中</a-select-option>
+          <a-select-option value="ready">已完成</a-select-option>
+          <a-select-option value="error">失败</a-select-option>
         </a-select>
       </template>
       <template #actions>
@@ -561,11 +561,11 @@ const chunkStrategyTargetId = ref('')
 const isRechunk = computed(() => {
   if (chunkStrategyMode.value === 'single') {
     const doc = documents.value.find(d => d.id === chunkStrategyTargetId.value)
-    return doc ? ['chunked', 'embedded', 'ready'].includes(doc.status) : false
+    return doc ? ['chunked', 'ready'].includes(doc.status) : false
   }
   return selectedRowKeys.value.some(id => {
     const doc = documents.value.find(d => d.id === id)
-    return doc ? ['chunked', 'embedded', 'ready'].includes(doc.status) : false
+    return doc ? ['chunked', 'ready'].includes(doc.status) : false
   })
 })
 
@@ -654,7 +654,9 @@ async function fetchList() {
   try {
     const limit = paginationConfig.pageSize
     const offset = (paginationConfig.current - 1) * paginationConfig.pageSize
-    const res = await getDocumentList(projectId.value, { limit, offset })
+    const params: { limit: number; offset: number; status?: string } = { limit, offset }
+    if (filterStatus.value) params.status = filterStatus.value
+    const res = await getDocumentList(projectId.value, params)
     documents.value = res?.documents ?? []
     total.value = res?.total ?? 0
     paginationConfig.total = total.value

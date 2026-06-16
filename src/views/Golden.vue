@@ -8,7 +8,7 @@
   <!-- 工具栏 -->
   <PageToolbar>
     <template #left>
-      <a-select v-model:value="retrievalFilter" placeholder="检索情况" class="status-filter" allow-clear @change="fetchList()">
+      <a-select v-model:value="retrievalFilter" placeholder="检索情况" class="status-filter" allow-clear @change="onRetrievalFilterChange">
         <a-select-option value="">全部</a-select-option>
         <a-select-option value="hit">命中</a-select-option>
         <a-select-option value="miss">未命中</a-select-option>
@@ -872,6 +872,11 @@ function strategyLabel(strategy: string) {
 
 function onSearch() {}
 
+function onRetrievalFilterChange() {
+  paginationConfig.current = 1
+  fetchList()
+}
+
 async function copyId(id: string) {
   try {
     await navigator.clipboard.writeText(id)
@@ -885,12 +890,18 @@ async function fetchList() {
   if (!activeProjectStore.activeProjectId) return
   loading.value = true
   try {
-    const params: { retrieval_status?: string } = {}
+    const params: { retrieval_status?: string; limit?: number; offset?: number } = {}
     if (retrievalFilter.value) {
       params.retrieval_status = retrievalFilter.value
     }
+    const limit = paginationConfig.pageSize
+    const offset = (paginationConfig.current - 1) * paginationConfig.pageSize
+    params.limit = limit
+    params.offset = offset
     const res = await getGoldenList(activeProjectStore.activeProjectId, params)
-    dataList.value = res || []
+    dataList.value = res?.records || []
+    total.value = res?.total ?? 0
+    paginationConfig.total = total.value
   } catch {
     message.error('获取黄金数据集失败')
   } finally {

@@ -1,10 +1,10 @@
 import { get, post, patch, del } from './request'
 import instance from './request'
-import type { GoldenItem, CreateGoldenParams, UpdateGoldenParams, ImportResult, RetrievalResponse, CreateRetrievalParams, RerankResponse, CreateRerankParams } from './model/goldenModel'
+import type { GoldenItem, GoldenListResult, CreateGoldenParams, UpdateGoldenParams, ImportResult, RetrievalResponse, CreateRetrievalParams, RerankResponse, CreateRerankParams } from './model/goldenModel'
 
 /** 获取项目下的黄金数据集列表 */
-export const getGoldenList = (projectId: string, params?: { status?: string; retrieval_status?: string }) =>
-  get<GoldenItem[]>({ url: `/projects/${projectId}/golden`, params })
+export const getGoldenList = (projectId: string, params?: { status?: string; retrieval_status?: string; limit?: number; offset?: number }) =>
+  get<GoldenListResult>({ url: `/projects/${projectId}/golden`, params })
 
 /** 按文档 ID 查询关联的黄金记录 */
 export const getDocumentGoldenRecords = (projectId: string, documentId: string) =>

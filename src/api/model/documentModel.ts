@@ -76,8 +76,8 @@ export interface ChunkListResult {
 
 export enum DocumentStatus {
   UPLOADED = 'uploaded',
-  PROCESSING = 'processing',
   CHUNKING = 'chunking',
+  CHUNKED = 'chunked',
   EMBEDDING = 'embedding',
   READY = 'ready',
   ERROR = 'error',
