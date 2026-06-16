@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { message } from 'ant-design-vue'
 import { getProfile, updateProfile } from '@/api/profile'
 import { getProject } from '@/api/project'
+import { useProjectStore } from '@/store/project'
 import type { ProjectItem } from '@/api/model/projectModel'
 
 export const useActiveProjectStore = defineStore('activeProject', () => {
@@ -12,6 +13,11 @@ export const useActiveProjectStore = defineStore('activeProject', () => {
 
   const hasActiveProject = computed(() => !!activeProjectId.value)
 
+  /** 从 projectStore 列表中查找，找不到则回退 API */
+  function findProjectFromStore(id: string): ProjectItem | undefined {
+    return useProjectStore().projectList.find((p) => p.id === id)
+  }
+
   async function fetchActiveProject() {
     appLoading.value = true
     try {
@@ -19,7 +25,7 @@ export const useActiveProjectStore = defineStore('activeProject', () => {
       const projectId = profile.active_project_id || ''
       activeProjectId.value = projectId
       if (projectId) {
-        activeProject.value = await getProject(projectId)
+        activeProject.value = findProjectFromStore(projectId) ?? await getProject(projectId)
       } else {
         activeProject.value = null
       }
@@ -36,7 +42,7 @@ export const useActiveProjectStore = defineStore('activeProject', () => {
     try {
       await updateProfile(id)
       activeProjectId.value = id
-      activeProject.value = await getProject(id)
+      activeProject.value = findProjectFromStore(id) ?? await getProject(id)
     } catch {
       message.error('激活项目失败')
     }

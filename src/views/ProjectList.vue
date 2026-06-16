@@ -11,7 +11,7 @@
 
     <a-spin :spinning="loading">
       <a-row :gutter="[16, 16]">
-        <a-col v-for="project in projectList" :key="project.id" :xs="24" :sm="12" :md="8" :lg="6">
+        <a-col v-for="project in projectStore.projectList" :key="project.id" :xs="24" :sm="12" :md="8" :lg="6">
           <a-card
             hoverable
             class="project-card"
@@ -42,7 +42,7 @@
           </a-card>
         </a-col>
 
-        <a-col v-if="!loading && projectList.length === 0" :span="24">
+        <a-col v-if="!loading && projectStore.projectList.length === 0" :span="24">
           <a-empty description="暂无项目, 点击右上角新建" />
         </a-col>
       </a-row>
@@ -204,19 +204,20 @@ import { formatTime } from '@/utils/time'
 import { useCrudModal } from '@/composables/useCrudModal'
 import { usePageStore } from '@/store/page'
 import { useActiveProjectStore } from '@/store/activeProject'
+import { useProjectStore } from '@/store/project'
 import { useEmbedModelStore } from '@/store/embedModel'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ThunderboltOutlined, BarChartOutlined } from '@ant-design/icons-vue'
 import PageToolbar from '@/components/PageToolbar.vue'
-import { getProjectList, createProject, updateProject, deleteProject, triggerEvaluation } from '@/api/project'
+import { createProject, updateProject, deleteProject, triggerEvaluation } from '@/api/project'
 import type { ProjectItem, EvaluationStatsResult } from '@/api/model/projectModel'
 
 const router = useRouter()
 const pageStore = usePageStore()
 const activeProjectStore = useActiveProjectStore()
+const projectStore = useProjectStore()
 const embedModelStore = useEmbedModelStore()
 
 const loading = ref(false)
-const projectList = ref<ProjectItem[]>([])
 
 const { modalVisible, submitLoading, isEdit, editingId, formState, openCreate, openEdit, handleSubmit } = useCrudModal({
   defaultForm: () => ({ name: '', description: '', embed_model_id: '', rerank_model_id: '', inherit_from_project_id: '' }),
@@ -247,8 +248,7 @@ watch(() => pageStore.refreshTrigger, fetchList)
 async function fetchList() {
   loading.value = true
   try {
-    const res = await getProjectList()
-    projectList.value = res || []
+    await projectStore.fetchProjectList()
   } catch {
     message.error('获取项目列表失败')
   } finally {

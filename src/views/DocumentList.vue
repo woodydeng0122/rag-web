@@ -71,6 +71,11 @@
               <a-typography-text v-else type="secondary">0</a-typography-text>
             </template>
 
+            <!-- 分块策略 -->
+            <template v-if="column.key === 'splitter_strategy'">
+              <a-tag>{{ strategyLabel(record.splitter_config?.strategy) }}</a-tag>
+            </template>
+
             <!-- 黄金数据集 -->
             <template v-if="column.key === 'golden_record_count'">
               <a-typography-text v-if="record.golden_record_count > 0" :style="{ color: 'var(--ant-color-success)', fontWeight: 500 }">{{ record.golden_record_count }}</a-typography-text>
@@ -142,10 +147,13 @@
         <a-form-item label="分块策略">
           <a-select v-model:value="uploadForm.splitter_strategy">
             <a-select-option value="section_heading">按章节标题</a-select-option>
+            <a-select-option value="heading_aware">多级标题感知</a-select-option>
             <a-select-option value="fixed">固定大小</a-select-option>
+            <a-select-option value="recursive">递归字符</a-select-option>
+            <a-select-option value="semantic">语义分块</a-select-option>
           </a-select>
         </a-form-item>
-        <template v-if="uploadForm.splitter_strategy === 'fixed'">
+        <template v-if="uploadForm.splitter_strategy === 'fixed' || uploadForm.splitter_strategy === 'recursive'">
           <a-form-item label="分块大小">
             <a-input-number v-model:value="uploadForm.chunk_size" :min="100" :max="8000" :step="100" />
             <span class="form-hint">单个分块最大字符数</span>
@@ -154,6 +162,15 @@
             <a-input-number v-model:value="uploadForm.chunk_overlap" :min="0" :max="500" :step="10" />
             <span class="form-hint">相邻分块重叠字符数</span>
           </a-form-item>
+        </template>
+        <template v-else-if="uploadForm.splitter_strategy === 'semantic'">
+          <a-form-item label="最大字符数">
+            <a-input-number v-model:value="uploadForm.splitter_max_chars" :min="200" :max="8000" :step="100" />
+            <span class="form-hint">单个分块最大字符数</span>
+          </a-form-item>
+          <a-typography-text type="secondary" style="display: block; margin-top: 8px; padding-left: 25%">
+            语义分块会根据句子间的语义相似度自动切分，相似度低于阈值时切分
+          </a-typography-text>
         </template>
         <template v-else>
           <a-form-item label="最小字符数">
@@ -341,6 +358,7 @@ const columns = [
   { title: '类型', dataIndex: 'file_type', key: 'file_type', width: 80 },
   { title: '大小', dataIndex: 'file_size', key: 'file_size', width: 100 },
   { title: '分块数', dataIndex: 'chunk_count', key: 'chunk_count', width: 80 },
+  { title: '分块策略', dataIndex: 'splitter_strategy', key: 'splitter_strategy', width: 110 },
   { title: '黄金数据集', dataIndex: 'golden_record_count', key: 'golden_record_count', width: 110 },
   { title: '状态', dataIndex: 'status', key: 'status', width: 100 },
   { title: '上传时间', dataIndex: 'created_at', key: 'created_at', width: 130 },
@@ -564,6 +582,18 @@ function handleViewDetail(record: DocumentItem) {
 
 function canChunk(status: string): boolean {
   return ['uploaded', 'error'].includes(status)
+}
+
+const STRATEGY_LABELS: Record<string, string> = {
+  section_heading: '章节标题',
+  heading_aware: '多级标题感知',
+  fixed: '固定大小',
+  recursive: '递归字符',
+  semantic: '语义分块',
+}
+
+function strategyLabel(strategy?: string): string {
+  return STRATEGY_LABELS[strategy || 'section_heading'] || strategy || '-'
 }
 
 function canEmbed(status: string): boolean {

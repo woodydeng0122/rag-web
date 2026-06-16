@@ -102,13 +102,23 @@
               </a-breadcrumb-item>
             </a-breadcrumb>
           </div>
-          <div class="header-center" @click="router.push('/projects')">
-            <home-outlined v-if="activeProjectStore.activeProject" class="header-project-icon" />
-            <span v-if="activeProjectStore.activeProject" class="active-project-name">
-              {{ activeProjectStore.activeProject.name }}
-            </span>
-            <span v-else class="no-active-project">未选择项目</span>
-          </div>
+          <a-dropdown :trigger="['click']">
+            <div class="header-center">
+              <home-outlined v-if="activeProjectStore.activeProject" class="header-project-icon" />
+              <span v-if="activeProjectStore.activeProject" class="active-project-name">
+                {{ activeProjectStore.activeProject.name }}
+              </span>
+              <span v-else class="no-active-project">未选择项目</span>
+              <down-outlined style="font-size: 10px; margin-left: 2px; color: var(--ant-color-text-tertiary)" />
+            </div>
+            <template #overlay>
+              <a-menu @click="handleProjectSwitch" :selectedKeys="[activeProjectStore.activeProjectId]">
+                <a-menu-item v-for="p in projectStore.projectList" :key="p.id">
+                  {{ p.name }}
+                </a-menu-item>
+              </a-menu>
+            </template>
+          </a-dropdown>
           <div class="header-right">
             <a-button @click="handleRefresh" style="margin-right: 8px">
               <template #icon><reload-outlined /></template>
@@ -137,6 +147,7 @@ import { ref, computed, h, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { usePageStore } from '@/store/page'
 import { useActiveProjectStore } from '@/store/activeProject'
+import { useProjectStore } from '@/store/project'
 import { useUserStore } from '@/store/user'
 import {
   MenuFoldOutlined,
@@ -152,6 +163,7 @@ import {
   MessageOutlined,
   UserOutlined,
   LogoutOutlined,
+  DownOutlined,
 } from '@ant-design/icons-vue'
 import type { MenuProps } from 'ant-design-vue'
 
@@ -160,6 +172,7 @@ const route = useRoute()
 const collapsed = ref(false)
 const pageStore = usePageStore()
 const activeProjectStore = useActiveProjectStore()
+const projectStore = useProjectStore()
 const userStore = useUserStore()
 
 // 初始化用户信息
@@ -167,8 +180,14 @@ userStore.fetchUserInfo()
 
 const selectedKeys = ref<string[]>(['/dashboard'])
 
-// setup 阶段立即加载激活项目（不依赖 onMounted）
-activeProjectStore.fetchActiveProject()
+// setup 阶段：先拉项目列表，再拉激活项目（确保 store 查询命中）
+projectStore.fetchProjectList().then(() => activeProjectStore.fetchActiveProject())
+
+async function handleProjectSwitch({ key }: { key: string }) {
+  if (key === activeProjectStore.activeProjectId) return
+  await activeProjectStore.setActiveProject(key)
+  pageStore.triggerRefresh()
+}
 
 // Sync selectedKeys with current route
 watch(
