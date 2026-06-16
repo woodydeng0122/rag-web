@@ -18,9 +18,9 @@
         </a-select>
       </template>
       <template #actions>
-        <a-button @click="handleBatchChunkClick" :disabled="chunkableCount === 0 || batchChunkProcessing" :loading="batchChunkProcessing">
+        <a-button @click="handleBatchChunkClick" :disabled="selectedRowKeys.length === 0 || batchChunkProcessing" :loading="batchChunkProcessing">
           <template #icon><play-circle-outlined /></template>
-          批量分块 ({{ chunkableCount }})
+          批量分块 ({{ selectedRowKeys.length }})
         </a-button>
         <a-button @click="handleBatchEmbed" :disabled="embeddableCount === 0 || batchEmbedProcessing" :loading="batchEmbedProcessing">
           <template #icon><play-circle-outlined /></template>
@@ -42,7 +42,7 @@
       <a-spin :spinning="loading">
         <a-table
           :columns="columns"
-          :data-source="filteredDocuments"
+          :data-source="documents"
           row-key="id"
           :row-selection="{ selectedRowKeys, onChange: onSelectChange }"
           :pagination="paginationConfig"
@@ -99,7 +99,7 @@
             <!-- 操作 -->
             <template v-if="column.key === 'action'">
               <div class="action-cell">
-                <a-button size="small" @click="handleChunk(record)" :loading="chunkingIds.includes(record.id)" :disabled="!canChunk(record.status)">
+                <a-button size="small" @click="handleChunk(record)" :loading="chunkingIds.includes(record.id)">
                   分块
                 </a-button>
                 <a-button size="small" type="primary" @click="handleEmbed(record)" :loading="embeddingIds.includes(record.id)" :disabled="!canEmbed(record.status)">
@@ -214,14 +214,17 @@
       cancel-text="取消"
       @ok="handleChunkStrategySubmit"
     >
+      <a-alert v-if="isRechunk" type="warning" show-icon style="margin-bottom: 16px">
+        <template #message>重新分块将清除已有的分块和向量数据</template>
+      </a-alert>
       <a-form :label-col="{ span: 6 }" :wrapper-col="{ span: 18 }" style="margin-top: 16px">
         <a-form-item label="分块策略">
           <a-select v-model:value="chunkStrategyForm.strategy">
-            <a-select-option value="section_heading">按章节标题</a-select-option>
-            <a-select-option value="heading_aware">多级标题感知</a-select-option>
             <a-select-option value="fixed">固定大小</a-select-option>
             <a-select-option value="recursive">递归字符</a-select-option>
             <a-select-option value="semantic">语义分块</a-select-option>
+            <a-select-option value="section_heading">按章节标题</a-select-option>
+            <a-select-option value="heading_aware">多级标题感知</a-select-option>
           </a-select>
         </a-form-item>
         <template v-if="chunkStrategyForm.strategy === 'fixed' || chunkStrategyForm.strategy === 'recursive'">
@@ -402,6 +405,7 @@ const projectId = computed(() => activeProjectStore.activeProjectId)
 const loading = ref(false)
 const documents = ref<DocumentItem[]>([])
 const filterStatus = ref('')
+const total = ref(0)
 
 const columns = [
   { title: '文件名', dataIndex: 'filename', key: 'filename', ellipsis: true, width: 280 },
@@ -419,13 +423,6 @@ const selectedRowKeys = ref<string[]>([])
 const chunkingIds = ref<string[]>([])
 const embeddingIds = ref<string[]>([])
 
-const chunkableCount = computed(() =>
-  selectedRowKeys.value.filter(id => {
-    const doc = documents.value.find(d => d.id === id)
-    return doc ? canChunk(doc.status) : false
-  }).length
-)
-
 const embeddableCount = computed(() =>
   selectedRowKeys.value.filter(id => {
     const doc = documents.value.find(d => d.id === id)
@@ -433,25 +430,7 @@ const embeddableCount = computed(() =>
   }).length
 )
 
-const { batchProcessing: batchChunkProcessing, handleBatchProcess: handleBatchChunk } = useBatchProcess({
-  selectedRowKeys: () => selectedRowKeys.value,
-  canProcess: (id) => {
-    const doc = documents.value.find(d => d.id === id)
-    return doc ? canChunk(doc.status) : false
-  },
-  action: (id) => chunkDocument(projectId.value, id, chunkStrategyForm.value),
-  skipLabel: '已分块',
-  onBatchComplete: (results) => {
-    for (const r of results) {
-      const doc = documents.value.find(d => d.id === r.id)
-      if (doc) {
-        doc.status = r.status
-        doc.chunk_count = r.chunk_count
-        doc.error_message = r.error_message
-      }
-    }
-  },
-})
+const batchChunkProcessing = ref(false)
 
 const { batchProcessing: batchEmbedProcessing, handleBatchProcess: handleBatchEmbed } = useBatchProcess({
   selectedRowKeys: () => selectedRowKeys.value,
@@ -473,12 +452,17 @@ const { batchProcessing: batchEmbedProcessing, handleBatchProcess: handleBatchEm
   },
 })
 
-const filteredDocuments = computed(() => {
-  if (!filterStatus.value) return documents.value
-  return documents.value.filter(d => d.status === filterStatus.value)
-})
-
 const paginationConfig = usePagination()
+paginationConfig.total = 0
+paginationConfig.onChange = (page: number) => {
+  paginationConfig.current = page
+  fetchList()
+}
+paginationConfig.onShowSizeChange = (_current: number, size: number) => {
+  paginationConfig.pageSize = size
+  paginationConfig.current = 1
+  fetchList()
+}
 
 // Drawer
 const drawerVisible = ref(false)
@@ -574,6 +558,17 @@ const chunkStrategyForm = ref({ strategy: 'section_heading', chunk_size: 500, ch
 const chunkStrategyMode = ref<'single' | 'batch'>('single')
 const chunkStrategyTargetId = ref('')
 
+const isRechunk = computed(() => {
+  if (chunkStrategyMode.value === 'single') {
+    const doc = documents.value.find(d => d.id === chunkStrategyTargetId.value)
+    return doc ? ['chunked', 'embedded', 'ready'].includes(doc.status) : false
+  }
+  return selectedRowKeys.value.some(id => {
+    const doc = documents.value.find(d => d.id === id)
+    return doc ? ['chunked', 'embedded', 'ready'].includes(doc.status) : false
+  })
+})
+
 function openChunkStrategyDialog(mode: 'single' | 'batch', targetId?: string) {
   chunkStrategyMode.value = mode
   chunkStrategyTargetId.value = targetId || ''
@@ -609,17 +604,9 @@ async function handleChunkStrategySubmit() {
     }
   } else {
     // batch
-    const processableIds = selectedRowKeys.value.filter(id => {
-      const doc = documents.value.find(d => d.id === id)
-      return doc ? canChunk(doc.status) : false
-    })
-    if (processableIds.length === 0) {
-      message.info('选中的项均已分块')
-      return
-    }
     batchChunkProcessing.value = true
     try {
-      const res = await batchChunkDocuments(projectId.value, processableIds, config)
+      const res = await batchChunkDocuments(projectId.value, selectedRowKeys.value, config)
       for (const r of res.results) {
         const doc = documents.value.find(d => d.id === r.id)
         if (doc) {
@@ -665,8 +652,12 @@ async function fetchList() {
   if (!projectId.value) return
   loading.value = true
   try {
-    const res = await getDocumentList(projectId.value)
+    const limit = paginationConfig.pageSize
+    const offset = (paginationConfig.current - 1) * paginationConfig.pageSize
+    const res = await getDocumentList(projectId.value, { limit, offset })
     documents.value = res?.documents ?? []
+    total.value = res?.total ?? 0
+    paginationConfig.total = total.value
   } catch {
     message.error('获取文档列表失败')
   } finally {
@@ -685,7 +676,10 @@ function onSelectChange(keys: any[]) {
   selectedRowKeys.value = keys as string[]
 }
 
-function onFilter() {}
+function onFilter() {
+  paginationConfig.current = 1
+  fetchList()
+}
 
 function handleViewChunks(record: DocumentItem) {
   chunkDocName.value = record.filename
@@ -700,17 +694,9 @@ function handleViewDetail(record: DocumentItem) {
   drawerVisible.value = true
 }
 
-function canChunk(status: string): boolean {
-  return ['uploaded', 'error'].includes(status)
-}
-
 function handleBatchChunkClick() {
-  const processableIds = selectedRowKeys.value.filter(id => {
-    const doc = documents.value.find(d => d.id === id)
-    return doc ? canChunk(doc.status) : false
-  })
-  if (processableIds.length === 0) {
-    message.info('选中的项均已分块')
+  if (selectedRowKeys.value.length === 0) {
+    message.info('请先选择文档')
     return
   }
   openChunkStrategyDialog('batch')
@@ -745,10 +731,6 @@ function canEmbed(status: string): boolean {
 }
 
 async function handleChunk(record: DocumentItem) {
-  if (!canChunk(record.status)) {
-    message.info('文档已分块，无需重复操作')
-    return
-  }
   openChunkStrategyDialog('single', record.id)
 }
 

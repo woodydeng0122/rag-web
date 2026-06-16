@@ -26,6 +26,7 @@ export interface DocumentItem {
 }
 
 export interface DocumentListResult {
+  total: number
   documents: DocumentItem[]
 }
 

@@ -45,7 +45,7 @@
     <a-spin :spinning="loading">
       <a-table
         :columns="columns"
-        :data-source="filteredList"
+        :data-source="dataList"
         row-key="id"
         :row-selection="{ selectedRowKeys, onChange: onSelectChange }"
         :pagination="paginationConfig"
@@ -567,6 +567,7 @@ const loading = ref(false)
 const dataList = ref<GoldenItem[]>([])
 const searchQuery = ref('')
 const retrievalFilter = ref('')
+const total = ref(0)
 
 const selectedRowKeys = ref<string[]>([])
 
@@ -581,13 +582,16 @@ const columns = [
 ]
 
 const paginationConfig = usePagination()
-
-
-const filteredList = computed(() => {
-  if (!searchQuery.value) return dataList.value
-  const q = searchQuery.value.toLowerCase()
-  return dataList.value.filter(d => d.query.toLowerCase().includes(q))
-})
+paginationConfig.total = 0
+paginationConfig.onChange = (page: number) => {
+  paginationConfig.current = page
+  fetchList()
+}
+paginationConfig.onShowSizeChange = (_current: number, size: number) => {
+  paginationConfig.pageSize = size
+  paginationConfig.current = 1
+  fetchList()
+}
 
 // 弹窗
 const { modalVisible, submitLoading, isEdit, editingId, formState, openCreate, openEdit, handleSubmit } = useCrudModal({
