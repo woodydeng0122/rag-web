@@ -590,7 +590,7 @@ paginationConfig.onChange = (page: number) => {
 paginationConfig.onShowSizeChange = (_current: number, size: number) => {
   paginationConfig.pageSize = size
   paginationConfig.current = 1
-  fetchList()
+  // onChange 会被同时触发，无需重复调用 fetchList
 }
 
 // 弹窗

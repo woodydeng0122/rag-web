@@ -10,7 +10,7 @@
     </PageToolbar>
 
     <a-spin :spinning="loading">
-      <a-row :gutter="[16, 16]">
+      <a-row ref="projectRowRef" :gutter="[16, 16]">
         <a-col v-for="project in projectStore.projectList" :key="project.id" :xs="24" :sm="12" :md="8" :lg="6">
           <a-card
             hoverable
@@ -19,7 +19,7 @@
             @click="handleView(project)"
           >
             <template #actions>
-              <bar-chart-outlined @click.stop="handleEvaluation(project)" title="评估统计" />
+              <thunderbolt-outlined @click.stop="handleActivate(project)" title="激活项目" />
               <edit-outlined @click.stop="handleEdit(project)" />
               <delete-outlined @click.stop="handleDelete(project)" />
             </template>
@@ -37,6 +37,9 @@
               </a-tooltip>
               <a-tooltip v-if="project.rerank_model_name" :title="project.rerank_model_name">
                 <a-tag color="green">Rerank</a-tag>
+              </a-tooltip>
+              <a-tooltip :title="strategyLabel(project.default_splitter_config?.strategy)">
+                <a-tag color="purple">分块: {{ strategyLabel(project.default_splitter_config?.strategy) }}</a-tag>
               </a-tooltip>
             </div>
           </a-card>
@@ -99,148 +102,81 @@
             show-count
           />
         </a-form-item>
+        <SplitterConfigForm :form-state="splitterForm" />
       </a-form>
     </a-modal>
 
-    <!-- 评估统计 Drawer -->
-    <a-drawer
-      v-model:open="evalDrawerVisible"
-      :title="`评估统计 - ${evalProject?.name || ''}`"
-      :width="480"
-    >
-      <div v-if="!evalResult" style="margin-bottom: 24px">
-        <a-form layout="inline">
-          <a-form-item label="top_k">
-            <a-input-number v-model:value="evalTopK" :min="1" :max="100" style="width: 120px" />
-          </a-form-item>
-          <a-form-item>
-            <a-button type="primary" :loading="evalLoading" @click="handleTriggerEvaluation">
-              开始评估
-            </a-button>
-          </a-form-item>
-        </a-form>
-        <p style="margin-top: 8px; font-size: 12px; color: var(--ant-color-text-tertiary)">
-          基于 top_k 截断已有检索结果，计算 recall@{top_k} 和 MRR
-        </p>
-      </div>
 
-      <a-spin :spinning="evalLoading">
-        <template v-if="evalResult">
-          <a-row :gutter="[16, 16]" style="margin-bottom: 24px">
-            <a-col :span="8">
-              <a-statistic title="黄金记录" :value="evalResult.golden_total" />
-            </a-col>
-            <a-col :span="8">
-              <a-statistic title="已检索" :value="evalResult.golden_retrieved" />
-            </a-col>
-            <a-col :span="8">
-              <a-statistic title="命中率" :value="evalResult.hit_rate" :precision="4" suffix="" />
-            </a-col>
-          </a-row>
-
-          <a-row :gutter="[16, 16]" style="margin-bottom: 24px">
-            <a-col :span="8">
-              <a-statistic title="完全命中" :value="evalResult.full_hit_count" />
-            </a-col>
-            <a-col :span="8">
-              <a-statistic title="零命中" :value="evalResult.zero_hit_count" />
-            </a-col>
-            <a-col :span="8">
-              <a-statistic title="嵌入模型" :value="evalResult.embed_model_name || '-'" />
-            </a-col>
-          </a-row>
-
-          <a-divider>核心指标</a-divider>
-
-          <a-row :gutter="[16, 16]" style="margin-bottom: 24px">
-            <a-col :span="12">
-              <a-statistic
-                :title="`Recall@${evalResult.top_k}`"
-                :value="evalResult.recall_at_k"
-                :precision="4"
-              />
-            </a-col>
-            <a-col :span="12">
-              <a-statistic title="MRR" :value="evalResult.mrr" :precision="4" />
-            </a-col>
-          </a-row>
-
-          <a-divider>延迟分布</a-divider>
-
-          <div class="latency-bars">
-            <div class="latency-row">
-              <span class="latency-label">总延迟</span>
-              <a-progress :percent="latencyPercent(evalResult.avg_latency_ms)" :show-info="false" :stroke-color="'var(--ant-color-primary)'" size="small" />
-              <span class="latency-value">{{ evalResult.avg_latency_ms.toFixed(0) }} ms</span>
-            </div>
-            <div class="latency-row">
-              <span class="latency-label">嵌入</span>
-              <a-progress :percent="latencyPercent(evalResult.avg_embed_latency_ms)" :show-info="false" :stroke-color="'var(--ant-color-success)'" size="small" />
-              <span class="latency-value">{{ evalResult.avg_embed_latency_ms.toFixed(0) }} ms</span>
-            </div>
-            <div class="latency-row">
-              <span class="latency-label">检索</span>
-              <a-progress :percent="latencyPercent(evalResult.avg_search_latency_ms)" :show-info="false" :stroke-color="'var(--ant-color-warning)'" size="small" />
-              <span class="latency-value">{{ evalResult.avg_search_latency_ms.toFixed(0) }} ms</span>
-            </div>
-          </div>
-
-          <a-divider />
-
-          <a-button type="link" @click="goToEvaluationHistory">
-            查看评估历史
-          </a-button>
-        </template>
-      </a-spin>
-    </a-drawer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, watch, nextTick } from 'vue'
 import { message, Modal as AModal } from 'ant-design-vue'
+import Sortable from 'sortablejs'
 import { formatTime } from '@/utils/time'
 import { useCrudModal } from '@/composables/useCrudModal'
+import { useSplitterConfig, getSplitterDefaults, strategyLabel as splitterStrategyLabel, splitterConfigToForm } from '@/composables/useSplitterConfig'
 import { usePageStore } from '@/store/page'
 import { useActiveProjectStore } from '@/store/activeProject'
 import { useProjectStore } from '@/store/project'
 import { useEmbedModelStore } from '@/store/embedModel'
-import { PlusOutlined, EditOutlined, DeleteOutlined, ThunderboltOutlined, BarChartOutlined } from '@ant-design/icons-vue'
+import { PlusOutlined, EditOutlined, DeleteOutlined, ThunderboltOutlined } from '@ant-design/icons-vue'
 import PageToolbar from '@/components/PageToolbar.vue'
-import { createProject, updateProject, deleteProject, triggerEvaluation } from '@/api/project'
-import type { ProjectItem, EvaluationStatsResult } from '@/api/model/projectModel'
+import SplitterConfigForm from '@/components/SplitterConfigForm.vue'
+import { createProject, updateProject, deleteProject, reorderProjects } from '@/api/project'
+import type { ProjectItem } from '@/api/model/projectModel'
 
-const router = useRouter()
 const pageStore = usePageStore()
 const activeProjectStore = useActiveProjectStore()
 const projectStore = useProjectStore()
 const embedModelStore = useEmbedModelStore()
 
 const loading = ref(false)
+const projectRowRef = ref<InstanceType<typeof import('ant-design-vue/es/row/Row')>>()
+let sortableInstance: Sortable | null = null
+
+const { formState: splitterForm, reset: resetSplitterForm, toConfig: toSplitterConfig } = useSplitterConfig()
 
 const { modalVisible, submitLoading, isEdit, editingId, formState, openCreate, openEdit, handleSubmit } = useCrudModal({
-  defaultForm: () => ({ name: '', description: '', embed_model_id: '', rerank_model_id: '', inherit_from_project_id: '' }),
-  createApi: createProject,
-  updateApi: updateProject,
+  defaultForm: () => ({
+    name: '',
+    description: '',
+    embed_model_id: '',
+    rerank_model_id: '',
+    inherit_from_project_id: '',
+  }),
+  createApi: (form: any) => createProject({
+    name: form.name,
+    description: form.description,
+    embed_model_id: form.embed_model_id,
+    rerank_model_id: form.rerank_model_id || undefined,
+    default_splitter_config: toSplitterConfig(),
+  }),
+  updateApi: (id: string, form: any) => updateProject(id, {
+    name: form.name,
+    description: form.description,
+    default_splitter_config: toSplitterConfig(),
+  }),
   afterSubmit: fetchList,
 })
 
-// 评估统计
-const evalDrawerVisible = ref(false)
-const evalLoading = ref(false)
-const evalProject = ref<ProjectItem | null>(null)
-const evalTopK = ref(10)
-const evalResult = ref<EvaluationStatsResult | null>(null)
+/** 新建时选中嵌入模型，自动更新分块参数 */
+watch(() => formState.value.embed_model_id, (newId) => {
+  if (isEdit.value || !newId) return
+  const model = embedModelStore.onlineEmbedModels.find(m => m.id === newId)
+  if (!model) return
+  const maxPos = model.config?.max_position_embeddings as number | undefined
+  const defaults = getSplitterDefaults(maxPos)
+  Object.assign(splitterForm.value, defaults)
+})
 
 function isActive(projectId: string) {
   return activeProjectStore.activeProjectId === projectId
 }
 
-function latencyPercent(ms: number) {
-  if (!evalResult.value) return 0
-  const maxMs = evalResult.value.avg_latency_ms || 1
-  return Math.max(Math.round((ms / maxMs) * 100), 1)
+function strategyLabel(strategy?: string): string {
+  return splitterStrategyLabel(strategy)
 }
 
 watch(() => pageStore.refreshTrigger, fetchList)
@@ -258,11 +194,19 @@ async function fetchList() {
 
 function handleCreate() {
   openCreate()
+  resetSplitterForm()
   embedModelStore.fetchModels()
 }
 
 function handleEdit(project: ProjectItem) {
-  openEdit(project.id, { name: project.name, description: project.description, embed_model_id: project.embed_model_id, rerank_model_id: project.rerank_model_id || '' })
+  embedModelStore.fetchModels()
+  openEdit(project.id, {
+    name: project.name,
+    description: project.description,
+    embed_model_id: project.embed_model_id,
+    rerank_model_id: project.rerank_model_id || '',
+  })
+  resetSplitterForm(project.default_splitter_config)
 }
 
 function handleView(project: ProjectItem) {
@@ -303,33 +247,6 @@ function handleDelete(project: ProjectItem) {
   })
 }
 
-function handleEvaluation(project: ProjectItem) {
-  evalProject.value = project
-  evalTopK.value = 10
-  evalResult.value = null
-  evalDrawerVisible.value = true
-}
-
-async function handleTriggerEvaluation() {
-  if (!evalProject.value) return
-  evalLoading.value = true
-  try {
-    const result = await triggerEvaluation(evalProject.value.id, evalTopK.value)
-    evalResult.value = result
-    message.success('评估完成')
-  } catch (e: any) {
-    const detail = e?.response?.data?.detail || e?.message || '评估失败'
-    message.error(detail)
-  } finally {
-    evalLoading.value = false
-  }
-}
-
-function goToEvaluationHistory() {
-  if (!evalProject.value) return
-  router.push({ path: `/projects/${evalProject.value.id}/evaluation` })
-}
-
 async function handleFormSubmit() {
   await handleSubmit((form) => {
     if (!form.name.trim()) return '请输入项目名称'
@@ -338,7 +255,44 @@ async function handleFormSubmit() {
   })
 }
 
-onMounted(fetchList)
+function initSortable() {
+  const el = projectRowRef.value?.$el as HTMLElement | undefined
+  if (!el || sortableInstance) return
+  sortableInstance = Sortable.create(el, {
+    animation: 200,
+    handle: '.project-card',
+    ghostClass: 'project-card--ghost',
+    onEnd: handleDragEnd,
+  })
+}
+
+async function handleDragEnd(evt: Sortable.SortableEvent) {
+  const { oldIndex, newIndex } = evt
+  if (oldIndex === undefined || newIndex === undefined || oldIndex === newIndex) return
+
+  const list = [...projectStore.projectList]
+  const [moved] = list.splice(oldIndex, 1)
+  list.splice(newIndex, 0, moved)
+
+  // 先乐观更新本地顺序
+  const oldList = [...projectStore.projectList]
+  projectStore.projectList = list
+
+  // 构建排序数据
+  const items = list.map((p, index) => ({ id: p.id, sort_order: index }))
+  try {
+    await reorderProjects(items)
+  } catch {
+    // 失败回滚
+    projectStore.projectList = oldList
+    message.error('排序保存失败')
+  }
+}
+
+onMounted(async () => {
+  await fetchList()
+  nextTick(initSortable)
+})
 </script>
 
 <style scoped>
@@ -367,30 +321,13 @@ onMounted(fetchList)
   margin: 0;
   cursor: default;
 }
-
-/* 延迟条形图 */
-.latency-bars {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.project-card--ghost {
+  opacity: 0.4;
 }
-.latency-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.project-card {
+  cursor: grab;
 }
-.latency-label {
-  width: 48px;
-  font-size: 13px;
-  color: var(--ant-color-text-secondary);
-  text-align: right;
-  flex-shrink: 0;
-}
-.latency-value {
-  width: 80px;
-  font-size: 13px;
-  color: var(--ant-color-text);
-  text-align: right;
-  flex-shrink: 0;
+.project-card:active {
+  cursor: grabbing;
 }
 </style>

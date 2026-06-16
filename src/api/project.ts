@@ -7,6 +7,7 @@ enum Api {
   Get = '/projects',
   Update = '/projects',
   Delete = '/projects',
+  Reorder = '/projects/reorder',
   Original = '/projects/original',
 }
 
@@ -45,3 +46,7 @@ export const deleteEvaluation = (projectId: string, evaluationId: string) =>
 /** 更新评估记录 */
 export const updateEvaluation = (projectId: string, evaluationId: string, params: UpdateEvaluationParams) =>
   patch<EvaluationStatsResult>({ url: `${Api.List}/${projectId}/evaluation-stats/${evaluationId}`, data: params })
+
+/** 批量更新项目排序 */
+export const reorderProjects = (items: { id: string; sort_order: number }[]) =>
+  put({ url: Api.Reorder, data: { items } })

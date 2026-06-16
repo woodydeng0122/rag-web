@@ -186,7 +186,7 @@ projectStore.fetchProjectList().then(() => activeProjectStore.fetchActiveProject
 async function handleProjectSwitch({ key }: { key: string }) {
   if (key === activeProjectStore.activeProjectId) return
   await activeProjectStore.setActiveProject(key)
-  pageStore.triggerRefresh()
+  // activeProjectId watch 已触发 fetchList，无需再 triggerRefresh
 }
 
 // Sync selectedKeys with current route

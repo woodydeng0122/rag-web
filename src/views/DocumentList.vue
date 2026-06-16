@@ -47,7 +47,8 @@
           :row-selection="{ selectedRowKeys, onChange: onSelectChange }"
           :pagination="paginationConfig"
           size="middle"
-          :scroll="{ x: 900 }"
+          :scroll="{ x: 900, y: 600 }"
+          virtual
         >
           <template #bodyCell="{ column, record }">
             <!-- 文件名 -->
@@ -423,9 +424,15 @@ const selectedRowKeys = ref<string[]>([])
 const chunkingIds = ref<string[]>([])
 const embeddingIds = ref<string[]>([])
 
+const documentMap = computed(() => {
+  const m = new Map<string, DocumentItem>()
+  for (const d of documents.value) m.set(d.id, d)
+  return m
+})
+
 const embeddableCount = computed(() =>
   selectedRowKeys.value.filter(id => {
-    const doc = documents.value.find(d => d.id === id)
+    const doc = documentMap.value.get(id)
     return doc ? canEmbed(doc.status) : false
   }).length
 )
@@ -435,14 +442,14 @@ const batchChunkProcessing = ref(false)
 const { batchProcessing: batchEmbedProcessing, handleBatchProcess: handleBatchEmbed } = useBatchProcess({
   selectedRowKeys: () => selectedRowKeys.value,
   canProcess: (id) => {
-    const doc = documents.value.find(d => d.id === id)
+    const doc = documentMap.value.get(id)
     return doc ? canEmbed(doc.status) : false
   },
   action: (id) => embedDocument(projectId.value, id),
   skipLabel: '未分块/已向量化',
   onBatchComplete: (results) => {
     for (const r of results) {
-      const doc = documents.value.find(d => d.id === r.id)
+      const doc = documentMap.value.get(r.id)
       if (doc) {
         doc.status = r.status
         doc.chunk_count = r.chunk_count
@@ -461,7 +468,7 @@ paginationConfig.onChange = (page: number) => {
 paginationConfig.onShowSizeChange = (_current: number, size: number) => {
   paginationConfig.pageSize = size
   paginationConfig.current = 1
-  fetchList()
+  // onChange 会被同时触发，无需重复调用 fetchList
 }
 
 // Drawer
@@ -550,21 +557,21 @@ const uploadVisible = ref(false)
 const uploadLoading = ref(false)
 const uploadFile = ref<File | null>(null)
 const uploadFileName = ref('')
-const uploadForm = ref({ splitter_strategy: 'section_heading', chunk_size: 500, chunk_overlap: 50, splitter_min_chars: 200, splitter_max_chars: 2000 })
+const uploadForm = ref({ splitter_strategy: 'section_heading', chunk_size: 500, chunk_overlap: 50, splitter_min_chars: 200, splitter_max_chars: 500 })
 
 // Chunk strategy dialog
 const chunkStrategyVisible = ref(false)
-const chunkStrategyForm = ref({ strategy: 'section_heading', chunk_size: 500, chunk_overlap: 50, min_chars: 200, max_chars: 2000 })
+const chunkStrategyForm = ref({ strategy: 'section_heading', chunk_size: 500, chunk_overlap: 50, min_chars: 200, max_chars: 500 })
 const chunkStrategyMode = ref<'single' | 'batch'>('single')
 const chunkStrategyTargetId = ref('')
 
 const isRechunk = computed(() => {
   if (chunkStrategyMode.value === 'single') {
-    const doc = documents.value.find(d => d.id === chunkStrategyTargetId.value)
+    const doc = documentMap.value.get(chunkStrategyTargetId.value)
     return doc ? ['chunked', 'ready'].includes(doc.status) : false
   }
   return selectedRowKeys.value.some(id => {
-    const doc = documents.value.find(d => d.id === id)
+    const doc = documentMap.value.get(id)
     return doc ? ['chunked', 'ready'].includes(doc.status) : false
   })
 })
@@ -572,7 +579,14 @@ const isRechunk = computed(() => {
 function openChunkStrategyDialog(mode: 'single' | 'batch', targetId?: string) {
   chunkStrategyMode.value = mode
   chunkStrategyTargetId.value = targetId || ''
-  chunkStrategyForm.value = { strategy: 'section_heading', chunk_size: 500, chunk_overlap: 50, min_chars: 200, max_chars: 2000 }
+  const config = activeProjectStore.activeProject?.default_splitter_config
+  chunkStrategyForm.value = {
+    strategy: config?.strategy || 'section_heading',
+    chunk_size: config?.chunk_size || 500,
+    chunk_overlap: config?.chunk_overlap || 50,
+    min_chars: config?.min_chars || 200,
+    max_chars: config?.max_chars || 500,
+  }
   chunkStrategyVisible.value = true
 }
 
@@ -608,7 +622,7 @@ async function handleChunkStrategySubmit() {
     try {
       const res = await batchChunkDocuments(projectId.value, selectedRowKeys.value, config)
       for (const r of res.results) {
-        const doc = documents.value.find(d => d.id === r.id)
+        const doc = documentMap.value.get(r.id)
         if (doc) {
           doc.status = r.status
           doc.chunk_count = r.chunk_count
@@ -772,7 +786,15 @@ function handleDelete(id: string) {
 function handleUploadClick() {
   uploadFile.value = null
   uploadFileName.value = ''
-  uploadForm.value = { splitter_strategy: 'section_heading', chunk_size: 500, chunk_overlap: 50, splitter_min_chars: 200, splitter_max_chars: 2000 }
+  // 使用项目默认分块策略
+  const config = activeProjectStore.activeProject?.default_splitter_config
+  uploadForm.value = {
+    splitter_strategy: config?.strategy || 'section_heading',
+    chunk_size: config?.chunk_size || 500,
+    chunk_overlap: config?.chunk_overlap || 50,
+    splitter_min_chars: config?.min_chars || 200,
+    splitter_max_chars: config?.max_chars || 500,
+  }
   uploadVisible.value = true
 }
 

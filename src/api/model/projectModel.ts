@@ -1,10 +1,19 @@
 /** 项目相关接口类型定义 */
 
+export interface SplitterConfig {
+  strategy: string
+  chunk_size: number
+  chunk_overlap: number
+  min_chars: number
+  max_chars: number
+}
+
 export interface CreateProjectParams {
   name: string
   description?: string
   embed_model_id: string
   rerank_model_id?: string
+  default_splitter_config?: SplitterConfig
 }
 
 export interface ProjectItem {
@@ -16,6 +25,8 @@ export interface ProjectItem {
   embed_dimension: number
   rerank_model_id: string
   rerank_model_name: string
+  default_splitter_config: SplitterConfig
+  sort_order: number
   created_at: string
   updated_at: string
 }
