@@ -36,6 +36,10 @@
       <a-input-number v-model:value="formState.max_chars" :min="200" :max="8000" :step="100" />
       <span class="form-hint">分块最大字符数</span>
     </a-form-item>
+    <a-form-item v-if="formState.strategy === 'heading_aware'" label="合并阈值">
+      <a-input-number v-model:value="formState.merge_threshold" :min="0" :max="1" :step="0.1" />
+      <span class="form-hint">短块合并的语义相似度阈值，0=仅按标题层级判断</span>
+    </a-form-item>
   </template>
 </template>
 
