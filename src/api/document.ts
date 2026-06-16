@@ -3,7 +3,6 @@ import type {
   DocumentListResult,
   ProcessDocumentResult,
   UploadDocumentParams,
-  BatchProcessResult,
   ChunkListResult,
   SourceContentResult,
   EmbeddingResult,
@@ -64,20 +63,6 @@ export const getSourceContent = (_projectId: string, documentId: string) =>
 /** 获取分块的 embedding 向量 */
 export const getChunkEmbedding = (_projectId: string, chunkId: string) =>
   get<EmbeddingResult>({ url: `${Api.Chunks}/${chunkId}/embedding` })
-
-/** 批量分块文档，支持可选的策略覆盖 */
-export const batchChunkDocuments = (_projectId: string, documentIds: string[], splitterConfig?: SplitterConfig) =>
-  post<BatchProcessResult>({
-    url: `${Api.Documents}/batch-chunk`,
-    data: {
-      document_ids: documentIds,
-      ...(splitterConfig ? { splitter_config: splitterConfig } : {}),
-    },
-  })
-
-/** 批量向量化文档 */
-export const batchEmbedDocuments = (_projectId: string, documentIds: string[]) =>
-  post<BatchProcessResult>({ url: `${Api.Documents}/batch-embed`, data: { document_ids: documentIds } })
 
 /** 继承文档 */
 export const inheritDocuments = (projectId: string, sourceProjectId: string) =>

@@ -6,7 +6,7 @@ export function usePagination() {
     pageSize: 10,
     showSizeChanger: true,
     showTotal: (total: number) => `共 ${total} 条`,
-    pageSizeOptions: ['10', '20', '50', '100'],
+    pageSizeOptions: ['10', '20', '50', '100', '150'],
     onChange: (page: number) => {
       paginationConfig.current = page
     },

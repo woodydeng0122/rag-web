@@ -1,11 +1,11 @@
 <template>
   <a-form-item label="分块策略">
     <a-select v-model:value="formState.strategy">
-      <a-select-option value="section_heading">按章节标题</a-select-option>
-      <a-select-option value="heading_aware">多级标题感知</a-select-option>
       <a-select-option value="fixed">固定大小</a-select-option>
       <a-select-option value="recursive">递归字符</a-select-option>
       <a-select-option value="semantic">语义分块</a-select-option>
+      <a-select-option value="section_heading">按章节标题</a-select-option>
+      <a-select-option value="heading_aware">多级标题感知</a-select-option>
     </a-select>
   </a-form-item>
   <template v-if="formState.strategy === 'fixed' || formState.strategy === 'recursive'">
@@ -23,7 +23,7 @@
       <a-input-number v-model:value="formState.max_chars" :min="200" :max="8000" :step="100" />
       <span class="form-hint">单个分块最大字符数</span>
     </a-form-item>
-    <a-typography-text type="secondary" style="display: block; margin-top: 8px; padding-left: 25%">
+    <a-typography-text type="secondary" style="display: block; padding-left: 108px">
       语义分块会根据句子间的语义相似度自动切分，相似度低于阈值时切分
     </a-typography-text>
   </template>
@@ -46,3 +46,7 @@ defineProps<{
   formState: SplitterConfigFormState
 }>()
 </script>
+
+<style scoped>
+@import '@/styles/common-table.css';
+</style>

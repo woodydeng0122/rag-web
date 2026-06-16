@@ -16,10 +16,9 @@
             hoverable
             class="project-card"
             :class="{ 'project-card--active': isActive(project.id) }"
-            @click="handleView(project)"
           >
             <template #actions>
-              <thunderbolt-outlined @click.stop="handleActivate(project)" title="激活项目" />
+              <thunderbolt-outlined :style="{ color: isActive(project.id) ? 'var(--ant-color-primary)' : undefined }" @click.stop="handleActivate(project)" title="激活项目" />
               <edit-outlined @click.stop="handleEdit(project)" />
               <delete-outlined @click.stop="handleDelete(project)" />
             </template>
@@ -209,20 +208,17 @@ function handleEdit(project: ProjectItem) {
   resetSplitterForm(project.default_splitter_config)
 }
 
-function handleView(project: ProjectItem) {
+function handleActivate(project: ProjectItem) {
   if (isActive(project.id)) return
   AModal.confirm({
     title: '激活项目',
     content: `确定要激活项目「${project.name}」吗？`,
     onOk() {
-      return handleActivate(project)
+      return activeProjectStore.setActiveProject(project.id).then(() => {
+        message.success(`已激活项目「${project.name}」`)
+      })
     },
   })
-}
-
-async function handleActivate(project: ProjectItem) {
-  await activeProjectStore.setActiveProject(project.id)
-  message.success(`已激活项目「${project.name}」`)
 }
 
 function handleDelete(project: ProjectItem) {
@@ -269,6 +265,15 @@ function initSortable() {
 async function handleDragEnd(evt: Sortable.SortableEvent) {
   const { oldIndex, newIndex } = evt
   if (oldIndex === undefined || newIndex === undefined || oldIndex === newIndex) return
+
+  // 还原 Sortable 的 DOM 操作，交给 Vue 通过数据驱动重新渲染
+  const parent = evt.from
+  parent.removeChild(evt.item)
+  if (oldIndex >= parent.children.length) {
+    parent.appendChild(evt.item)
+  } else {
+    parent.insertBefore(evt.item, parent.children[oldIndex])
+  }
 
   const list = [...projectStore.projectList]
   const [moved] = list.splice(oldIndex, 1)

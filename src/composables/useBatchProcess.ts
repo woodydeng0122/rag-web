@@ -13,6 +13,8 @@ export interface BatchProcessOptions<T = any> {
   label?: string
   /** 不可处理项的描述，默认"已处理" */
   skipLabel?: string
+  /** 是否弹出确认框，默认 true */
+  confirm?: boolean
   /** 每批完成后回调，参数为 (当前批次 action 返回结果列表, 当前批次成功的 ID 列表) */
   onBatchComplete?: (batchResults: T[], batchSucceededIds: string[]) => void
 }
@@ -27,6 +29,7 @@ export function useBatchProcess<T = any>(options: BatchProcessOptions<T>) {
       action,
       label = '批量处理',
       skipLabel = '已处理',
+      confirm = true,
       onBatchComplete,
     } = options
 
@@ -40,27 +43,33 @@ export function useBatchProcess<T = any>(options: BatchProcessOptions<T>) {
     }
 
     const skipHint = skipIds.length > 0 ? `（跳过 ${skipIds.length} 个${skipLabel}项）` : ''
-    AModal.confirm({
-      title: label,
-      content: `确定要处理选中的 ${processableIds.length} 项吗？${skipHint}`,
-      onOk() {
-        batchProcessing.value = true
 
-        void (async () => {
-          await batchExecute(
-            processableIds,
-            action,
-            {
-              label,
-              onProgress: (_remaining, batchResults, batchSucceededIds) => {
-                onBatchComplete?.(batchResults, batchSucceededIds)
-              },
+    const execute = () => {
+      batchProcessing.value = true
+      void (async () => {
+        await batchExecute(
+          processableIds,
+          action,
+          {
+            label,
+            onProgress: (_remaining, batchResults, batchSucceededIds) => {
+              onBatchComplete?.(batchResults, batchSucceededIds)
             },
-          )
-          batchProcessing.value = false
-        })()
-      },
-    })
+          },
+        )
+        batchProcessing.value = false
+      })()
+    }
+
+    if (confirm) {
+      AModal.confirm({
+        title: label,
+        content: `确定要处理选中的 ${processableIds.length} 项吗？${skipHint}`,
+        onOk: execute,
+      })
+    } else {
+      execute()
+    }
   }
 
   return { batchProcessing, handleBatchProcess }

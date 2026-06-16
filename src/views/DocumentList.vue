@@ -145,44 +145,7 @@
           </a-upload-dragger>
           <p v-if="uploadFileName" class="selected-file">已选择: {{ uploadFileName }}</p>
         </a-form-item>
-        <a-form-item label="分块策略">
-          <a-select v-model:value="uploadForm.splitter_strategy">
-            <a-select-option value="section_heading">按章节标题</a-select-option>
-            <a-select-option value="heading_aware">多级标题感知</a-select-option>
-            <a-select-option value="fixed">固定大小</a-select-option>
-            <a-select-option value="recursive">递归字符</a-select-option>
-            <a-select-option value="semantic">语义分块</a-select-option>
-          </a-select>
-        </a-form-item>
-        <template v-if="uploadForm.splitter_strategy === 'fixed' || uploadForm.splitter_strategy === 'recursive'">
-          <a-form-item label="分块大小">
-            <a-input-number v-model:value="uploadForm.chunk_size" :min="100" :max="8000" :step="100" />
-            <span class="form-hint">单个分块最大字符数</span>
-          </a-form-item>
-          <a-form-item label="重叠大小">
-            <a-input-number v-model:value="uploadForm.chunk_overlap" :min="0" :max="500" :step="10" />
-            <span class="form-hint">相邻分块重叠字符数</span>
-          </a-form-item>
-        </template>
-        <template v-else-if="uploadForm.splitter_strategy === 'semantic'">
-          <a-form-item label="最大字符数">
-            <a-input-number v-model:value="uploadForm.splitter_max_chars" :min="200" :max="8000" :step="100" />
-            <span class="form-hint">单个分块最大字符数</span>
-          </a-form-item>
-          <a-typography-text type="secondary" style="display: block; margin-top: 8px; padding-left: 25%">
-            语义分块会根据句子间的语义相似度自动切分，相似度低于阈值时切分
-          </a-typography-text>
-        </template>
-        <template v-else>
-          <a-form-item label="最小字符数">
-            <a-input-number v-model:value="uploadForm.splitter_min_chars" :min="50" :max="4000" :step="50" />
-            <span class="form-hint">分块最小字符数</span>
-          </a-form-item>
-          <a-form-item label="最大字符数">
-            <a-input-number v-model:value="uploadForm.splitter_max_chars" :min="200" :max="8000" :step="100" />
-            <span class="form-hint">分块最大字符数</span>
-          </a-form-item>
-        </template>
+        <SplitterConfigForm :form-state="uploadSplitterForm" />
       </a-form>
     </a-modal>
 
@@ -219,44 +182,7 @@
         <template #message>重新分块将清除已有的分块和向量数据</template>
       </a-alert>
       <a-form :label-col="{ span: 6 }" :wrapper-col="{ span: 18 }" style="margin-top: 16px">
-        <a-form-item label="分块策略">
-          <a-select v-model:value="chunkStrategyForm.strategy">
-            <a-select-option value="fixed">固定大小</a-select-option>
-            <a-select-option value="recursive">递归字符</a-select-option>
-            <a-select-option value="semantic">语义分块</a-select-option>
-            <a-select-option value="section_heading">按章节标题</a-select-option>
-            <a-select-option value="heading_aware">多级标题感知</a-select-option>
-          </a-select>
-        </a-form-item>
-        <template v-if="chunkStrategyForm.strategy === 'fixed' || chunkStrategyForm.strategy === 'recursive'">
-          <a-form-item label="分块大小">
-            <a-input-number v-model:value="chunkStrategyForm.chunk_size" :min="100" :max="8000" :step="100" />
-            <span class="form-hint">单个分块最大字符数</span>
-          </a-form-item>
-          <a-form-item label="重叠大小">
-            <a-input-number v-model:value="chunkStrategyForm.chunk_overlap" :min="0" :max="500" :step="10" />
-            <span class="form-hint">相邻分块重叠字符数</span>
-          </a-form-item>
-        </template>
-        <template v-else-if="chunkStrategyForm.strategy === 'semantic'">
-          <a-form-item label="最大字符数">
-            <a-input-number v-model:value="chunkStrategyForm.max_chars" :min="200" :max="8000" :step="100" />
-            <span class="form-hint">单个分块最大字符数</span>
-          </a-form-item>
-          <a-typography-text type="secondary" style="display: block; margin-top: 8px; padding-left: 25%">
-            语义分块会根据句子间的语义相似度自动切分，相似度低于阈值时切分
-          </a-typography-text>
-        </template>
-        <template v-else>
-          <a-form-item label="最小字符数">
-            <a-input-number v-model:value="chunkStrategyForm.min_chars" :min="50" :max="4000" :step="50" />
-            <span class="form-hint">分块最小字符数</span>
-          </a-form-item>
-          <a-form-item label="最大字符数">
-            <a-input-number v-model:value="chunkStrategyForm.max_chars" :min="200" :max="8000" :step="100" />
-            <span class="form-hint">分块最大字符数</span>
-          </a-form-item>
-        </template>
+        <SplitterConfigForm :form-state="chunkSplitterForm" />
       </a-form>
     </a-modal>
 
@@ -373,6 +299,7 @@ import { useActiveProjectStore } from '@/store/activeProject'
 import { formatTime, formatFullTime } from '@/utils/time'
 import { usePagination } from '@/composables/usePagination'
 import { useBatchProcess } from '@/composables/useBatchProcess'
+import { useSplitterConfig, strategyLabel, strategyColor, splitterConfigToForm, formToSplitterConfig } from '@/composables/useSplitterConfig'
 import { getStatusInfo, DOC_STATUS_MAP } from '@/utils/status'
 import {
   UploadOutlined,
@@ -386,10 +313,10 @@ import {
   FileOutlined,
   FileZipOutlined,
 } from '@ant-design/icons-vue'
-import { getDocumentList, uploadDocument, chunkDocument, embedDocument, deleteDocument, getChunkList, getSourceContent, batchChunkDocuments, batchEmbedDocuments, inheritDocuments } from '@/api/document'
+import { getDocumentList, uploadDocument, chunkDocument, embedDocument, deleteDocument, getChunkList, getSourceContent, inheritDocuments } from '@/api/document'
 import { getChunkGoldenRecords } from '@/api/chunk'
 import { getProjectList } from '@/api/project'
-import type { DocumentItem, ChunkItem, UploadDocumentParams } from '@/api/model/documentModel'
+import type { DocumentItem, ChunkItem, UploadDocumentParams, SplitterConfig } from '@/api/model/documentModel'
 import type { GoldenItem } from '@/api/model/goldenModel'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import ChunkCard from '@/components/ChunkCard.vue'
@@ -397,6 +324,7 @@ import EmbeddingViewer from '@/components/EmbeddingViewer.vue'
 import NoProjectPrompt from '@/components/NoProjectPrompt.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
 import SplitPanelLayout from '@/components/SplitPanelLayout.vue'
+import SplitterConfigForm from '@/components/SplitterConfigForm.vue'
 
 const router = useRouter()
 const pageStore = usePageStore()
@@ -437,7 +365,29 @@ const embeddableCount = computed(() =>
   }).length
 )
 
-const batchChunkProcessing = ref(false)
+const batchChunkConfig = ref<SplitterConfig | undefined>()
+
+const { batchProcessing: batchChunkProcessing, handleBatchProcess: _handleBatchChunk } = useBatchProcess({
+  selectedRowKeys: () => selectedRowKeys.value,
+  canProcess: (id) => {
+    const doc = documentMap.value.get(id)
+    return doc ? canChunk(doc.status) : false
+  },
+  action: (id) => chunkDocument(projectId.value, id, batchChunkConfig.value),
+  label: '批量分块',
+  skipLabel: '已分块',
+  confirm: false,
+  onBatchComplete: (results) => {
+    for (const r of results) {
+      const doc = documentMap.value.get(r.id)
+      if (doc) {
+        doc.status = r.status
+        doc.chunk_count = r.chunk_count
+        doc.error_message = r.error_message
+      }
+    }
+  },
+})
 
 const { batchProcessing: batchEmbedProcessing, handleBatchProcess: handleBatchEmbed } = useBatchProcess({
   selectedRowKeys: () => selectedRowKeys.value,
@@ -557,11 +507,11 @@ const uploadVisible = ref(false)
 const uploadLoading = ref(false)
 const uploadFile = ref<File | null>(null)
 const uploadFileName = ref('')
-const uploadForm = ref({ splitter_strategy: 'section_heading', chunk_size: 500, chunk_overlap: 50, splitter_min_chars: 200, splitter_max_chars: 500 })
+const { formState: uploadSplitterForm, reset: resetUploadSplitterForm, toConfig: toUploadSplitterConfig } = useSplitterConfig()
 
 // Chunk strategy dialog
 const chunkStrategyVisible = ref(false)
-const chunkStrategyForm = ref({ strategy: 'section_heading', chunk_size: 500, chunk_overlap: 50, min_chars: 200, max_chars: 500 })
+const { formState: chunkSplitterForm, reset: resetChunkSplitterForm, toConfig: toChunkSplitterConfig } = useSplitterConfig()
 const chunkStrategyMode = ref<'single' | 'batch'>('single')
 const chunkStrategyTargetId = ref('')
 
@@ -580,28 +530,12 @@ function openChunkStrategyDialog(mode: 'single' | 'batch', targetId?: string) {
   chunkStrategyMode.value = mode
   chunkStrategyTargetId.value = targetId || ''
   const config = activeProjectStore.activeProject?.default_splitter_config
-  chunkStrategyForm.value = {
-    strategy: config?.strategy || 'section_heading',
-    chunk_size: config?.chunk_size || 500,
-    chunk_overlap: config?.chunk_overlap || 50,
-    min_chars: config?.min_chars || 200,
-    max_chars: config?.max_chars || 500,
-  }
+  resetChunkSplitterForm(config)
   chunkStrategyVisible.value = true
 }
 
-function buildSplitterConfig(form: typeof chunkStrategyForm.value) {
-  return {
-    strategy: form.strategy,
-    chunk_size: form.chunk_size,
-    chunk_overlap: form.chunk_overlap,
-    min_chars: form.min_chars,
-    max_chars: form.max_chars,
-  }
-}
-
 async function handleChunkStrategySubmit() {
-  const config = buildSplitterConfig(chunkStrategyForm.value)
+  const config = toChunkSplitterConfig()
   chunkStrategyVisible.value = false
 
   if (chunkStrategyMode.value === 'single') {
@@ -617,25 +551,9 @@ async function handleChunkStrategySubmit() {
       chunkingIds.value = chunkingIds.value.filter(i => i !== id)
     }
   } else {
-    // batch
-    batchChunkProcessing.value = true
-    try {
-      const res = await batchChunkDocuments(projectId.value, selectedRowKeys.value, config)
-      for (const r of res.results) {
-        const doc = documentMap.value.get(r.id)
-        if (doc) {
-          doc.status = r.status
-          doc.chunk_count = r.chunk_count
-          doc.error_message = r.error_message
-        }
-      }
-      message.success(`批量分块完成：成功 ${res.success} 个，失败 ${res.failed} 个`)
-      await fetchList()
-    } catch {
-      message.error('批量分块失败')
-    } finally {
-      batchChunkProcessing.value = false
-    }
+    // batch — 逐条分块
+    batchChunkConfig.value = config
+    _handleBatchChunk()
   }
 }
 
@@ -718,32 +636,12 @@ function handleBatchChunkClick() {
   openChunkStrategyDialog('batch')
 }
 
-const STRATEGY_LABELS: Record<string, string> = {
-  section_heading: '章节标题',
-  heading_aware: '多级标题感知',
-  fixed: '固定大小',
-  recursive: '递归字符',
-  semantic: '语义分块',
-}
-
-const STRATEGY_COLORS: Record<string, string> = {
-  section_heading: 'blue',
-  heading_aware: 'purple',
-  fixed: 'orange',
-  recursive: 'cyan',
-  semantic: 'green',
-}
-
-function strategyLabel(strategy?: string): string {
-  return STRATEGY_LABELS[strategy || 'section_heading'] || strategy || '-'
-}
-
-function strategyColor(strategy?: string): string {
-  return STRATEGY_COLORS[strategy || 'section_heading'] || 'default'
-}
-
 function canEmbed(status: string): boolean {
   return ['chunked'].includes(status)
+}
+
+function canChunk(status: string): boolean {
+  return !['chunking', 'embedding'].includes(status)
 }
 
 async function handleChunk(record: DocumentItem) {
@@ -786,15 +684,8 @@ function handleDelete(id: string) {
 function handleUploadClick() {
   uploadFile.value = null
   uploadFileName.value = ''
-  // 使用项目默认分块策略
   const config = activeProjectStore.activeProject?.default_splitter_config
-  uploadForm.value = {
-    splitter_strategy: config?.strategy || 'section_heading',
-    chunk_size: config?.chunk_size || 500,
-    chunk_overlap: config?.chunk_overlap || 50,
-    splitter_min_chars: config?.min_chars || 200,
-    splitter_max_chars: config?.max_chars || 500,
-  }
+  resetUploadSplitterForm(config)
   uploadVisible.value = true
 }
 
@@ -824,14 +715,15 @@ async function handleUploadSubmit() {
   }
   uploadLoading.value = true
   try {
+    const splitterConfig = toUploadSplitterConfig()
     const params: UploadDocumentParams = {
       project_id: projectId.value,
       file: uploadFile.value,
-      splitter_strategy: uploadForm.value.splitter_strategy,
-      chunk_size: uploadForm.value.chunk_size,
-      chunk_overlap: uploadForm.value.chunk_overlap,
-      splitter_min_chars: uploadForm.value.splitter_min_chars,
-      splitter_max_chars: uploadForm.value.splitter_max_chars,
+      splitter_strategy: splitterConfig.strategy,
+      chunk_size: splitterConfig.chunk_size,
+      chunk_overlap: splitterConfig.chunk_overlap,
+      splitter_min_chars: splitterConfig.min_chars,
+      splitter_max_chars: splitterConfig.max_chars,
     }
     await uploadDocument(params)
     message.success('上传成功')
@@ -918,7 +810,12 @@ async function fetchSource(documentId: string) {
 }
 
 watch(() => projectId.value, () => {
-  if (projectId.value) fetchList()
+  if (projectId.value) {
+    const config = activeProjectStore.activeProject?.default_splitter_config
+    resetUploadSplitterForm(config)
+    resetChunkSplitterForm(config)
+    fetchList()
+  }
 }, { immediate: true })
 
 watch(() => pageStore.refreshTrigger, fetchList)

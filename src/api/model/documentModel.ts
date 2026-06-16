@@ -52,13 +52,6 @@ export interface UploadDocumentResult {
   count: number
 }
 
-export interface BatchProcessResult {
-  total: number
-  success: number
-  failed: number
-  results: { id: string; status: string; chunk_count: number; error_message: string }[]
-}
-
 export interface ChunkItem {
   id: string
   index: number
