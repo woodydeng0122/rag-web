@@ -31,7 +31,7 @@
               </a-tag>
             </template>
             <template v-if="column.key === 'dimension'">
-              <a-tag v-if="record.model_type === 'embed'" color="blue">{{ record.dimension }}</a-tag>
+              <a-tag v-if="record.model_type === 'embed'" :color="dimensionColor(record.dimension)">{{ record.dimension }}</a-tag>
               <span v-else>-</span>
             </template>
             <template v-if="column.key === 'status'">
@@ -107,7 +107,7 @@
             </a-tag>
           </a-descriptions-item>
           <a-descriptions-item label="向量维度">
-            <a-tag v-if="detailModel.model_type === 'embed'" color="blue">{{ detailModel.dimension }}</a-tag>
+            <a-tag v-if="detailModel.model_type === 'embed'" :color="dimensionColor(detailModel.dimension)">{{ detailModel.dimension }}</a-tag>
             <span v-else>-</span>
           </a-descriptions-item>
           <a-descriptions-item label="状态">
@@ -193,6 +193,19 @@ const META_LABELS: Record<string, string> = {
   'classifier_dropout': '分类器 Dropout',
   'id2label': 'ID 到标签映射',
   'label2id': '标签到 ID 映射',
+}
+
+const DIMENSION_COLORS: Record<string, string> = {
+  '768': 'blue',
+  '1024': 'purple',
+  '1536': 'cyan',
+  '2048': 'green',
+  '3072': 'orange',
+  '4096': 'magenta',
+}
+
+function dimensionColor(dim?: number): string {
+  return DIMENSION_COLORS[String(dim)] || 'default'
 }
 
 const columns = [

@@ -38,10 +38,6 @@ export const uploadDocument = (params: UploadDocumentParams) => {
   })
 }
 
-/** 处理单个文档（分块+嵌入） */
-export const processDocument = (_projectId: string, documentId: string) =>
-  post<ProcessDocumentResult>({ url: `${Api.Documents}/${documentId}/process` })
-
 /** 仅分块单个文档，支持可选的策略覆盖 */
 export const chunkDocument = (_projectId: string, documentId: string, splitterConfig?: SplitterConfig) =>
   post<ProcessDocumentResult>({
@@ -68,10 +64,6 @@ export const getSourceContent = (_projectId: string, documentId: string) =>
 /** 获取分块的 embedding 向量 */
 export const getChunkEmbedding = (_projectId: string, chunkId: string) =>
   get<EmbeddingResult>({ url: `${Api.Chunks}/${chunkId}/embedding` })
-
-/** 批量处理文档（分块+嵌入） */
-export const batchProcessDocuments = (_projectId: string, documentIds: string[]) =>
-  post<BatchProcessResult>({ url: `${Api.Documents}/batch-process`, data: { document_ids: documentIds } })
 
 /** 批量分块文档，支持可选的策略覆盖 */
 export const batchChunkDocuments = (_projectId: string, documentIds: string[], splitterConfig?: SplitterConfig) =>

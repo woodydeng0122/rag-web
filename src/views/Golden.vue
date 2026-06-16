@@ -580,7 +580,7 @@ const columns = [
   { title: '操作', key: 'action', fixed: 'right' as const, width: 180 },
 ]
 
-const paginationConfig = usePagination({ pageSizeOptions: ['10', '20', '50', '100'] })
+const paginationConfig = usePagination()
 
 
 const filteredList = computed(() => {
