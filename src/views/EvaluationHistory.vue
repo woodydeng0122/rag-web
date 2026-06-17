@@ -140,7 +140,6 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue'
-import { useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import {
   PlusOutlined,
@@ -152,10 +151,9 @@ import PageToolbar from '@/components/PageToolbar.vue'
 import { usePageStore } from '@/store/page'
 import { useActiveProjectStore } from '@/store/activeProject'
 
-const route = useRoute()
 const pageStore = usePageStore()
 const activeProjectStore = useActiveProjectStore()
-const projectId = computed(() => (route.params.id as string) || activeProjectStore.activeProjectId)
+const projectId = computed(() => activeProjectStore.activeProjectId)
 
 const loading = ref(false)
 const history = ref<EvaluationStatsResult[]>([])
