@@ -139,7 +139,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import {
@@ -150,10 +150,12 @@ import { getEvaluationHistory, triggerEvaluation, deleteEvaluation, updateEvalua
 import type { EvaluationStatsResult, RetrievalStrategy, EvaluationCategory } from '@/api/model/projectModel'
 import PageToolbar from '@/components/PageToolbar.vue'
 import { usePageStore } from '@/store/page'
+import { useActiveProjectStore } from '@/store/activeProject'
 
 const route = useRoute()
 const pageStore = usePageStore()
-const projectId = route.params.id as string
+const activeProjectStore = useActiveProjectStore()
+const projectId = computed(() => (route.params.id as string) || activeProjectStore.activeProjectId)
 
 const loading = ref(false)
 const history = ref<EvaluationStatsResult[]>([])
@@ -218,9 +220,11 @@ function strategyTagColor(strategy: string) {
 }
 
 async function fetchHistory() {
+  const pid = projectId.value
+  if (!pid) return
   loading.value = true
   try {
-    const res = await getEvaluationHistory(projectId)
+    const res = await getEvaluationHistory(pid)
     history.value = res || []
   } catch {
     message.error('获取评估历史失败')
@@ -248,7 +252,7 @@ function showEvalModal() {
 async function handleEval() {
   evalLoading.value = true
   try {
-    await triggerEvaluation(projectId, {
+    await triggerEvaluation(projectId.value, {
       top_k: evalTopK.value,
       strategy: evalCategory.value === 'rerank' ? undefined : evalStrategy.value,
       category: evalCategory.value,
@@ -281,7 +285,7 @@ function showEditModal(record: EvaluationStatsResult) {
 async function handleEdit() {
   editLoading.value = true
   try {
-    await updateEvaluation(projectId, editId.value, {
+    await updateEvaluation(projectId.value, editId.value, {
       strategy: editStrategy.value,
       remark: editRemark.value,
     })
@@ -297,7 +301,7 @@ async function handleEdit() {
 
 async function handleDelete(record: EvaluationStatsResult) {
   try {
-    await deleteEvaluation(projectId, record.id)
+    await deleteEvaluation(projectId.value, record.id)
     message.success('删除成功')
     await fetchHistory()
   } catch {
@@ -308,6 +312,7 @@ async function handleDelete(record: EvaluationStatsResult) {
 onMounted(fetchHistory)
 
 watch(() => pageStore.refreshTrigger, fetchHistory)
+watch(projectId, fetchHistory)
 </script>
 
 <style scoped>

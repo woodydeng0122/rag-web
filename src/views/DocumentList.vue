@@ -79,7 +79,15 @@
 
             <!-- 黄金数据集 -->
             <template v-if="column.key === 'golden_record_count'">
-              <a-typography-text v-if="record.golden_record_count > 0" :style="{ color: 'var(--ant-color-success)', fontWeight: 500 }">{{ record.golden_record_count }}</a-typography-text>
+              <a-button
+                v-if="record.golden_record_count > 0"
+                type="link"
+                size="small"
+                class="golden-count-btn"
+                @click="handleViewDocGolden(record)"
+              >
+                {{ record.golden_record_count }}
+              </a-button>
               <a-typography-text v-else type="secondary">0</a-typography-text>
             </template>
 
@@ -286,6 +294,34 @@
       </div>
     </a-modal>
 
+    <!-- 文档关联黄金数据集 Drawer -->
+    <a-drawer
+      v-model:open="docGoldenVisible"
+      :title="`黄金数据集 - ${docGoldenDocName}`"
+      width="560"
+      placement="right"
+    >
+      <a-spin :spinning="docGoldenLoading">
+        <div v-if="docGoldenRecords.length" class="golden-records-list">
+          <div v-for="record in docGoldenRecords" :key="record.id" class="golden-record-item">
+            <div class="golden-record-header">
+              <span class="golden-record-query">{{ record.query }}</span>
+              <a-tag :color="record.status === 'approved' ? 'green' : record.status === 'pending_review' ? 'orange' : 'red'">
+                {{ record.status === 'approved' ? '已通过' : record.status === 'pending_review' ? '待审核' : '已拒绝' }}
+              </a-tag>
+            </div>
+            <div class="golden-record-meta">
+              <a-tag v-if="record.metadata?.type">{{ record.metadata.type }}</a-tag>
+              <span v-if="record.metadata?.quality_score" class="golden-record-score">质量: {{ record.metadata.quality_score }}</span>
+              <span class="golden-record-refs">关联分块: {{ record.ground_truth_refs?.length || 0 }}</span>
+            </div>
+            <div v-if="record.reference_answer" class="golden-record-answer">{{ record.reference_answer }}</div>
+          </div>
+        </div>
+        <a-empty v-else-if="!docGoldenLoading" description="该文档暂无关联的黄金记录" />
+      </a-spin>
+    </a-drawer>
+
     </template>
   </div>
 </template>
@@ -315,6 +351,7 @@ import {
 } from '@ant-design/icons-vue'
 import { getDocumentList, uploadDocument, chunkDocument, embedDocument, deleteDocument, getChunkList, getSourceContent, inheritDocuments } from '@/api/document'
 import { getChunkGoldenRecords } from '@/api/chunk'
+import { getDocumentGoldenRecords } from '@/api/golden'
 import { getProjectList } from '@/api/project'
 import type { DocumentItem, ChunkItem, UploadDocumentParams, SplitterConfig } from '@/api/model/documentModel'
 import type { GoldenItem } from '@/api/model/goldenModel'
@@ -377,15 +414,19 @@ const { batchProcessing: batchChunkProcessing, handleBatchProcess: _handleBatchC
   label: '批量分块',
   skipLabel: '已分块',
   confirm: false,
-  onBatchComplete: (results) => {
+  onBatchComplete: (results, batchSucceededIds) => {
     for (const r of results) {
       const doc = documentMap.value.get(r.id)
       if (doc) {
         doc.status = r.status
         doc.chunk_count = r.chunk_count
         doc.error_message = r.error_message
+        if (r.splitter_config) {
+          doc.splitter_config = r.splitter_config
+        }
       }
     }
+    selectedRowKeys.value = selectedRowKeys.value.filter(id => !batchSucceededIds.includes(id))
   },
 })
 
@@ -397,15 +438,19 @@ const { batchProcessing: batchEmbedProcessing, handleBatchProcess: handleBatchEm
   },
   action: (id) => embedDocument(projectId.value, id),
   skipLabel: '未分块/已向量化',
-  onBatchComplete: (results) => {
+  onBatchComplete: (results, batchSucceededIds) => {
     for (const r of results) {
       const doc = documentMap.value.get(r.id)
       if (doc) {
         doc.status = r.status
         doc.chunk_count = r.chunk_count
         doc.error_message = r.error_message
+        if (r.splitter_config) {
+          doc.splitter_config = r.splitter_config
+        }
       }
     }
+    selectedRowKeys.value = selectedRowKeys.value.filter(id => !batchSucceededIds.includes(id))
   },
 })
 
@@ -446,6 +491,28 @@ const activeChunkFileType = ref('')
 const chunkDetailTab = ref('embedding')
 const chunkGoldenRecords = ref<GoldenItem[]>([])
 const goldenRecordsLoading = ref(false)
+
+// 文档关联黄金数据集
+const docGoldenVisible = ref(false)
+const docGoldenLoading = ref(false)
+const docGoldenRecords = ref<GoldenItem[]>([])
+const docGoldenDocName = ref('')
+
+async function handleViewDocGolden(record: DocumentItem) {
+  docGoldenDocName.value = record.filename
+  docGoldenVisible.value = true
+  docGoldenLoading.value = true
+  docGoldenRecords.value = []
+  try {
+    const records = await getDocumentGoldenRecords(projectId.value, record.id)
+    docGoldenRecords.value = records || []
+  } catch {
+    message.error('获取黄金数据集失败')
+    docGoldenRecords.value = []
+  } finally {
+    docGoldenLoading.value = false
+  }
+}
 
 async function handleChunkClick(chunk: ChunkItem) {
   activeChunkId.value = chunk.id
@@ -924,6 +991,10 @@ watch(() => pageStore.refreshTrigger, fetchList)
   font-size: 11px;
   color: var(--ant-color-text-tertiary);
 }
+.golden-record-refs {
+  font-size: 11px;
+  color: var(--ant-color-text-tertiary);
+}
 .golden-record-answer {
   font-size: 12px;
   color: var(--ant-color-text-secondary);
@@ -931,6 +1002,17 @@ watch(() => pageStore.refreshTrigger, fetchList)
   max-height: 60px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* 黄金数据集计数按钮 */
+.golden-count-btn {
+  color: var(--ant-color-success);
+  font-weight: 500;
+  padding: 0;
+  height: auto;
+}
+.golden-count-btn:hover {
+  color: var(--ant-color-success-active);
 }
 
 /* 分块详情弹窗 */

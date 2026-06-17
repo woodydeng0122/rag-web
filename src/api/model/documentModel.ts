@@ -35,6 +35,7 @@ export interface ProcessDocumentResult {
   status: string
   chunk_count: number
   error_message: string
+  splitter_config: SplitterConfig
 }
 
 export interface UploadDocumentParams {

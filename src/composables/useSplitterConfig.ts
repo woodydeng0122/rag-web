@@ -6,7 +6,6 @@ export interface SplitterConfigFormState {
   chunk_overlap: number
   min_chars: number
   max_chars: number
-  merge_threshold: number
 }
 
 export interface SplitterConfigResult {
@@ -15,7 +14,6 @@ export interface SplitterConfigResult {
   chunk_overlap: number
   min_chars: number
   max_chars: number
-  merge_threshold: number
 }
 
 const STRATEGY_LABELS: Record<string, string> = {
@@ -43,7 +41,6 @@ export function getSplitterDefaults(maxPos: number | undefined): Omit<SplitterCo
     chunk_overlap: Math.round(maxChars * 0.1),
     min_chars: Math.round(maxChars * 0.4),
     max_chars: maxChars,
-    merge_threshold: 0.5,
   }
 }
 
@@ -55,7 +52,6 @@ export function splitterConfigToForm(config?: Record<string, any>): SplitterConf
     chunk_overlap: config?.chunk_overlap || 50,
     min_chars: config?.min_chars || 200,
     max_chars: config?.max_chars || 500,
-    merge_threshold: config?.merge_threshold ?? 0.5,
   }
 }
 
@@ -67,7 +63,6 @@ export function formToSplitterConfig(form: SplitterConfigFormState): SplitterCon
     chunk_overlap: form.chunk_overlap,
     min_chars: form.min_chars,
     max_chars: form.max_chars,
-    merge_threshold: form.merge_threshold,
   }
 }
 
