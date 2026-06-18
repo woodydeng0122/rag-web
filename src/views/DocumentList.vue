@@ -51,6 +51,16 @@
           virtual
         >
           <template #bodyCell="{ column, record }">
+            <!-- ID -->
+            <template v-if="column.key === 'id'">
+              <a-typography-text
+                copyable
+                :copy-text="record.id"
+                :content="record.id?.slice(0, 6) + '...'"
+                class="id-cell"
+              />
+            </template>
+
             <!-- 文件名 -->
             <template v-if="column.key === 'filename'">
               <div class="file-cell">
@@ -374,6 +384,7 @@ const filterStatus = ref('')
 const total = ref(0)
 
 const columns = [
+  { title: 'ID', dataIndex: 'id', key: 'id', width: 100 },
   { title: '文件名', dataIndex: 'filename', key: 'filename', ellipsis: true, width: 280 },
   { title: '类型', dataIndex: 'file_type', key: 'file_type', width: 80 },
   { title: '大小', dataIndex: 'file_size', key: 'file_size', width: 100 },

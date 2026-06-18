@@ -64,6 +64,9 @@ export interface ChunkItem {
 
 export interface ChunkListResult {
   document_id: string
+  project_id: string
+  storage_key: string
+  splitter_config: SplitterConfig | null
   total: number
   chunks: ChunkItem[]
 }
