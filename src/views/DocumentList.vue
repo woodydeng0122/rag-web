@@ -54,11 +54,9 @@
             <!-- ID -->
             <template v-if="column.key === 'id'">
               <a-typography-text
-                copyable
-                :copy-text="record.id"
-                :content="record.id?.slice(0, 6) + '...'"
+                :copyable="{ text: record.id }"
                 class="id-cell"
-              />
+              >{{ record.id?.slice(0, 6) }}...</a-typography-text>
             </template>
 
             <!-- 文件名 -->
