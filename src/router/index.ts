@@ -51,6 +51,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '评估历史' },
       },
       {
+        path: 'projects/:id/ragas-evaluation',
+        name: 'RagasEvaluation',
+        component: () => import('@/views/RagasEvaluation.vue'),
+        meta: { title: 'RAGAS 评估' },
+      },
+      {
         path: 'qa',
         name: 'QA',
         component: () => import('@/views/QA.vue'),

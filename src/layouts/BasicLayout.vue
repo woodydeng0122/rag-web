@@ -159,6 +159,7 @@ import {
   ReloadOutlined,
   RobotOutlined,
   BarChartOutlined,
+  ExperimentOutlined,
   HomeOutlined,
   MessageOutlined,
   UserOutlined,
@@ -194,7 +195,11 @@ watch(
   () => route.path,
   (path) => {
     if (path.includes('/evaluation')) {
-      selectedKeys.value = ['/evaluation']
+      if (path.includes('/ragas-evaluation')) {
+        selectedKeys.value = ['/ragas-evaluation']
+      } else {
+        selectedKeys.value = ['/evaluation']
+      }
     } else {
       const base = path.split('/').slice(0, 2).join('/') || '/dashboard'
       selectedKeys.value = [base === '/' ? '/dashboard' : base]
@@ -228,6 +233,11 @@ const menuItems = computed<MenuProps['items']>(() => [
     key: '/evaluation',
     icon: () => h(BarChartOutlined),
     label: '评估历史',
+  },
+  {
+    key: '/ragas-evaluation',
+    icon: () => h(ExperimentOutlined),
+    label: 'RAGAS 评估',
   },
   {
     key: '/qa',
@@ -264,6 +274,9 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => {
     crumbs.push({ key: 'embed-models', title: '模型配置' })
   } else if (path.startsWith('/documents')) {
     crumbs.push({ key: 'documents', title: '文档管理' })
+  } else if (path.startsWith('/projects') && path.includes('/ragas-evaluation')) {
+    crumbs.push({ key: 'projects', title: '项目管理', link: '/projects' })
+    crumbs.push({ key: 'ragas-evaluation', title: 'RAGAS 评估' })
   } else if (path.startsWith('/projects') && path.includes('/evaluation')) {
     crumbs.push({ key: 'projects', title: '项目管理', link: '/projects' })
     crumbs.push({ key: 'evaluation', title: '评估历史' })
@@ -279,10 +292,11 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => {
 })
 
 function handleMenuClick({ key }: { key: string }) {
-  if (key === '/evaluation') {
+  if (key === '/evaluation' || key === '/ragas-evaluation') {
     const pid = activeProjectStore.activeProjectId
     if (pid) {
-      router.push(`/projects/${pid}/evaluation`)
+      const suffix = key === '/ragas-evaluation' ? '/ragas-evaluation' : '/evaluation'
+      router.push(`/projects/${pid}${suffix}`)
     } else {
       router.push('/projects')
     }
